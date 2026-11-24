@@ -14,48 +14,168 @@
         android:orientation="horizontal"
         android:paddingHorizontal="4dp" />
 
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-        <Button android:id="@+id/key_q" style="@style/KeyBtn" android:text="q" />
-        <Button android:id="@+id/key_w" style="@style/KeyBtn" android:text="w" />
-        <Button android:id="@+id/key_e" style="@style/KeyBtn" android:text="e" />
-        <Button android:id="@+id/key_r" style="@style/KeyBtn" android:text="r" />
-        <Button android:id="@+id/key_t" style="@style/KeyBtn" android:text="t" />
-        <Button android:id="@+id/key_y" style="@style/KeyBtn" android:text="y" />
-        <Button android:id="@+id/key_u" style="@style/KeyBtn" android:text="u" />
-        <Button android:id="@+id/key_i" style="@style/KeyBtn" android:text="i" />
-        <Button android:id="@+id/key_o" style="@style/KeyBtn" android:text="o" />
-        <Button android:id="@+id/key_p" style="@style/KeyBtn" android:text="p" />
+    <!-- LETTERS PANEL -->
+    <LinearLayout
+        android:id="@+id/panel_letters"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/key_q" style="@style/KeyBtn" android:text="q" />
+            <Button android:id="@+id/key_w" style="@style/KeyBtn" android:text="w" />
+            <Button android:id="@+id/key_e" style="@style/KeyBtn" android:text="e" />
+            <Button android:id="@+id/key_r" style="@style/KeyBtn" android:text="r" />
+            <Button android:id="@+id/key_t" style="@style/KeyBtn" android:text="t" />
+            <Button android:id="@+id/key_y" style="@style/KeyBtn" android:text="y" />
+            <Button android:id="@+id/key_u" style="@style/KeyBtn" android:text="u" />
+            <Button android:id="@+id/key_i" style="@style/KeyBtn" android:text="i" />
+            <Button android:id="@+id/key_o" style="@style/KeyBtn" android:text="o" />
+            <Button android:id="@+id/key_p" style="@style/KeyBtn" android:text="p" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingStart="14dp" android:paddingEnd="14dp">
+            <Button android:id="@+id/key_a" style="@style/KeyBtn" android:text="a" />
+            <Button android:id="@+id/key_s" style="@style/KeyBtn" android:text="s" />
+            <Button android:id="@+id/key_d" style="@style/KeyBtn" android:text="d" />
+            <Button android:id="@+id/key_f" style="@style/KeyBtn" android:text="f" />
+            <Button android:id="@+id/key_g" style="@style/KeyBtn" android:text="g" />
+            <Button android:id="@+id/key_h" style="@style/KeyBtn" android:text="h" />
+            <Button android:id="@+id/key_j" style="@style/KeyBtn" android:text="j" />
+            <Button android:id="@+id/key_k" style="@style/KeyBtn" android:text="k" />
+            <Button android:id="@+id/key_l" style="@style/KeyBtn" android:text="l" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/key_strip_diacritics" style="@style/FuncKeyBtn" android:layout_weight="1.5" android:text="@string/key_strip_diacritics" />
+            <Button android:id="@+id/key_z" style="@style/KeyBtn" android:text="z" />
+            <Button android:id="@+id/key_x" style="@style/KeyBtn" android:text="x" />
+            <Button android:id="@+id/key_c" style="@style/KeyBtn" android:text="c" />
+            <Button android:id="@+id/key_v" style="@style/KeyBtn" android:text="v" />
+            <Button android:id="@+id/key_b" style="@style/KeyBtn" android:text="b" />
+            <Button android:id="@+id/key_n" style="@style/KeyBtn" android:text="n" />
+            <Button android:id="@+id/key_m" style="@style/KeyBtn" android:text="m" />
+            <Button android:id="@+id/key_backspace" style="@style/FuncKeyBtn" android:layout_weight="1.5" android:text="⌫" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/key_mode_symbols" style="@style/FuncKeyBtn" android:layout_weight="1.2" android:text="\?123" />
+            <Button android:id="@+id/key_comma" style="@style/KeyBtn" android:text="," />
+            <Button android:id="@+id/key_switch_ime" style="@style/FuncKeyBtn" android:text="🌐" />
+            <Button android:id="@+id/key_space" style="@style/SpaceKeyBtn" android:layout_weight="4" android:text="@string/key_space" />
+            <Button android:id="@+id/key_dot" style="@style/KeyBtn" android:text="." />
+            <Button android:id="@+id/key_enter" style="@style/EnterKeyBtn" android:layout_weight="1.2" android:text="↵" />
+        </LinearLayout>
     </LinearLayout>
 
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingStart="12dp" android:paddingEnd="12dp">
-        <Button android:id="@+id/key_a" style="@style/KeyBtn" android:text="a" />
-        <Button android:id="@+id/key_s" style="@style/KeyBtn" android:text="s" />
-        <Button android:id="@+id/key_d" style="@style/KeyBtn" android:text="d" />
-        <Button android:id="@+id/key_f" style="@style/KeyBtn" android:text="f" />
-        <Button android:id="@+id/key_g" style="@style/KeyBtn" android:text="g" />
-        <Button android:id="@+id/key_h" style="@style/KeyBtn" android:text="h" />
-        <Button android:id="@+id/key_j" style="@style/KeyBtn" android:text="j" />
-        <Button android:id="@+id/key_k" style="@style/KeyBtn" android:text="k" />
-        <Button android:id="@+id/key_l" style="@style/KeyBtn" android:text="l" />
+    <!-- SYMBOLS PAGE 1 -->
+    <LinearLayout
+        android:id="@+id/panel_symbols1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/s1_1" style="@style/KeyBtn" android:text="1" />
+            <Button android:id="@+id/s1_2" style="@style/KeyBtn" android:text="2" />
+            <Button android:id="@+id/s1_3" style="@style/KeyBtn" android:text="3" />
+            <Button android:id="@+id/s1_4" style="@style/KeyBtn" android:text="4" />
+            <Button android:id="@+id/s1_5" style="@style/KeyBtn" android:text="5" />
+            <Button android:id="@+id/s1_6" style="@style/KeyBtn" android:text="6" />
+            <Button android:id="@+id/s1_7" style="@style/KeyBtn" android:text="7" />
+            <Button android:id="@+id/s1_8" style="@style/KeyBtn" android:text="8" />
+            <Button android:id="@+id/s1_9" style="@style/KeyBtn" android:text="9" />
+            <Button android:id="@+id/s1_0" style="@style/KeyBtn" android:text="0" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/s1_at" style="@style/KeyBtn" android:text="\@" />
+            <Button android:id="@+id/s1_hash" style="@style/KeyBtn" android:text="#" />
+            <Button android:id="@+id/s1_dollar" style="@style/KeyBtn" android:text="$" />
+            <Button android:id="@+id/s1_percent" style="@style/KeyBtn" android:text="%" />
+            <Button android:id="@+id/s1_amp" style="@style/KeyBtn" android:text="&amp;" />
+            <Button android:id="@+id/s1_minus" style="@style/KeyBtn" android:text="-" />
+            <Button android:id="@+id/s1_plus" style="@style/KeyBtn" android:text="+" />
+            <Button android:id="@+id/s1_lparen" style="@style/KeyBtn" android:text="(" />
+            <Button android:id="@+id/s1_rparen" style="@style/KeyBtn" android:text=")" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/key_mode_symbols2" style="@style/FuncKeyBtn" android:layout_weight="1.5" android:text="=\&lt;" />
+            <Button android:id="@+id/s1_star" style="@style/KeyBtn" android:text="*" />
+            <Button android:id="@+id/s1_quote" style="@style/KeyBtn" android:text="&quot;" />
+            <Button android:id="@+id/s1_apos" style="@style/KeyBtn" android:text="'" />
+            <Button android:id="@+id/s1_colon" style="@style/KeyBtn" android:text=":" />
+            <Button android:id="@+id/s1_semi" style="@style/KeyBtn" android:text=";" />
+            <Button android:id="@+id/s1_excl" style="@style/KeyBtn" android:text="!" />
+            <Button android:id="@+id/s1_quest" style="@style/KeyBtn" android:text="\?" />
+            <Button android:id="@+id/key_backspace_s1" style="@style/FuncKeyBtn" android:layout_weight="1.5" android:text="⌫" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/key_mode_letters_s1" style="@style/FuncKeyBtn" android:layout_weight="1.2" android:text="ABC" />
+            <Button android:id="@+id/s1_comma" style="@style/KeyBtn" android:text="," />
+            <Button android:id="@+id/key_switch_ime_s1" style="@style/FuncKeyBtn" android:text="🌐" />
+            <Button android:id="@+id/key_space_s1" style="@style/SpaceKeyBtn" android:layout_weight="4" android:text="@string/key_space" />
+            <Button android:id="@+id/s1_dot" style="@style/KeyBtn" android:text="." />
+            <Button android:id="@+id/key_enter_s1" style="@style/EnterKeyBtn" android:layout_weight="1.2" android:text="↵" />
+        </LinearLayout>
     </LinearLayout>
 
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-        <Button android:id="@+id/key_strip_diacritics" style="@style/FuncKeyBtn" android:text="@string/key_strip_diacritics" />
-        <Button android:id="@+id/key_z" style="@style/KeyBtn" android:text="z" />
-        <Button android:id="@+id/key_x" style="@style/KeyBtn" android:text="x" />
-        <Button android:id="@+id/key_c" style="@style/KeyBtn" android:text="c" />
-        <Button android:id="@+id/key_v" style="@style/KeyBtn" android:text="v" />
-        <Button android:id="@+id/key_b" style="@style/KeyBtn" android:text="b" />
-        <Button android:id="@+id/key_n" style="@style/KeyBtn" android:text="n" />
-        <Button android:id="@+id/key_m" style="@style/KeyBtn" android:text="m" />
-        <Button android:id="@+id/key_backspace" style="@style/FuncKeyBtn" android:text="⌫" />
-    </LinearLayout>
+    <!-- SYMBOLS PAGE 2 -->
+    <LinearLayout
+        android:id="@+id/panel_symbols2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
 
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-        <Button android:id="@+id/key_comma" style="@style/FuncKeyBtn" android:text="," />
-        <Button android:id="@+id/key_space" style="@style/KeyBtn" android:layout_weight="4" android:text="space" />
-        <Button android:id="@+id/key_dot" style="@style/FuncKeyBtn" android:text="." />
-        <Button android:id="@+id/key_enter" style="@style/FuncKeyBtn" android:text="↵" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/s2_tilde" style="@style/KeyBtn" android:text="~" />
+            <Button android:id="@+id/s2_grave" style="@style/KeyBtn" android:text="`" />
+            <Button android:id="@+id/s2_pipe" style="@style/KeyBtn" android:text="|" />
+            <Button android:id="@+id/s2_bullet" style="@style/KeyBtn" android:text="•" />
+            <Button android:id="@+id/s2_sqrt" style="@style/KeyBtn" android:text="√" />
+            <Button android:id="@+id/s2_pi" style="@style/KeyBtn" android:text="π" />
+            <Button android:id="@+id/s2_div" style="@style/KeyBtn" android:text="÷" />
+            <Button android:id="@+id/s2_mul" style="@style/KeyBtn" android:text="×" />
+            <Button android:id="@+id/s2_para" style="@style/KeyBtn" android:text="¶" />
+            <Button android:id="@+id/s2_delta" style="@style/KeyBtn" android:text="∆" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/s2_pound" style="@style/KeyBtn" android:text="£" />
+            <Button android:id="@+id/s2_cent" style="@style/KeyBtn" android:text="¢" />
+            <Button android:id="@+id/s2_euro" style="@style/KeyBtn" android:text="€" />
+            <Button android:id="@+id/s2_yen" style="@style/KeyBtn" android:text="¥" />
+            <Button android:id="@+id/s2_caret" style="@style/KeyBtn" android:text="^" />
+            <Button android:id="@+id/s2_deg" style="@style/KeyBtn" android:text="°" />
+            <Button android:id="@+id/s2_eq" style="@style/KeyBtn" android:text="=" />
+            <Button android:id="@+id/s2_lbrace" style="@style/KeyBtn" android:text="{" />
+            <Button android:id="@+id/s2_rbrace" style="@style/KeyBtn" android:text="}" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/key_mode_symbols1" style="@style/FuncKeyBtn" android:layout_weight="1.5" android:text="\?123" />
+            <Button android:id="@+id/s2_bslash" style="@style/KeyBtn" android:text="\\" />
+            <Button android:id="@+id/s2_copy" style="@style/KeyBtn" android:text="©" />
+            <Button android:id="@+id/s2_reg" style="@style/KeyBtn" android:text="®" />
+            <Button android:id="@+id/s2_tm" style="@style/KeyBtn" android:text="™" />
+            <Button android:id="@+id/s2_check" style="@style/KeyBtn" android:text="✓" />
+            <Button android:id="@+id/s2_lbrack" style="@style/KeyBtn" android:text="[" />
+            <Button android:id="@+id/s2_rbrack" style="@style/KeyBtn" android:text="]" />
+            <Button android:id="@+id/key_backspace_s2" style="@style/FuncKeyBtn" android:layout_weight="1.5" android:text="⌫" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/key_mode_letters_s2" style="@style/FuncKeyBtn" android:layout_weight="1.2" android:text="ABC" />
+            <Button android:id="@+id/s2_lt" style="@style/KeyBtn" android:text="&lt;" />
+            <Button android:id="@+id/key_switch_ime_s2" style="@style/FuncKeyBtn" android:text="🌐" />
+            <Button android:id="@+id/key_space_s2" style="@style/SpaceKeyBtn" android:layout_weight="4" android:text="@string/key_space" />
+            <Button android:id="@+id/s2_gt" style="@style/KeyBtn" android:text="&gt;" />
+            <Button android:id="@+id/key_enter_s2" style="@style/EnterKeyBtn" android:layout_weight="1.2" android:text="↵" />
+        </LinearLayout>
     </LinearLayout>
 
 </LinearLayout>
