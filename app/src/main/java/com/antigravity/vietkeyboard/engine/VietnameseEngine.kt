@@ -161,7 +161,9 @@ class VietnameseEngine {
 private object NormalizerSafe {
     fun marks(text: String): List<Char> =
         java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD)
-            .drop(1).filter { it.category == CharCategory.NON_SPACING_MARK || it.category == CharCategory.COMBINING_SPACING_MARK }
+            .drop(1)
+            .filter { it.category == CharCategory.NON_SPACING_MARK || it.category == CharCategory.COMBINING_SPACING_MARK }
+            .toList()
 
     fun compose(base: String, marks: List<Char>): String =
         java.text.Normalizer.normalize(base + marks.joinToString(""), java.text.Normalizer.Form.NFC)
