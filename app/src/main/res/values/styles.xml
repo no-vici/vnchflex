@@ -1,9 +1,12 @@
 <resources>
     <style name="KeyBase">
         <item name="android:layout_width">0dp</item>
-        <item name="android:layout_height">44dp</item>
+        <item name="android:layout_height">46dp</item>
         <item name="android:layout_weight">1</item>
-        <item name="android:layout_margin">2dp</item>
+        <item name="android:layout_marginStart">3dp</item>
+        <item name="android:layout_marginEnd">3dp</item>
+        <item name="android:layout_marginTop">4dp</item>
+        <item name="android:layout_marginBottom">4dp</item>
         <item name="android:minWidth">0dp</item>
         <item name="android:minHeight">0dp</item>
         <item name="android:padding">0dp</item>
@@ -13,12 +16,21 @@
         <item name="android:textColor">@color/key_text</item>
         <item name="android:backgroundTint">@null</item>
         <item name="android:stateListAnimator">@null</item>
-        <item name="android:elevation">1dp</item>
+        <item name="android:elevation">0.5dp</item>
     </style>
 
     <style name="KeyBtn" parent="KeyBase">
         <item name="android:background">@drawable/key_bg</item>
-        <item name="android:textSize">18sp</item>
+        <item name="android:textSize">20sp</item>
+    </style>
+
+    <style name="NumberKeyBtn" parent="KeyBase">
+        <item name="android:layout_height">36dp</item>
+        <item name="android:layout_marginTop">2dp</item>
+        <item name="android:layout_marginBottom">2dp</item>
+        <item name="android:background">@drawable/key_bg</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">@color/key_hint</item>
     </style>
 
     <style name="FuncKeyBtn" parent="KeyBase">

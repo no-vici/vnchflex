@@ -91,6 +91,17 @@ class VietKeyboardService : InputMethodService() {
             btn.setOnClickListener { commitRaw(btn.text.toString()) }
         }
 
+        val numIds = listOf(
+            R.id.key_num_1, R.id.key_num_2, R.id.key_num_3, R.id.key_num_4, R.id.key_num_5,
+            R.id.key_num_6, R.id.key_num_7, R.id.key_num_8, R.id.key_num_9, R.id.key_num_0,
+        )
+        numIds.forEach { id ->
+            val btn = root.findViewById<Button>(id)
+            val text = btn.text.toString()
+            btn.setOnClickListener { commitRaw(text) }
+            bindLongPress(btn, alternatesFor(text))
+        }
+
         bindRepeat(R.id.key_backspace, ::onBackspace)
         bindRepeat(R.id.key_backspace_s1, ::onBackspace)
         bindRepeat(R.id.key_backspace_s2, ::onBackspace)
@@ -239,7 +250,17 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun alternatesFor(key: String): List<String> = when (key.lowercase()) {
-        "a" -> listOf("á", "à", "ả", "ã", "ạ", "ă", "â", "1")
+        "1" -> listOf("!", "¹", "½", "⅓")
+        "2" -> listOf("@", "²", "⅔")
+        "3" -> listOf("#", "³", "¾")
+        "4" -> listOf("$", "⁴")
+        "5" -> listOf("%", "⁵")
+        "6" -> listOf("^", "⁶")
+        "7" -> listOf("&", "⁷")
+        "8" -> listOf("*", "⁸")
+        "9" -> listOf("(", "⁹")
+        "0" -> listOf(")", "⁰")
+        "a" -> listOf("á", "à", "ả", "ã", "ạ", "ă", "â")
         "e" -> listOf("é", "è", "ẻ", "ẽ", "ẹ", "ê", "2")
         "i" -> listOf("í", "ì", "ỉ", "ĩ", "ị", "3")
         "o" -> listOf("ó", "ò", "ỏ", "õ", "ọ", "ô", "ơ", "4")

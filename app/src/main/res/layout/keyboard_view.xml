@@ -9,7 +9,7 @@
     <LinearLayout
         android:id="@+id/suggestion_bar"
         android:layout_width="match_parent"
-        android:layout_height="40dp"
+        android:layout_height="44dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingHorizontal="4dp" />
@@ -20,6 +20,19 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/key_num_1" style="@style/NumberKeyBtn" android:text="1" />
+            <Button android:id="@+id/key_num_2" style="@style/NumberKeyBtn" android:text="2" />
+            <Button android:id="@+id/key_num_3" style="@style/NumberKeyBtn" android:text="3" />
+            <Button android:id="@+id/key_num_4" style="@style/NumberKeyBtn" android:text="4" />
+            <Button android:id="@+id/key_num_5" style="@style/NumberKeyBtn" android:text="5" />
+            <Button android:id="@+id/key_num_6" style="@style/NumberKeyBtn" android:text="6" />
+            <Button android:id="@+id/key_num_7" style="@style/NumberKeyBtn" android:text="7" />
+            <Button android:id="@+id/key_num_8" style="@style/NumberKeyBtn" android:text="8" />
+            <Button android:id="@+id/key_num_9" style="@style/NumberKeyBtn" android:text="9" />
+            <Button android:id="@+id/key_num_0" style="@style/NumberKeyBtn" android:text="0" />
+        </LinearLayout>
 
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
             <Button android:id="@+id/key_q" style="@style/KeyBtn" android:text="q" />
