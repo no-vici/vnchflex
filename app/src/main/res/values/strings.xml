@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Viet Keyboard</string>
+    <string name="settings_title">Viet Keyboard Settings</string>
+    <string name="subtype_vi">Tiếng Việt</string>
+    <string name="key_strip_diacritics">Bỏ dấu</string>
+    <string name="settings_hint">Bật Viet Keyboard trong Cài đặt hệ thống > Bàn phím, sau đó chọn làm bàn phím nhập.</string>
+    <string name="open_ime_settings">Mở cài đặt bàn phím</string>
+    <string name="manage_macros">Macro mẫu: addr, email, shrug, {date}, {time}</string>
+</resources>
