@@ -34,6 +34,8 @@ class VietnameseEngine {
     var southernDialectAndGenZ: Boolean = true
     /** Tự động khôi phục từ tiếng Anh khi gõ trong chế độ Tiếng Việt (vd: text -> text thay vì tẽt) */
     var autoRestoreEnglish: Boolean = true
+    /** Danh sách từ ngoại lệ do người dùng thêm để giữ nguyên raw text */
+    var userWhitelist: Set<String> = emptySet()
 
     private val rawChars = mutableListOf<Char>()
     private var renderedOutput: String = ""
@@ -147,6 +149,11 @@ class VietnameseEngine {
     fun transformTelex(chars: List<Char>): String {
         if (chars.isEmpty()) return ""
         val lowerRaw = chars.map { it.lowercaseChar() }.joinToString("")
+
+        // Giữ nguyên các từ trong whitelist của người dùng
+        if (lowerRaw in userWhitelist) {
+            return chars.joinToString("")
+        }
 
         // Tự động khôi phục từ tiếng Anh chuẩn vnchKey (vd: text -> text, next -> next, flex -> flex, more -> more...)
         if (autoRestoreEnglish && lowerRaw in ENGLISH_AUTO_RESTORE_WORDS) {

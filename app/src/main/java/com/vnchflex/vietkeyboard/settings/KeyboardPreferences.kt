@@ -194,6 +194,14 @@ class KeyboardPreferences(context: Context) {
         get() = prefs.getBoolean("pref_macro_enabled", true)
         set(v) = prefs.edit().putBoolean("pref_macro_enabled", v).apply()
 
+    /** Danh sách từ ngoại lệ (whitelist) do người dùng thêm để không chuyển sang Tiếng Việt */
+    var englishWhitelist: Set<String>
+        get() = prefs.getStringSet("pref_english_whitelist", emptySet())?.toSet() ?: emptySet()
+        set(v) = prefs.edit().putStringSet(
+            "pref_english_whitelist",
+            v.map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet()
+        ).apply()
+
     fun keyHeightScale(): Float = when (keyboardHeight) {
         "extra_short" -> 0.82f
         "short" -> 0.90f

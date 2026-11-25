@@ -58,6 +58,12 @@ class VietKeyboardService : InputMethodService() {
     private var shiftState = ShiftState.LOWER
     private var lastShiftClickTime = 0L
     private var lastSpaceClickTime = 0L
+    private var isSpacePressed = false
+    private var spaceCommittedByRollover = false
+    private var lastCommittedChar: Char? = null
+    private var prevCommittedChar: Char? = null
+    private var pendingSuggestionRunnable: Runnable? = null
+    private val suggestionExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
     private var lastBackspaceClickTime = 0L
     private var backspaceRepeating = false
     private var lastGlideCommittedLength = 0
@@ -115,6 +121,7 @@ class VietKeyboardService : InputMethodService() {
 
     override fun onDestroy() {
         if (::suggestionEngine.isInitialized) suggestionEngine.flushPendingSaves()
+        suggestionExecutor.shutdownNow()
         super.onDestroy()
     }
 
@@ -259,6 +266,7 @@ class VietKeyboardService : InputMethodService() {
         vnEngine.quickTelex = prefs.quickTelex
         vnEngine.relaxedCoda = prefs.relaxedCoda
         vnEngine.southernDialectAndGenZ = prefs.southernDialectAndGenZ
+        vnEngine.userWhitelist = prefs.englishWhitelist
     }
 
     private fun applyPreferencesToView() {
@@ -486,6 +494,7 @@ class VietKeyboardService : InputMethodService() {
             val spaceLongPressRunnable = Runnable {
                 if (!didSwipe) {
                     didLongPress = true
+                    isSpacePressed = false
                     performKeyFeedback(btn, isLongPress = true)
                     showImePicker()
                 }
@@ -497,6 +506,8 @@ class VietKeyboardService : InputMethodService() {
                         lastStepX = event.x
                         didSwipe = false
                         didLongPress = false
+                        isSpacePressed = true
+                        spaceCommittedByRollover = false
                         popupHandler.removeCallbacks(spaceLongPressRunnable)
                         popupHandler.postDelayed(spaceLongPressRunnable, 900L)
                     }
@@ -508,6 +519,7 @@ class VietKeyboardService : InputMethodService() {
                         val dx = event.x - lastStepX
                         if (kotlin.math.abs(event.x - startX) > swipeThresholdPx) {
                             didSwipe = true
+                            isSpacePressed = false
                             popupHandler.removeCallbacks(spaceLongPressRunnable)
                         }
                         if (didSwipe) {
@@ -522,6 +534,11 @@ class VietKeyboardService : InputMethodService() {
                     }
                     MotionEvent.ACTION_UP -> {
                         popupHandler.removeCallbacks(spaceLongPressRunnable)
+                        isSpacePressed = false
+                        if (spaceCommittedByRollover) {
+                            spaceCommittedByRollover = false
+                            return@setOnTouchListener true
+                        }
                         if (didSwipe || didLongPress) return@setOnTouchListener true
                         performKeyFeedback(btn)
                         onSpacePressed()
@@ -529,6 +546,8 @@ class VietKeyboardService : InputMethodService() {
                     }
                     MotionEvent.ACTION_CANCEL -> {
                         popupHandler.removeCallbacks(spaceLongPressRunnable)
+                        isSpacePressed = false
+                        spaceCommittedByRollover = false
                         if (didSwipe || didLongPress) return@setOnTouchListener true
                     }
                 }
@@ -689,20 +708,38 @@ class VietKeyboardService : InputMethodService() {
         commitRaw(symbol)
     }
 
+    private fun trackCommittedChar(c: Char?) {
+        if (c == null) {
+            prevCommittedChar = null
+            lastCommittedChar = null
+        } else {
+            prevCommittedChar = lastCommittedChar
+            lastCommittedChar = c
+        }
+    }
+
+    private fun scheduleSuggestionsUpdate(word: String) {
+        pendingSuggestionRunnable?.let { popupHandler.removeCallbacks(it) }
+        val runnable = Runnable { updateSuggestions(word) }
+        pendingSuggestionRunnable = runnable
+        popupHandler.postDelayed(runnable, 25L)
+    }
+
     private fun onSpacePressed() {
         val ic = currentInputConnection ?: return
         val now = System.currentTimeMillis()
-        // Gboard Double-space period option
+        // Gboard Double-space period option (không cần IPC getTextBeforeCursor)
         if (prefs.doubleSpacePeriod && now - lastSpaceClickTime < 350L && !vnEngine.isComposing) {
-            val before = ic.getTextBeforeCursor(2, 0)?.toString().orEmpty()
-            if (before.length == 2 && before[1] == ' ' && before[0].isLetterOrDigit()) {
+            if (lastCommittedChar == ' ' && prevCommittedChar?.isLetterOrDigit() == true) {
                 ic.beginBatchEdit()
                 ic.deleteSurroundingText(1, 0)
                 ic.commitText(". ", 1)
                 ic.endBatchEdit()
+                trackCommittedChar('.')
+                trackCommittedChar(' ')
                 lastSpaceClickTime = 0L
                 updateAutoCapitalization()
-                updateSuggestions("")
+                scheduleSuggestionsUpdate("")
                 return
             }
         }
@@ -719,6 +756,12 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun onChar(c: Char) {
+        // Space rollover: nếu ngón tay vẫn đang giữ Space (chưa swipe/long-press) mà chạm phím khác, chốt Space ngay
+        if (c != ' ' && isSpacePressed && !spaceCommittedByRollover) {
+            spaceCommittedByRollover = true
+            isSpacePressed = false
+            onSpacePressed()
+        }
         lastGlideCommittedLength = 0
         if (altPopup?.isShowing == true) dismissAltPopup()
         val ic = currentInputConnection ?: return
@@ -757,16 +800,18 @@ class VietKeyboardService : InputMethodService() {
             val finishedWord = vnEngine.composingText
             vnEngine.commit(ic)
             if (finishedWord.isNotEmpty()) {
-                recordCommittedWord(finishedWord)
+                suggestionExecutor.execute { recordCommittedWord(finishedWord) }
                 if (prefs.macroEnabled && macroEngine.tryExpand(ic, c, beforeCursor = finishedWord)) {
+                    trackCommittedChar(c)
                     updateAutoCapitalization()
-                    updateSuggestions("")
+                    scheduleSuggestionsUpdate("")
                     return
                 }
             }
             ic.commitText(c.toString(), 1)
+            trackCommittedChar(c)
             updateAutoCapitalization()
-            updateSuggestions("")
+            scheduleSuggestionsUpdate("")
             return
         }
 
@@ -775,7 +820,8 @@ class VietKeyboardService : InputMethodService() {
             vnEngine.commit(ic)
             ic.commitText(c.toString(), 1)
         }
-        updateSuggestions(vnEngine.composingText)
+        trackCommittedChar(c)
+        scheduleSuggestionsUpdate(vnEngine.composingText)
     }
 
     private fun commitRaw(text: String) {

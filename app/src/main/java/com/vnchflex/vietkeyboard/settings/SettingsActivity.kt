@@ -48,6 +48,7 @@ class SettingsActivity : AppCompatActivity() {
         TEXT_CORRECTION,
         DICTIONARY,
         PERSONAL_DICTIONARY,
+        ENGLISH_WHITELIST,
         MACRO_EDITOR,
         GLIDE_TYPING,
         VOICE_CLIPBOARD,
@@ -93,7 +94,7 @@ class SettingsActivity : AppCompatActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (currentScreen == Screen.PERSONAL_DICTIONARY) {
+        if (currentScreen == Screen.PERSONAL_DICTIONARY || currentScreen == Screen.ENGLISH_WHITELIST) {
             navigateTo(Screen.DICTIONARY)
         } else if (currentScreen != Screen.MAIN) {
             navigateTo(Screen.MAIN)
@@ -115,6 +116,7 @@ class SettingsActivity : AppCompatActivity() {
             Screen.TEXT_CORRECTION -> renderTextCorrectionScreen()
             Screen.DICTIONARY -> renderDictionaryScreen()
             Screen.PERSONAL_DICTIONARY -> renderPersonalDictionaryScreen()
+            Screen.ENGLISH_WHITELIST -> renderEnglishWhitelistScreen()
             Screen.MACRO_EDITOR -> renderMacroEditorScreen()
             Screen.GLIDE_TYPING -> renderGlideTypingScreen()
             Screen.VOICE_CLIPBOARD -> renderVoiceClipboardScreen()
@@ -456,6 +458,13 @@ class SettingsActivity : AppCompatActivity() {
             target = Screen.PERSONAL_DICTIONARY
         )
 
+        val whitelistCount = prefs.englishWhitelist.size
+        addNavRow(
+            title = "Từ ngoại lệ không bỏ dấu (Whitelist)",
+            subtitle = "Giữ nguyên raw text khi gõ (vd: telegram, tele...) • $whitelistCount từ",
+            target = Screen.ENGLISH_WHITELIST
+        )
+
         addActionItem(
             title = "Xóa các từ đã học (Delete learned words)",
             subtitle = "Xóa toàn bộ các từ mà bàn phím đã tự động học trong quá trình gõ"
@@ -538,6 +547,49 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     // ==================== 6. VNCHKEY MACRO EDITOR (BẢNG GÕ TẮT CÁ NHÂN) ====================
+    private fun renderEnglishWhitelistScreen() {
+        toolbarTitle.text = "Từ ngoại lệ không bỏ dấu"
+
+        addSectionHeader("Thêm từ giữ nguyên raw text")
+        addActionItem(
+            title = "+ Thêm từ mới vào Whitelist",
+            subtitle = "Các từ này sẽ không bao giờ bị chuyển sang Tiếng Việt khi gõ"
+        ) {
+            val input = EditText(this).apply {
+                hint = "Ví dụ: telegram, tele, docker..."
+                setSingleLine(true)
+            }
+            AlertDialog.Builder(this)
+                .setTitle("Thêm từ vào Whitelist")
+                .setView(input)
+                .setPositiveButton("Thêm") { _, _ ->
+                    val word = input.text.toString().trim().lowercase()
+                    if (word.isNotEmpty()) {
+                        prefs.englishWhitelist = prefs.englishWhitelist + word
+                        navigateTo(Screen.ENGLISH_WHITELIST)
+                    }
+                }
+                .setNegativeButton("Hủy", null)
+                .show()
+        }
+
+        val words = prefs.englishWhitelist.sorted()
+        addSectionHeader("Danh sách từ (${words.size})")
+        if (words.isEmpty()) {
+            addActionItem("Chưa có từ ngoại lệ nào", "Nhấn '+ Thêm từ mới' ở trên để thêm") {}
+        } else {
+            words.forEach { word ->
+                addActionItem(
+                    title = word,
+                    subtitle = "Chạm để xóa khỏi Whitelist"
+                ) {
+                    prefs.englishWhitelist = prefs.englishWhitelist - word
+                    navigateTo(Screen.ENGLISH_WHITELIST)
+                }
+            }
+        }
+    }
+
     private fun renderMacroEditorScreen() {
         toolbarTitle.text = "Bảng gõ tắt / Macro (vnchKey)"
 
