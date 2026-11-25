@@ -78,15 +78,11 @@ class VietnameseEngine {
 
     fun commit(ic: InputConnection) {
         if (renderedOutput.isEmpty() && rawChars.isEmpty()) return
-        ic.finishComposingText()
         rawChars.clear()
         renderedOutput = ""
     }
 
     fun reset(ic: InputConnection? = null) {
-        if (ic != null && (renderedOutput.isNotEmpty() || rawChars.isNotEmpty())) {
-            ic.finishComposingText()
-        }
         rawChars.clear()
         renderedOutput = ""
     }
@@ -94,19 +90,12 @@ class VietnameseEngine {
     /**
      * Post-commit editing (chuẩn vnchKey): nạp lại từ đã gõ trước con trỏ vào bộ đệm
      * để người dùng có thể sửa dấu hoặc xóa lùi tiếp trên từ đó.
-     * Biến từ đó thành composing span để lần gõ kế tiếp thay thế đúng, không bị dính/nhân đôi.
      */
     fun rehydrateWord(word: String, ic: InputConnection? = null) {
         if (word.isEmpty()) return
         rawChars.clear()
         rawChars.addAll(rawKeysFor(word).toList())
         renderedOutput = word
-        if (ic != null) {
-            ic.beginBatchEdit()
-            ic.deleteSurroundingText(word.length, 0)
-            ic.setComposingText(word, 1)
-            ic.endBatchEdit()
-        }
     }
 
     /** Bỏ dấu tự do (kiểu vnchKey): xóa dấu trên từ đang gõ, vùng đang chọn, hoặc từ ngay trước con trỏ. */
@@ -140,14 +129,18 @@ class VietnameseEngine {
     private fun replaceComposingDirect(ic: InputConnection, prevLen: Int, newText: String) {
         if (newText.isEmpty()) {
             if (prevLen > 0) {
-                ic.beginBatchEdit()
-                ic.setComposingText("", 1)
-                ic.finishComposingText()
-                ic.endBatchEdit()
+                ic.deleteSurroundingText(prevLen, 0)
             }
             return
         }
-        ic.setComposingText(newText, 1)
+        if (prevLen == 0) {
+            ic.commitText(newText, 1)
+            return
+        }
+        ic.beginBatchEdit()
+        ic.deleteSurroundingText(prevLen, 0)
+        ic.commitText(newText, 1)
+        ic.endBatchEdit()
     }
 
     // ==================== TELEX BỎ DẤU TỰ DO & PHƯƠNG NGỮ NAM BỘ (PHONG CÁCH VNCHKEY) ====================
