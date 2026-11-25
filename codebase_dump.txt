@@ -1,9 +1,10 @@
 # CODEBASE DUMP: vnchflex
-# Total files: 42
+# Total files: 45
 ================================================================================
 
 ## PROJECT STRUCTURE
 - .gitignore
+- CHANGELOG.md
 - LICENSE
 - README.md
 - build.gradle.kts
@@ -44,6 +45,8 @@
 - app/src/main/res/values/styles.xml
 - app/src/main/res/values/themes.xml
 - app/src/main/res/xml/method.xml
+- docs/ARCHITECTURE.md
+- docs/DEVELOPMENT_JOURNEY.md
 - gradle/wrapper/gradle-wrapper.properties
 
 ================================================================================
@@ -60,6 +63,70 @@
 .cxx/
 app/build/
 ===== END FILE: .gitignore =====
+
+===== FILE: CHANGELOG.md =====
+# Changelog — vnchFlex
+
+Tất cả các thay đổi đáng chú ý của dự án **vnchFlex** đều được ghi lại tại đây.
+
+---
+
+## [Unreleased / Latest] — Glide Typing & Tối ưu từ vựng
+
+### Added (Tính năng mới)
+- **Glide Typing (Vuốt để gõ)** (`d93d9c2`, `29a4895`):
+  - Thêm `GlideTypingOverlayView` bắt sự kiện vuốt (ngưỡng `24dp`), vẽ vệt vuốt xanh kiểu Gboard (`#CC1A73E8`), tự động tính lại tọa độ phím (`keyRectsDirty`) khi đổi layout/xoay màn hình.
+  - Thêm `GlideDecoder` giải mã đường vuốt dựa trên ký tự đầu/cuối, lân cận phím (`KEY_NEIGHBORS`), gộp ký tự lặp (`collapseRepeats`), Levenshtein và xếp hạng lại bằng **Trigram**.
+  - Hiển thị 3 ứng viên trên thanh gợi ý sau khi vuốt để chạm đổi nhanh; bấm `Backspace` 1 lần để xóa nguyên từ vừa vuốt (`lastGlideCommittedLength`).
+  - Mở khóa công tắc bật/tắt Glide Typing và vệt vuốt trong `SettingsActivity` & `KeyboardPreferences` (bật mặc định).
+
+### Fixed & Improved (Sửa lỗi & Cải thiện)
+- **Làm sạch & mở rộng từ điển tiếng Việt** (`ce74c67`, `29a4895`):
+  - Mở rộng `coreUnigramWeights` lên ~5.900 âm tiết tiếng Việt chuẩn.
+  - Lọc bỏ 32 token lỗi/dính chữ/ký tự ngoại lai và thêm bộ lọc regex tiếng Việt (`2..7` ký tự) khi nạp từ vựng.
+- **Học ngữ cảnh Trigram khi chọn từ thay thế** (`ce74c67`):
+  - Gọi `recordCommittedWord(word)` trong `replaceLastGlideWordOrAccept()` để mô hình ngôn ngữ học đúng từ người dùng chọn lại.
+- **Sửa lỗi khai báo trùng** (`85eb72d`): Xóa khai báo trùng `audioManager` và `suggestionSlots` trong `VietKeyboardService`.
+
+---
+
+## Tối ưu hiệu năng & Độ trễ (Low-Latency)
+
+- **Loại bỏ nghẽn cổ chai phím Space & Backspace** (`acaa56c`, `3240f0e`, `be37f81`):
+  - Loại bỏ các cuộc gọi IPC (`InputConnection.getTextBeforeCursor`) thừa trên từng phím bấm.
+  - Tái sử dụng View cho thanh gợi ý và Popup xem trước phím thay vì khởi tạo lại liên tục.
+  - Cache dữ liệu `MacroStore` và `PersonalDictionaryStore` trong bộ nhớ.
+  - Tăng tốc độ phản hồi khi nhấn giữ `Backspace` và giảm độ trễ popup phím.
+- **Sửa lỗi Backspace lặp chữ** (`869abc9`): Khắc phục lỗi rehydrate làm nhân đôi composing text khi xóa.
+
+---
+
+## Nâng cấp UX, Macro & Cử chỉ
+
+- **Tính năng nâng cao** (`2713135`):
+  - **Post-commit edit**: Chạm vào từ đã gõ xong hoặc xóa lùi để tiếp tục bỏ dấu/sửa dấu.
+  - **Cử chỉ (Gestures)**: Vuốt trên phím `Space` để di chuyển con trỏ; vuốt từ phím `Backspace` để xóa nhanh cả từ.
+  - **Macro Undo**: Bấm Double Backspace ngay sau khi macro bung để hoàn nguyên về từ viết tắt gốc.
+  - **Macro JSON Import/Export**: Sao lưu và khôi phục danh sách gõ tắt qua JSON.
+  - **Tùy biến giao diện**: Chế độ một tay (One-handed) và chỉnh chiều cao bàn phím.
+- **Chuyển ngôn ngữ & Khôi phục tiếng Anh** (`d5d3fa2`):
+  - Bấm phím ngôn ngữ để chuyển nhanh VN/EN; nhấn giữ `Space` để mở hộp thoại chọn IME hệ thống.
+  - Tự động khôi phục từ tiếng Anh khi gõ nhầm dấu Telex.
+- **Long-press ký tự phụ kiểu Gboard** (`b7730c3`, `41649d9`): Nhấn giữ phím để hiện bảng ký tự phụ và trượt ngón tay để chọn.
+
+---
+
+## Giao diện chuẩn Gboard & Engine Tiếng Việt
+
+- **Đồng bộ giao diện Gboard** (`278306f`, `e3903a8`, `dd9b256`, `4b536fb`, `b95292e`, `b06f432`, `0fd281c`):
+  - Phím hình oval/bo tròn chuẩn Gboard, bỏ gạch chân composing text, dùng icon vector Material sắc nét cho `Shift`, `Backspace`, `Enter`.
+  - Thêm hàng số tùy chọn, bàn phím ký tự (`?123`, `=\<`), vẽ ký tự phụ ở góc trên bên phải phím (`GboardKeyButton`).
+- **Engine Tiếng Việt & Đặt dấu** (`09459c5`, `a3e18c2`):
+  - Hỗ trợ Telex bỏ dấu tự do kiểu **vnchKey**, phương ngữ Nam (`dz-`), tùy chọn đặt dấu kiểu cũ/mới, và gợi ý Trigram.
+- **Hạ tầng & Đóng gói** (`db98a18`, `fbea588`):
+  - Đổi package & `applicationId` thành `com.vnchflex.vietkeyboard`.
+  - Thiết lập keystore ký APK và tự động tăng `versionCode` trên GitHub Actions CI.
+===== END FILE: CHANGELOG.md =====
 
 ===== FILE: LICENSE =====
                     GNU GENERAL PUBLIC LICENSE
@@ -739,84 +806,102 @@ Public License instead of this License.  But first, please read
 ===== END FILE: LICENSE =====
 
 ===== FILE: README.md =====
-# Viet Keyboard (MVP)
+# vnchFlex — Bàn phím Tiếng Việt Thông minh cho Android
 
-Scaffold bàn phím Android (IME) tập trung vào 3 tính năng được yêu cầu:
+**vnchFlex** là bộ gõ tiếng Việt (Android IME — `InputMethodService`) mã nguồn mở, được thiết kế với giao diện và độ mượt lấy cảm hứng từ **Gboard**, kết hợp các tính năng đặc trưng cho người dùng Việt Nam như **Telex bỏ dấu tự do kiểu vnchKey**, **hỗ trợ phương ngữ Nam (`dz-`)**, **Gõ tắt (Macro) có hoàn nguyên**, và **Glide Typing (vuốt để gõ)** gọn nhẹ.
 
-- **Macro/Gõ tắt**: thay thế shortcut khi gõ dấu phân cách (`space`, `.`, `,`, ...).
-- **Bỏ dấu tự do**: nút `Bỏ dấu` để bỏ dấu vùng chọn, từ đang composing, hoặc từ gần con trỏ.
-- **Gợi ý từ cơ bản**: suggestion bar theo prefix (dictionary MVP).
+> Tài liệu chi tiết cho người mới bắt đầu:
+> - [Kiến trúc & Cách hoạt động chi tiết (từ A đến Z)](docs/ARCHITECTURE.md)
+> - [Hành trình phát triển & Tối ưu kiến trúc](docs/DEVELOPMENT_JOURNEY.md)
+> - [Lịch sử thay đổi (Changelog)](CHANGELOG.md)
 
-> Đây là MVP để triển khai nhanh, **không phải bản copy đầy đủ GBoard**. 
+---
 
-## Cấu trúc
+## Tính năng nổi bật
+
+### 1. Bộ gõ Tiếng Việt linh hoạt (`VietnameseEngine`)
+- **Telex đầy đủ & Bỏ dấu tự do (kiểu vnchKey)**: Cho phép gõ dấu thanh (`s/f/r/x/j`, `z` để xóa dấu) và dấu mũ/móc (`a/e/o/w/d`) ở bất kỳ vị trí nào trong từ, không bị khóa cứng thứ tự.
+- **Đặt dấu kiểu cũ / kiểu mới**: Tùy chọn đặt dấu thanh ở vị trí truyền thống (`hòa`, `thúy`) hoặc hiện đại (`hoà`, `thuý`).
+- **Hỗ trợ phương ngữ Nam (`dz-`)**: Nhận diện và xử lý linh hoạt cách gõ `dz` -> `d` nếu bật tùy chọn.
+- **Sửa từ sau khi commit (Post-commit edit) & Tự động khôi phục từ tiếng Anh**: Chạm lại vào từ đã gõ hoặc bấm Backspace để tiếp tục sửa dấu; tự động trả lại từ gốc nếu phát hiện từ tiếng Anh hợp lệ.
+- **Chuyển nhanh VN / EN**: Bấm phím chuyển ngôn ngữ để bật/tắt nhanh chế độ gõ tiếng Việt.
+
+### 2. Glide Typing (Vuốt để gõ) gọn nhẹ
+- **Vẽ vệt vuốt mượt mà (`GlideTypingOverlayView`)**: Vẽ đường vuốt màu xanh kiểu Gboard, tự động cập nhật tọa độ phím (`hit-box`) khi xoay màn hình, bật/tắt hàng số hoặc đổi chiều cao bàn phím.
+- **Giải mã thông minh (`GlideDecoder`)**: Khớp ký tự đầu/cuối (có châm chước phím lân cận `KEY_NEIGHBORS`), kiểm tra chuỗi con, gộp ký tự lặp (`collapseRepeats`), kết hợp khoảng cách Levenshtein và xếp hạng lại bằng **Trigram** (`prevWord2`, `prevWord1`).
+- **Từ vựng ~5.900 âm tiết tiếng Việt chuẩn**: Được lọc sạch ký tự lạ và từ dính chữ.
+- **UX tiện lợi**: Hiện 3 ứng viên trên thanh gợi ý để chạm đổi nhanh; bấm **Backspace 1 lần** ngay sau khi vuốt để xóa nguyên từ vừa vuốt.
+
+### 3. Macro / Gõ tắt nâng cao (`MacroEngine`, `MacroStore`)
+- Tự động bung từ viết tắt khi gõ ký tự phân cách (`Space`, `.`, `,`, `!`, `?`, ...).
+- Hỗ trợ biến động như `{date}`, `{time}`.
+- **Hoàn nguyên Macro (Undo)**: Bấm **Double Backspace** ngay sau khi macro vừa bung để khôi phục lại từ viết tắt ban đầu.
+- **Quản lý trực quan**: Thêm/sửa/xóa macro trong Cài đặt, hỗ trợ **Import / Export JSON**.
+
+### 4. Giao diện & Cử chỉ chuẩn Gboard
+- **Bố cục chuẩn Gboard**: Phím bo tròn/oval, hàng số tùy chọn, bàn phím ký tự (`?123`, `=\<`), nút chuyển IME khi nhấn giữ phím `Space`.
+- **Popup xem trước phím & Ký tự phụ**: Nhấn giữ phím để hiện bảng ký tự phụ và trượt ngón tay để chọn.
+- **Cử chỉ (Gestures)**:
+  - Vuốt trái/phải trên phím `Space` để di chuyển con trỏ.
+  - Vuốt trái từ phím `Backspace` để xóa nhanh từng từ.
+- **Tùy biến linh hoạt**: Chế độ một tay (One-handed), điều chỉnh chiều cao bàn phím, âm thanh/rung phản hồi.
+
+### 5. Tối ưu độ trễ (Low-Latency)
+- Loại bỏ các cuộc gọi IPC (`InputConnection`) thừa trên từng phím bấm.
+- Tái sử dụng View gợi ý và Popup thay vì tạo mới liên tục, giúp phím `Space` và `Backspace` phản hồi tức thì.
+
+---
+
+## Cấu trúc dự án
 
 ```text
-viet-keyboard/
-  app/src/main/java/com/vnchflex/vietkeyboard/
-    ime/        # InputMethodService, wiring phím
-    engine/     # Telex MVP + DiacriticUtils (bỏ dấu tự do)
-    macro/      # Macro model/store/engine
-    suggestion/ # Gợi ý từ cơ bản
-    settings/   # Màn hình mở cài đặt IME
-  app/src/main/res/
-    layout/keyboard_view.xml
-    xml/method.xml
+vnchflex/
+├── app/src/main/java/com/vnchflex/vietkeyboard/
+│   ├── ime/
+│   │   ├── VietKeyboardService.kt      # Trái tim của bộ gõ (InputMethodService)
+│   │   ├── GboardKeyButton.kt          # Nút bấm custom vẽ ký tự chính + ký tự phụ góc trên
+│   │   ├── GlideTypingOverlayView.kt   # Lớp phủ bắt cử chỉ vuốt & vẽ vệt vuốt
+│   │   └── GlideDecoder.kt             # Thuật toán giải mã đường vuốt thành từ
+│   ├── engine/
+│   │   ├── VietnameseEngine.kt         # Bộ xử lý Telex, bỏ dấu tự do, hậu kỳ
+│   │   └── DiacriticUtils.kt           # Tiện ích chuẩn hóa & bỏ dấu tiếng Việt
+│   ├── macro/
+│   │   ├── Macro.kt                    # Data model cho Macro
+│   │   ├── MacroStore.kt               # Lưu trữ & Import/Export JSON
+│   │   └── MacroEngine.kt              # Engine khớp & bung từ viết tắt
+│   ├── suggestion/
+│   │   ├── SuggestionEngine.kt         # Unigram (~5.900 từ) + Bigram + Trigram
+│   │   └── PersonalDictionaryStore.kt  # Lưu từ vựng cá nhân người dùng hay gõ
+│   └── settings/
+│       ├── KeyboardPreferences.kt      # Quản lý cấu hình (SharedPreferences)
+│       └── SettingsActivity.kt         # Giao diện Cài đặt đầy đủ
+├── docs/
+│   ├── ARCHITECTURE.md                 # Giải thích kiến trúc chi tiết cho người mới
+│   └── DEVELOPMENT_JOURNEY.md          # Tiến trình xây dựng & tối ưu bộ gõ
+├── CHANGELOG.md                        # Lịch sử các phiên bản & thay đổi
+└── generate_codebase.py                # Script xuất toàn bộ codebase ra codebase_dump.txt
 ```
 
-## Tính năng đã có
+---
 
-### 1. Macro / Gõ tắt
-- `MacroEngine` kiểm tra token trước con trỏ khi gặp trigger.
-- `MacroStore` lưu macro bằng `SharedPreferences` (JSON).
-- Macro mẫu: `addr`, `email`, `shrug`.
-- Biến MVP: `{date}`, `{time}`.
+## Hướng dẫn Build & Cài đặt
 
-Ví dụ: gõ `addr` + `Space` => thay bằng địa chỉ + khoảng trắng.
+### Yêu cầu
+- Android Studio hoặc Android SDK (Compile/Target SDK mới nhất)
+- JDK 17
 
-### 2. Bỏ dấu tự do (kiểu vnchKey)
-- `DiacriticUtils.strip()` chuẩn hóa NFD, bỏ `\p{Mn}`, đổi `đ/Đ -> d/D`.
-- Nút `Bỏ dấu` trên bàn phím:
-  - Nếu có selection: bỏ dấu selection.
-  - Nếu đang composing: bỏ dấu buffer composing.
-  - Nếu không: bỏ dấu từ ngay trước con trỏ.
-
-### 3. Gợi ý từ cơ bản
-- `SuggestionEngine` gợi ý prefix từ dictionary nhỏ + từ người dùng đã chọn.
-- Chạm suggestion để thay prefix hiện tại.
-
-### 4. Engine tiếng Việt (MVP)
-- `VietnameseEngine` có Telex cơ bản cho tone (`s/f/r/x/j`, `z` bỏ dấu) và shape (`a/e/o/w/d`) ở mức đơn giản.
-- Cần nâng cấp thành parser âm tiết đầy đủ cho độ chính xác production.
-
-## Chạy dự án
-
-Yêu cầu: Android Studio / Android SDK + JDK 17.
-
+### Build từ dòng lệnh
 ```bash
-# từ thư mục viet-keyboard
-gradle wrapper   # nếu chưa có wrapper jar
 ./gradlew assembleDebug
 ```
+File APK sẽ được tạo tại `app/build/outputs/apk/debug/app-debug.apk`.
+Ngoài ra, mỗi lần push lên nhánh `main`, GitHub Actions sẽ tự động build và ký APK phát hành.
 
-Sau khi cài APK:
-1. Mở app Viet Keyboard.
-2. Bấm **Mở cài đặt bàn phím** và bật Viet Keyboard.
-3. Chọn Viet Keyboard khi nhập liệu.
-
-## Hướng cải tiến tiếp theo
-
-- **Engine VN đầy đủ**: parser âm tiết, đặt dấu đúng quy tắc + chế độ đặt dấu tự do, Telex/VNI đầy đủ.
-- **Macro nâng cao**: UI quản lý macro, import/export, `{clipboard}`, `{cursor}`, undo macro, đồng bộ.
-- **Gợi ý chất lượng cao**: n-gram/on-device LM, autocorrect, cá nhân hóa, tiếng Việt + Anh.
-- **UX kiểu GBoard**: long-press popup, gesture vuốt, emoji/clipboard panel, theme, one-handed.
-- **Tương thích InputConnection**: test Chrome/WebView/rich editor, batch edit, selection edge cases.
-- **Kiểm thử**: unit test cho engine/macro/diacritics, instrumented test IME.
-
-## Lưu ý
-
-- Không sao chép asset/thương hiệu GBoard. Chỉ xây tính năng tương tự.
-- Macro và dữ liệu gõ nên giữ local-by-default, rõ ràng về quyền riêng tư.
+### Kích hoạt trên điện thoại Android
+1. Cài đặt file APK vừa build.
+2. Mở ứng dụng **vnchFlex** trên màn hình chính.
+3. Bấm **Bật bàn phím trong Cài đặt** và gạt bật **vnchFlex**.
+4. Chọn **vnchFlex** làm phương thức nhập mặc định.
 ===== END FILE: README.md =====
 
 ===== FILE: build.gradle.kts =====
@@ -6285,6 +6370,166 @@ class SuggestionEngine(context: Context? = null) {
         android:label="@string/subtype_vi" />
 </input-method>
 ===== END FILE: app/src/main/res/xml/method.xml =====
+
+===== FILE: docs/ARCHITECTURE.md =====
+# Kiến trúc & Cách hoạt động của vnchFlex (Dành cho người mới)
+
+Tài liệu này giải thích **từng bước một** cách bàn phím **vnchFlex** hoạt động trên hệ điều hành Android — viết bằng ngôn ngữ bình dân, không cần biết sâu về Android vẫn đọc hiểu được.
+
+---
+
+## 1. Bàn phím Android thực chất là gì?
+
+Trên Android, một ứng dụng bình thường có `Activity` (màn hình bạn mở lên và bấm). Nhưng bàn phím thì khác: nó chạy ngầm bên dưới mọi ứng dụng khác (Zalo, Messenger, Chrome, Ghi chú...).
+
+Trong Android, bàn phím là một **Service** đặc biệt gọi là `InputMethodService` (viết tắt là **IME**).
+- Trong dự án này, file đóng vai trò "nhạc trưởng" đó là:
+  [`VietKeyboardService.kt`](../app/src/main/java/com/vnchflex/vietkeyboard/ime/VietKeyboardService.kt)
+- Nó làm 3 việc chính:
+  1. **Vẽ** cái bàn phím lên nửa dưới màn hình.
+  2. **Nghe** xem ngón tay bạn chạm vào đâu (chạm phím thường, nhấn giữ, hay vuốt).
+  3. **Gửi chữ** lên ô nhập liệu của ứng dụng đang mở (qua một đường ống gọi là `InputConnection`).
+
+---
+
+## 2. Sơ đồ tổng thể các thành phần
+
+Hãy tưởng tượng **vnchFlex** như một nhà hàng:
+
+```text
+[Ngón tay bạn]
+      │
+      ├──► (Chạm phím) ──────────────────┐
+      │                                  ▼
+      └──► (Vuốt chữ) ──► [GlideTypingOverlayView] ──► [GlideDecoder]
+                                                              │
+                                                              ▼
+                                                  [VietKeyboardService] (Nhạc trưởng)
+                                                     /      |       \
+                                                    /       |        \
+                                                   ▼        ▼         ▼
+                                    [VietnameseEngine]  [MacroEngine]  [SuggestionEngine]
+                                    (Bỏ dấu Telex)      (Gõ tắt)       (Gợi ý & Trigram)
+                                                   \        |        /
+                                                    \       |       /
+                                                     ▼      ▼      ▼
+                                                [InputConnection] ──► (Ô chat Zalo/Chrome)
+```
+
+Mỗi bộ phận nằm trong một thư mục (package) riêng biệt để dễ bảo trì:
+
+| Thư mục | Vai trò dễ hiểu | Các file chính |
+| :--- | :--- | :--- |
+| `ime/` | **Mặt tiền & Nhạc trưởng**: Vẽ phím, bắt cử chỉ chạm/vuốt, nối với Android. | `VietKeyboardService.kt`, `GboardKeyButton.kt`, `GlideTypingOverlayView.kt`, `GlideDecoder.kt` |
+| `engine/` | **Bộ não Tiếng Việt**: Biết ghép `a + a -> â`, `s -> sắc`, `z -> xóa dấu`. | `VietnameseEngine.kt`, `DiacriticUtils.kt` |
+| `macro/` | **Trợ lý Gõ tắt**: Thấy gõ `addr` + `Space` thì tự bung thành địa chỉ nhà. | `Macro.kt`, `MacroStore.kt`, `MacroEngine.kt` |
+| `suggestion/` | **Nhà tiên tri**: Đoán từ bạn sắp gõ dựa vào ~5.900 từ + thói quen của bạn. | `SuggestionEngine.kt`, `PersonalDictionaryStore.kt` |
+| `settings/` | **Bảng điều khiển**: Lưu sở thích của bạn (rung, âm thanh, bật/tắt vuốt...). | `KeyboardPreferences.kt`, `SettingsActivity.kt` |
+
+---
+
+## 3. Chuyện gì xảy ra khi bạn gõ một chữ? (Luồng đi chi tiết)
+
+Giả sử bạn muốn gõ chữ **"tôi"** bằng kiểu Telex (`t` -> `o` -> `o` -> `i`):
+
+1. **Bạn chạm phím `t`**:
+   - `VietKeyboardService` nhận sự kiện, phát tiếng "tách" (hoặc rung nhẹ nếu bạn bật).
+   - Nó đẩy chữ `t` vào một vùng nhớ tạm gọi là **composing buffer** (chữ đang gõ dở, chưa chốt).
+   - Nó gửi `t` lên ô nhập liệu qua `InputConnection.setComposingText("t", 1)`.
+
+2. **Bạn chạm phím `o`, rồi `o` lần nữa**:
+   - `VietKeyboardService` đưa chuỗi đang gõ cho `VietnameseEngine`.
+   - `VietnameseEngine` thấy `to` + `o` -> tự động biến thành **`tô`**.
+   - Nếu bạn gõ tiếp `i` -> thành **`tôi`**.
+
+3. **Bạn chạm phím `Space` (Dấu cách)**:
+   - Lúc này từ `"tôi"` đã hoàn chỉnh!
+   - **Bước A (Kiểm tra tiếng Anh)**: Nếu bạn bật tự khôi phục tiếng Anh và từ đó là tiếng Anh hợp lệ (ví dụ gõ `test` mà lỡ dính dấu), engine sẽ trả lại nguyên gốc.
+   - **Bước B (Kiểm tra Macro)**: `MacroEngine` kiểm tra xem `"tôi"` có phải từ viết tắt không. Nếu có (ví dụ bạn gõ `ko`), nó tự thay thành `"không"` và nhớ lại để nếu bạn bấm **Backspace 2 lần** liên tiếp thì hoàn nguyên về `ko`.
+   - **Bước C (Chốt từ & Học thói quen)**: `VietKeyboardService` chốt từ `"tôi "` vào ô nhập liệu, đồng thời báo cho `SuggestionEngine` biết: *"Người dùng vừa gõ chữ `tôi`"*, để lần sau gợi ý chuẩn hơn.
+
+---
+
+## 4. Cơ chế Glide Typing (Vuốt để gõ) hoạt động ra sao?
+
+Khi bạn lướt ngón tay qua các phím `x` -> `i` -> `n` mà không nhấc tay lên:
+
+1. **Bắt chuyển động (`GlideTypingOverlayView.kt`)**:
+   - Bình thường, lớp phủ này đứng im để bạn bấm phím như bình thường.
+   - Khi ngón tay bạn di chuyển quá **24dp**, nó hiểu: *"À, người dùng đang vuốt!"* -> Nó chặn sự kiện bấm phím thường, hủy popup phím đang hiện, và bắt đầu vẽ **vệt màu xanh** theo ngón tay bạn.
+   - Trong lúc vuốt, cứ đi qua phím nào, nó ghi nhận chữ cái của phím đó (ví dụ: `x`, `c`, `d`, `i`, `n`).
+
+2. **Giải mã đường vuốt (`GlideDecoder.kt`)**:
+   - Khi bạn nhấc ngón tay lên, chuỗi phím đi qua được gửi cho `GlideDecoder`.
+   - Thuật toán sẽ quét qua từ điển (~5.900 âm tiết tiếng Việt + từ cá nhân) và chấm điểm từng từ theo các tiêu chí:
+     - **Chữ đầu & chữ cuối**: Phải khớp với điểm bắt đầu và kết thúc của đường vuốt (có châm chước nếu ngón tay đặt lệch nhẹ sang phím hàng xóm nhờ bảng `KEY_NEIGHBORS`).
+     - **Chuỗi con (Subsequence)**: Các chữ cái của từ có nằm đúng thứ tự trong đường vuốt không?
+     - **Gộp chữ lặp (`collapseRepeats`)**: Nếu từ có 2 chữ giống nhau cạnh nhau (như `cần` hoặc `book`), thuật toán không trừ điểm.
+     - **Ngữ cảnh Trigram**: Nếu trước đó bạn vừa gõ `"rất vui"`, từ `"được"` sẽ được cộng điểm ưu tiên cao hơn hẳn các từ khác.
+
+3. **Hiển thị & Sửa nhanh**:
+   - Từ điểm cao nhất được tự động điền vào ô nhập liệu kèm dấu cách.
+   - 3 từ ứng viên tốt nhất hiện lên thanh gợi ý: nếu máy đoán chưa đúng ý, bạn chỉ cần chạm vào từ thứ 2 hoặc thứ 3 để thay thế ngay (và hệ thống cũng học luôn từ bạn vừa chọn).
+   - Nếu muốn xóa nguyên từ vừa vuốt, chỉ cần bấm **Backspace 1 lần**.
+
+---
+
+## 5. Tại sao vnchFlex lại gõ mượt và không bị lag phím Space?
+
+Ở các phiên bản đầu, mỗi lần bấm phím, bàn phím hay hỏi đi hỏi lại ứng dụng đang mở: *"Trước con trỏ đang có chữ gì vậy?"* (`getTextBeforeCursor`). Việc hỏi qua lại giữa 2 tiến trình (gọi là **IPC**) rất tốn thời gian, làm phím `Space` bị khựng và gõ nhanh hay bị dính chữ.
+
+**Cách vnchFlex giải quyết:**
+1. **Tự nhớ trạng thái ở local**: Tự theo dõi từ đang gõ và từ vừa gõ trong biến bộ nhớ, hạn chế tối đa việc hỏi `InputConnection` trên mỗi phím bấm.
+2. **Tái sử dụng View (View Recycling)**: Thanh gợi ý và Popup xem trước phím được tạo sẵn 1 lần rồi dùng lại, không tạo mới (`inflate`) liên tục gây giật khung hình.
+3. **Cache dữ liệu**: Danh sách Macro và Từ điển cá nhân được nạp sẵn vào RAM khi khởi động bàn phím, không đọc từ ổ cứng (`SharedPreferences`) mỗi lần gõ.
+===== END FILE: docs/ARCHITECTURE.md =====
+
+===== FILE: docs/DEVELOPMENT_JOURNEY.md =====
+# Hành trình phát triển & Tối ưu kiến trúc vnchFlex
+
+Tài liệu này tóm tắt quá trình xây dựng **vnchFlex** từ một bản thử nghiệm nhỏ (MVP) thành một bộ gõ tiếng Việt hoàn chỉnh, mượt mà trên Android.
+
+---
+
+## Giai đoạn 1: Khởi tạo MVP (Minimum Viable Product)
+- **Mục tiêu**: Có một bàn phím Android chạy được với 3 tính năng cốt lõi: gõ Telex cơ bản, nút `Bỏ dấu` tự do kiểu `vnchKey`, và Macro gõ tắt đơn giản.
+- **Kết quả**: Hình thành bộ khung `VietKeyboardService`, `VietnameseEngine`, `MacroEngine`, và `SuggestionEngine` với từ điển nhỏ.
+
+## Giai đoạn 2: Lột xác giao diện chuẩn Gboard
+- **Vấn đề**: Giao diện MVP ban đầu thô sơ, phím vuông vức, thiếu hàng số và bảng ký tự phụ.
+- **Giải pháp**:
+  - Thiết kế lại phím hình oval/bo tròn chuẩn Gboard, dùng icon vector Material sắc nét cho `Shift`, `Backspace`, `Enter`.
+  - Tạo `GboardKeyButton` để tự vẽ ký tự phụ nhỏ ở góc trên bên phải mỗi phím.
+  - Thêm hàng số tùy chọn, bàn phím ký tự (`?123`, `=\<`), popup xem trước phím và bảng chọn ký tự phụ khi nhấn giữ.
+  - Bỏ gạch chân (underline) ở composing text để nhìn tự nhiên hơn.
+
+## Giai đoạn 3: Hoàn thiện Engine Tiếng Việt, Macro & Cử chỉ
+- **Engine Tiếng Việt**:
+  - Hỗ trợ **Telex bỏ dấu tự do (vnchKey)**, tùy chọn đặt dấu kiểu cũ/mới, và hỗ trợ phương ngữ Nam (`dz-`).
+  - Thêm **Post-commit edit** (chạm vào từ cũ để sửa tiếp) và **tự động khôi phục từ tiếng Anh** khi gõ nhầm dấu.
+  - Thêm nút chuyển nhanh **VN / EN** và nhấn giữ `Space` để đổi bàn phím hệ thống.
+- **Macro & Cử chỉ**:
+  - Thêm **Double Backspace** để hoàn nguyên macro vừa bung.
+  - Hỗ trợ **Import / Export JSON** danh sách Macro trong `SettingsActivity`.
+  - Thêm cử chỉ vuốt trên `Space` để di chuyển con trỏ, vuốt từ `Backspace` để xóa nhanh cả từ, chế độ một tay và chỉnh chiều cao bàn phím.
+
+## Giai đoạn 4: Cuộc chiến tối ưu độ trễ (Fix lag phím Space)
+- **Vấn đề thực tế**: Khi gõ nhanh, phím `Space` bị khựng (lag), khiến các từ bị dính vào nhau.
+- **Nguyên nhân**: Gọi `InputConnection` (IPC) quá nhiều lần trên mỗi phím bấm, cộng với việc tạo mới View popup/gợi ý và đọc `SharedPreferences` liên tục.
+- **Giải pháp**:
+  - Loại bỏ các cuộc gọi IPC thừa trên từng phím bấm.
+  - Cache `MacroStore` và `PersonalDictionaryStore` trên RAM.
+  - Tái sử dụng View cho thanh gợi ý và popup phím; tối ưu tốc độ lặp khi nhấn giữ `Backspace`.
+- **Kết quả**: Cảm giác gõ nhẹ, phím `Space` nhả tức thì, không còn hiện tượng dính chữ.
+
+## Giai đoạn 5: Triển khai Glide Typing gọn nhẹ
+- **Mục tiêu**: Mang tính năng vuốt để gõ (Glide Typing) lên `vnchFlex` mà không làm nặng bộ gõ.
+- **Cách làm**:
+  - Xây dựng `GlideTypingOverlayView` phủ lên bàn phím, chỉ kích hoạt khi vuốt quá `24dp` và tự động cập nhật tọa độ phím (`onLayout`) khi đổi cấu hình.
+  - Xây dựng `GlideDecoder` gọn nhẹ kết hợp bảng `KEY_NEIGHBORS` và mô hình ngôn ngữ **Trigram**.
+  - Mở rộng từ điển lên **~5.900 âm tiết tiếng Việt chuẩn** (đã lọc sạch ký tự lạ và từ dính chữ).
+  - Bổ sung UX chuẩn Gboard: hiện 3 ứng viên để chạm đổi nhanh (và học lại từ vừa chọn), bấm `Backspace` 1 lần để xóa nguyên từ vừa vuốt.
+===== END FILE: docs/DEVELOPMENT_JOURNEY.md =====
 
 ===== FILE: gradle/wrapper/gradle-wrapper.properties =====
 distributionBase=GRADLE_USER_HOME

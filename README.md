@@ -1,78 +1,96 @@
-# Viet Keyboard (MVP)
+# vnchFlex — Bàn phím Tiếng Việt Thông minh cho Android
 
-Scaffold bàn phím Android (IME) tập trung vào 3 tính năng được yêu cầu:
+**vnchFlex** là bộ gõ tiếng Việt (Android IME — `InputMethodService`) mã nguồn mở, được thiết kế với giao diện và độ mượt lấy cảm hứng từ **Gboard**, kết hợp các tính năng đặc trưng cho người dùng Việt Nam như **Telex bỏ dấu tự do kiểu vnchKey**, **hỗ trợ phương ngữ Nam (`dz-`)**, **Gõ tắt (Macro) có hoàn nguyên**, và **Glide Typing (vuốt để gõ)** gọn nhẹ.
 
-- **Macro/Gõ tắt**: thay thế shortcut khi gõ dấu phân cách (`space`, `.`, `,`, ...).
-- **Bỏ dấu tự do**: nút `Bỏ dấu` để bỏ dấu vùng chọn, từ đang composing, hoặc từ gần con trỏ.
-- **Gợi ý từ cơ bản**: suggestion bar theo prefix (dictionary MVP).
+> Tài liệu chi tiết cho người mới bắt đầu:
+> - [Kiến trúc & Cách hoạt động chi tiết (từ A đến Z)](docs/ARCHITECTURE.md)
+> - [Hành trình phát triển & Tối ưu kiến trúc](docs/DEVELOPMENT_JOURNEY.md)
+> - [Lịch sử thay đổi (Changelog)](CHANGELOG.md)
 
-> Đây là MVP để triển khai nhanh, **không phải bản copy đầy đủ GBoard**. 
+---
 
-## Cấu trúc
+## Tính năng nổi bật
+
+### 1. Bộ gõ Tiếng Việt linh hoạt (`VietnameseEngine`)
+- **Telex đầy đủ & Bỏ dấu tự do (kiểu vnchKey)**: Cho phép gõ dấu thanh (`s/f/r/x/j`, `z` để xóa dấu) và dấu mũ/móc (`a/e/o/w/d`) ở bất kỳ vị trí nào trong từ, không bị khóa cứng thứ tự.
+- **Đặt dấu kiểu cũ / kiểu mới**: Tùy chọn đặt dấu thanh ở vị trí truyền thống (`hòa`, `thúy`) hoặc hiện đại (`hoà`, `thuý`).
+- **Hỗ trợ phương ngữ Nam (`dz-`)**: Nhận diện và xử lý linh hoạt cách gõ `dz` -> `d` nếu bật tùy chọn.
+- **Sửa từ sau khi commit (Post-commit edit) & Tự động khôi phục từ tiếng Anh**: Chạm lại vào từ đã gõ hoặc bấm Backspace để tiếp tục sửa dấu; tự động trả lại từ gốc nếu phát hiện từ tiếng Anh hợp lệ.
+- **Chuyển nhanh VN / EN**: Bấm phím chuyển ngôn ngữ để bật/tắt nhanh chế độ gõ tiếng Việt.
+
+### 2. Glide Typing (Vuốt để gõ) gọn nhẹ
+- **Vẽ vệt vuốt mượt mà (`GlideTypingOverlayView`)**: Vẽ đường vuốt màu xanh kiểu Gboard, tự động cập nhật tọa độ phím (`hit-box`) khi xoay màn hình, bật/tắt hàng số hoặc đổi chiều cao bàn phím.
+- **Giải mã thông minh (`GlideDecoder`)**: Khớp ký tự đầu/cuối (có châm chước phím lân cận `KEY_NEIGHBORS`), kiểm tra chuỗi con, gộp ký tự lặp (`collapseRepeats`), kết hợp khoảng cách Levenshtein và xếp hạng lại bằng **Trigram** (`prevWord2`, `prevWord1`).
+- **Từ vựng ~5.900 âm tiết tiếng Việt chuẩn**: Được lọc sạch ký tự lạ và từ dính chữ.
+- **UX tiện lợi**: Hiện 3 ứng viên trên thanh gợi ý để chạm đổi nhanh; bấm **Backspace 1 lần** ngay sau khi vuốt để xóa nguyên từ vừa vuốt.
+
+### 3. Macro / Gõ tắt nâng cao (`MacroEngine`, `MacroStore`)
+- Tự động bung từ viết tắt khi gõ ký tự phân cách (`Space`, `.`, `,`, `!`, `?`, ...).
+- Hỗ trợ biến động như `{date}`, `{time}`.
+- **Hoàn nguyên Macro (Undo)**: Bấm **Double Backspace** ngay sau khi macro vừa bung để khôi phục lại từ viết tắt ban đầu.
+- **Quản lý trực quan**: Thêm/sửa/xóa macro trong Cài đặt, hỗ trợ **Import / Export JSON**.
+
+### 4. Giao diện & Cử chỉ chuẩn Gboard
+- **Bố cục chuẩn Gboard**: Phím bo tròn/oval, hàng số tùy chọn, bàn phím ký tự (`?123`, `=\<`), nút chuyển IME khi nhấn giữ phím `Space`.
+- **Popup xem trước phím & Ký tự phụ**: Nhấn giữ phím để hiện bảng ký tự phụ và trượt ngón tay để chọn.
+- **Cử chỉ (Gestures)**:
+  - Vuốt trái/phải trên phím `Space` để di chuyển con trỏ.
+  - Vuốt trái từ phím `Backspace` để xóa nhanh từng từ.
+- **Tùy biến linh hoạt**: Chế độ một tay (One-handed), điều chỉnh chiều cao bàn phím, âm thanh/rung phản hồi.
+
+### 5. Tối ưu độ trễ (Low-Latency)
+- Loại bỏ các cuộc gọi IPC (`InputConnection`) thừa trên từng phím bấm.
+- Tái sử dụng View gợi ý và Popup thay vì tạo mới liên tục, giúp phím `Space` và `Backspace` phản hồi tức thì.
+
+---
+
+## Cấu trúc dự án
 
 ```text
-viet-keyboard/
-  app/src/main/java/com/vnchflex/vietkeyboard/
-    ime/        # InputMethodService, wiring phím
-    engine/     # Telex MVP + DiacriticUtils (bỏ dấu tự do)
-    macro/      # Macro model/store/engine
-    suggestion/ # Gợi ý từ cơ bản
-    settings/   # Màn hình mở cài đặt IME
-  app/src/main/res/
-    layout/keyboard_view.xml
-    xml/method.xml
+vnchflex/
+├── app/src/main/java/com/vnchflex/vietkeyboard/
+│   ├── ime/
+│   │   ├── VietKeyboardService.kt      # Trái tim của bộ gõ (InputMethodService)
+│   │   ├── GboardKeyButton.kt          # Nút bấm custom vẽ ký tự chính + ký tự phụ góc trên
+│   │   ├── GlideTypingOverlayView.kt   # Lớp phủ bắt cử chỉ vuốt & vẽ vệt vuốt
+│   │   └── GlideDecoder.kt             # Thuật toán giải mã đường vuốt thành từ
+│   ├── engine/
+│   │   ├── VietnameseEngine.kt         # Bộ xử lý Telex, bỏ dấu tự do, hậu kỳ
+│   │   └── DiacriticUtils.kt           # Tiện ích chuẩn hóa & bỏ dấu tiếng Việt
+│   ├── macro/
+│   │   ├── Macro.kt                    # Data model cho Macro
+│   │   ├── MacroStore.kt               # Lưu trữ & Import/Export JSON
+│   │   └── MacroEngine.kt              # Engine khớp & bung từ viết tắt
+│   ├── suggestion/
+│   │   ├── SuggestionEngine.kt         # Unigram (~5.900 từ) + Bigram + Trigram
+│   │   └── PersonalDictionaryStore.kt  # Lưu từ vựng cá nhân người dùng hay gõ
+│   └── settings/
+│       ├── KeyboardPreferences.kt      # Quản lý cấu hình (SharedPreferences)
+│       └── SettingsActivity.kt         # Giao diện Cài đặt đầy đủ
+├── docs/
+│   ├── ARCHITECTURE.md                 # Giải thích kiến trúc chi tiết cho người mới
+│   └── DEVELOPMENT_JOURNEY.md          # Tiến trình xây dựng & tối ưu bộ gõ
+├── CHANGELOG.md                        # Lịch sử các phiên bản & thay đổi
+└── generate_codebase.py                # Script xuất toàn bộ codebase ra codebase_dump.txt
 ```
 
-## Tính năng đã có
+---
 
-### 1. Macro / Gõ tắt
-- `MacroEngine` kiểm tra token trước con trỏ khi gặp trigger.
-- `MacroStore` lưu macro bằng `SharedPreferences` (JSON).
-- Macro mẫu: `addr`, `email`, `shrug`.
-- Biến MVP: `{date}`, `{time}`.
+## Hướng dẫn Build & Cài đặt
 
-Ví dụ: gõ `addr` + `Space` => thay bằng địa chỉ + khoảng trắng.
+### Yêu cầu
+- Android Studio hoặc Android SDK (Compile/Target SDK mới nhất)
+- JDK 17
 
-### 2. Bỏ dấu tự do (kiểu vnchKey)
-- `DiacriticUtils.strip()` chuẩn hóa NFD, bỏ `\p{Mn}`, đổi `đ/Đ -> d/D`.
-- Nút `Bỏ dấu` trên bàn phím:
-  - Nếu có selection: bỏ dấu selection.
-  - Nếu đang composing: bỏ dấu buffer composing.
-  - Nếu không: bỏ dấu từ ngay trước con trỏ.
-
-### 3. Gợi ý từ cơ bản
-- `SuggestionEngine` gợi ý prefix từ dictionary nhỏ + từ người dùng đã chọn.
-- Chạm suggestion để thay prefix hiện tại.
-
-### 4. Engine tiếng Việt (MVP)
-- `VietnameseEngine` có Telex cơ bản cho tone (`s/f/r/x/j`, `z` bỏ dấu) và shape (`a/e/o/w/d`) ở mức đơn giản.
-- Cần nâng cấp thành parser âm tiết đầy đủ cho độ chính xác production.
-
-## Chạy dự án
-
-Yêu cầu: Android Studio / Android SDK + JDK 17.
-
+### Build từ dòng lệnh
 ```bash
-# từ thư mục viet-keyboard
-gradle wrapper   # nếu chưa có wrapper jar
 ./gradlew assembleDebug
 ```
+File APK sẽ được tạo tại `app/build/outputs/apk/debug/app-debug.apk`.
+Ngoài ra, mỗi lần push lên nhánh `main`, GitHub Actions sẽ tự động build và ký APK phát hành.
 
-Sau khi cài APK:
-1. Mở app Viet Keyboard.
-2. Bấm **Mở cài đặt bàn phím** và bật Viet Keyboard.
-3. Chọn Viet Keyboard khi nhập liệu.
-
-## Hướng cải tiến tiếp theo
-
-- **Engine VN đầy đủ**: parser âm tiết, đặt dấu đúng quy tắc + chế độ đặt dấu tự do, Telex/VNI đầy đủ.
-- **Macro nâng cao**: UI quản lý macro, import/export, `{clipboard}`, `{cursor}`, undo macro, đồng bộ.
-- **Gợi ý chất lượng cao**: n-gram/on-device LM, autocorrect, cá nhân hóa, tiếng Việt + Anh.
-- **UX kiểu GBoard**: long-press popup, gesture vuốt, emoji/clipboard panel, theme, one-handed.
-- **Tương thích InputConnection**: test Chrome/WebView/rich editor, batch edit, selection edge cases.
-- **Kiểm thử**: unit test cho engine/macro/diacritics, instrumented test IME.
-
-## Lưu ý
-
-- Không sao chép asset/thương hiệu GBoard. Chỉ xây tính năng tương tự.
-- Macro và dữ liệu gõ nên giữ local-by-default, rõ ràng về quyền riêng tư.
+### Kích hoạt trên điện thoại Android
+1. Cài đặt file APK vừa build.
+2. Mở ứng dụng **vnchFlex** trên màn hình chính.
+3. Bấm **Bật bàn phím trong Cài đặt** và gạt bật **vnchFlex**.
+4. Chọn **vnchFlex** làm phương thức nhập mặc định.
