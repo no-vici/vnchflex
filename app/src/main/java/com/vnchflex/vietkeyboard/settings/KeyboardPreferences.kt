@@ -169,7 +169,7 @@ class KeyboardPreferences(context: Context) {
         get() = prefs.getBoolean("pref_vn_free_tone", true)
         set(v) = prefs.edit().putBoolean("pref_vn_free_tone", v).apply()
 
-    /** Chính tả chuẩn mới (òa, òe, úy) vs chuẩn cũ (oà, oè, uý) */
+    /** Kiểu đặt dấu mới (oà, oè, uý) vs kiểu cũ/cổ điển (òa, òe, úy) */
     var modernOrthography: Boolean
         get() = prefs.getBoolean("pref_vn_modern_orthography", true)
         set(v) = prefs.edit().putBoolean("pref_vn_modern_orthography", v).apply()

@@ -12,7 +12,7 @@ import android.view.inputmethod.InputConnection
  *   + `dziaf` -> `dzìa`, `dzachs` -> `dzách`, `dzoo` -> `dzô`, `dzoj` -> `dzọ`, `dzui` -> `dzui`, `dzaayj` -> `dzậy`, `dzotj` -> `dzọt`
  *   + `zaayj` -> `zậy`, `zui` -> `zui`, `fairs` -> `fải`, `was` -> `wá`, `waayj` -> `wậy`, `jups` -> `júp`
  *   + Giữ nguyên các từ tiếng Anh có phụ âm mở rộng (`zero`, `zone`, `zip`, `zest`, `just`, `free`, `fee`, `water`, `web`)
- * - Đặt dấu đúng vị trí nguyên âm theo chuẩn chính tả mới (`òa, òe, úy`) hoặc cũ (`oà, oè, uý`).
+ * - Đặt dấu đúng vị trí nguyên âm theo kiểu mới (`oà, oè, uý`) hoặc kiểu cũ/cổ điển (`òa, òe, úy`).
  * - Lặp phím dấu / phím mũ-móc để hoàn nguyên (escape) khi gõ tiếng Anh (`canhf + f -> canhf`, `aaa -> aa`, `ww -> w`, `ddd -> dd`).
  * - Nút `Bỏ dấu` (`removeDiacritics`) hoặc phím `z` để xóa dấu tự do.
  */

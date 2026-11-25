@@ -208,8 +208,8 @@ class SettingsActivity : AppCompatActivity() {
         ) { prefs.freeTonePlacement = it }
 
         addSwitchItem(
-            title = "Đặt dấu chuẩn mới (òa, òe, úy)",
-            subtitle = "Tắt để dùng quy tắc chính tả kiểu cũ (oà, oè, uý)",
+            title = "Đặt dấu kiểu mới (oà, oè, uý)",
+            subtitle = "Tắt để dùng kiểu cũ/cổ điển (òa, òe, úy)",
             checked = prefs.modernOrthography
         ) { prefs.modernOrthography = it }
 
