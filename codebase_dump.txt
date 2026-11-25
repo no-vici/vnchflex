@@ -1059,6 +1059,8 @@ class VietnameseEngine {
     var relaxedCoda: Boolean = false
     /** Cho phép gõ từ phương ngữ Nam Bộ (`dzìa`, `dzách`, `dzô`...) và phụ âm mở rộng (`f, j, w, z`) chuẩn vnchKey */
     var southernDialectAndGenZ: Boolean = true
+    /** Tự động khôi phục từ tiếng Anh khi gõ trong chế độ Tiếng Việt (vd: text -> text thay vì tẽt) */
+    var autoRestoreEnglish: Boolean = true
 
     private val rawChars = mutableListOf<Char>()
     private var renderedOutput: String = ""
@@ -1158,6 +1160,11 @@ class VietnameseEngine {
     fun transformTelex(chars: List<Char>): String {
         if (chars.isEmpty()) return ""
         val lowerRaw = chars.map { it.lowercaseChar() }.joinToString("")
+
+        // Tự động khôi phục từ tiếng Anh chuẩn vnchKey (vd: text -> text, next -> next, flex -> flex, more -> more...)
+        if (autoRestoreEnglish && lowerRaw in ENGLISH_AUTO_RESTORE_WORDS) {
+            return chars.joinToString("")
+        }
 
         // Kiểm tra phụ âm đầu không chuẩn tiếng Việt (dz-, f-, j-, z-, w-) theo quy tắc vnchKey
         val firstLower = lowerRaw.first()
@@ -1572,6 +1579,30 @@ class VietnameseEngine {
     }
 
     companion object {
+        private val ENGLISH_AUTO_RESTORE_WORDS = setOf(
+            "text", "next", "flex", "fix", "box", "max", "mix", "six", "tax", "wax", "fox", "ox", "ex",
+            "more", "does", "life", "care", "user", "users", "test", "tests", "rest", "best", "fast",
+            "last", "past", "list", "most", "post", "host", "cost", "lost", "just", "must", "rust",
+            "dust", "trust", "first", "worst", "worth", "work", "works", "word", "words", "world",
+            "wind", "will", "with", "what", "when", "where", "which", "while", "white", "who", "why",
+            "way", "ways", "want", "wants", "wait", "walk", "wall", "warm", "wash", "watch", "wave",
+            "wear", "web", "week", "weeks", "well", "went", "were", "west", "wide", "wife", "wild",
+            "win", "wine", "wing", "winter", "wire", "wise", "wish", "woman", "women", "wonder",
+            "wood", "write", "writer", "wrong", "zero", "zeros", "zone", "zones", "zoom", "zip",
+            "zest", "zebra", "free", "fee", "fees", "feel", "feed", "feet", "file", "files", "find",
+            "fine", "fire", "firm", "five", "flat", "flow", "focus", "folder", "follow", "font",
+            "food", "foot", "force", "form", "format", "found", "four", "frame", "fresh", "friend",
+            "from", "front", "full", "func", "function", "fund", "future", "java", "json", "join",
+            "job", "jobs", "jump", "june", "july", "judge", "server", "service", "system", "status",
+            "string", "stream", "start", "stop", "step", "store", "style", "switch", "search",
+            "select", "send", "set", "show", "size", "sort", "source", "space", "split", "state",
+            "static", "sync", "tab", "tag", "target", "task", "team", "term", "theme", "then",
+            "there", "these", "they", "this", "those", "three", "time", "title", "tool", "tools",
+            "true", "type", "update", "upload", "used", "using", "value", "view", "void", "your",
+            "android", "gboard", "vnchflex", "macro", "keyboard", "shift", "enter", "delete",
+            "english", "vietnamese", "release", "debug", "build", "gradle", "commit", "push", "pull"
+        )
+
         private val ENGLISH_FJZ_PROTECTED_WORDS = setOf(
             "fee", "fees", "feel", "feed", "feet", "fast", "first", "file", "files", "find", "fine", "fire", "firm",
             "five", "flat", "flow", "focus", "folder", "follow", "font", "food", "foot", "force", "form", "format",
@@ -1738,6 +1769,7 @@ class VietKeyboardService : InputMethodService() {
     private var panelSymbols2: View? = null
 
     private var mode = Mode.LETTERS
+    private var isVietnameseMode = true
     private var shiftState = ShiftState.LOWER
     private var lastShiftClickTime = 0L
     private var lastSpaceClickTime = 0L
@@ -1813,9 +1845,10 @@ class VietKeyboardService : InputMethodService() {
         root.findViewById<View>(R.id.key_emoji)?.visibility =
             if (prefs.showEmojiSwitchKey) View.VISIBLE else View.GONE
 
-        // 4. Spacebar label
+        // 4. Spacebar label shows active language (Tiếng Việt / English)
+        val spaceLabel = if (isVietnameseMode) getString(R.string.key_space) else "English"
         listOf(R.id.key_space, R.id.key_space_s1, R.id.key_space_s2).forEach { id ->
-            root.findViewById<Button>(id)?.text = getString(R.string.key_space)
+            root.findViewById<Button>(id)?.text = spaceLabel
         }
 
         // 5. Theme (Gboard Light vs Dark)
@@ -1900,7 +1933,19 @@ class VietKeyboardService : InputMethodService() {
         bindRepeat(R.id.key_backspace_s1, ::onBackspace)
         bindRepeat(R.id.key_backspace_s2, ::onBackspace)
 
-        listOf(R.id.key_space, R.id.key_space_s1, R.id.key_space_s2).forEach { bindClick(it, ::onSpacePressed) }
+        listOf(R.id.key_space, R.id.key_space_s1, R.id.key_space_s2).forEach { id ->
+            val btn = root.findViewById<View>(id) ?: return@forEach
+            btn.setOnClickListener {
+                performKeyFeedback(btn)
+                onSpacePressed()
+            }
+            // Gboard behavior: Long-press Spacebar opens IME picker (choose Gboard / vnchFlex)
+            btn.setOnLongClickListener {
+                performKeyFeedback(btn, isLongPress = true)
+                showImePicker()
+                true
+            }
+        }
         listOf(R.id.key_enter, R.id.key_enter_s1, R.id.key_enter_s2).forEach { bindClick(it, ::onEnter) }
         listOf(R.id.key_comma, R.id.key_dot).forEach { id ->
             bindClick(id) { onPunctuation(root.findViewById<Button>(id).text.first()) }
@@ -2043,6 +2088,20 @@ class VietKeyboardService : InputMethodService() {
             commitRaw(c.toString())
             return
         }
+        if (!isVietnameseMode) {
+            if (isMacroTrigger(c)) {
+                if (prefs.macroEnabled && macroEngine.tryExpand(ic, c)) {
+                    syncContextFromEditor()
+                    updateAutoCapitalization()
+                    updateSuggestions("")
+                    return
+                }
+            }
+            ic.commitText(c.toString(), 1)
+            updateAutoCapitalization()
+            updateSuggestions("")
+            return
+        }
         if (isMacroTrigger(c)) {
             val finishedWord = vnEngine.composingText
             vnEngine.commit(ic)
@@ -2138,14 +2197,20 @@ class VietKeyboardService : InputMethodService() {
         startActivity(intent)
     }
 
+    /**
+     * Gboard behavior: Tap language switch key toggles Tiếng Việt <-> English.
+     * Long-press Spacebar opens the system IME Picker.
+     */
     private fun switchKeyboard() {
+        currentInputConnection?.let { vnEngine.commit(it) }
+        isVietnameseMode = !isVietnameseMode
+        applyPreferencesToView()
+        updateSuggestions("")
+    }
+
+    private fun showImePicker() {
         val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-        val token: IBinder? = window.window?.attributes?.token
-        if (token != null && imm.shouldOfferSwitchingToNextInputMethod(token)) {
-            imm.switchToNextInputMethod(token, false)
-        } else {
-            imm.showInputMethodPicker()
-        }
+        imm.showInputMethodPicker()
     }
 
     private fun performKeyFeedback(view: View, isLongPress: Boolean = false) {
@@ -2465,35 +2530,32 @@ class MacroStore(context: Context) {
         // Địa danh Việt Nam phổ biến (chuẩn vnchKey)
         Macro("sg", "Sài Gòn"),
         Macro("hn", "Hà Nội"),
-        Macro("dn", "Đà Nẵng"),
-        Macro("hp", "Hải Phòng"),
+        Macro("dn", "Đồng Nai"),
+        Macro("hp", "hạnh phúc"),
         Macro("ct", "Cần Thơ"),
+        Macro("cx", "cảm xúc"),
         Macro("dl", "Đà Lạt"),
         Macro("vt", "Vũng Tàu"),
         Macro("bd", "Bình Dương"),
-        Macro("đn", "Đồng Nai"),
-        Macro("qn", "Quảng Ninh"),
-        Macro("hue", "Thừa Thiên Huế"),
         Macro("ntr", "Nha Trang"),
-        Macro("hl", "Hạ Long"),
-        Macro("hcm", "Hồ Chí Minh"),
-        Macro("tphcm", "TP. Hồ Chí Minh"),
         // Từ giao tiếp & đời sống
         Macro("dc", "được"),
-        Macro("đc", "được"),
         Macro("ko", "không"),
         Macro("vs", "với"),
         Macro("ng", "người"),
         Macro("ch", "chưa"),
         Macro("nt", "nhắn tin"),
+        Macro("tn", "tin nhắn"),
+        Macro("ntn", "như thế nào"),
         Macro("kb", "không biết"),
-        Macro("tn", "thế nào"),
+        Macro("tn", "tin nhắn"),
         Macro("bh", "bây giờ"),
-        Macro("tc", "tất cả"),
+        Macro("tca", "tất cả"),
+        Macro("tica", "tình cảm"),
         // Từ công việc & văn phòng
         Macro("cty", "công ty"),
         Macro("sđt", "số điện thoại"),
-        Macro("sdt", "số điện thoại"),
+        Macro("stk", "số tài khoản"),
         Macro("tk", "tài khoản"),
         Macro("kh", "khách hàng"),
         Macro("sp", "sản phẩm"),
@@ -2505,10 +2567,10 @@ class MacroStore(context: Context) {
         Macro("pt", "phát triển"),
         Macro("nv", "nhân viên"),
         Macro("ql", "quản lý"),
-        Macro("gd", "giám đốc"),
+        Macro("gd", "gia đình"),
         // Biến động mẫu
-        Macro("addr", "123 Nguyễn Trãi, Hà Nội"),
-        Macro("email", "ten@example.com"),
+        // Macro("addr", "123 Đường Tự Do, Q1"),
+        Macro("email", "name@gmail.com"),
         Macro("shrug", "¯\\_(ツ)_/¯"),
     )
 

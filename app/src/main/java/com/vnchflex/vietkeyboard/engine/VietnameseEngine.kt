@@ -32,6 +32,8 @@ class VietnameseEngine {
     var relaxedCoda: Boolean = false
     /** Cho phép gõ từ phương ngữ Nam Bộ (`dzìa`, `dzách`, `dzô`...) và phụ âm mở rộng (`f, j, w, z`) chuẩn vnchKey */
     var southernDialectAndGenZ: Boolean = true
+    /** Tự động khôi phục từ tiếng Anh khi gõ trong chế độ Tiếng Việt (vd: text -> text thay vì tẽt) */
+    var autoRestoreEnglish: Boolean = true
 
     private val rawChars = mutableListOf<Char>()
     private var renderedOutput: String = ""
@@ -131,6 +133,11 @@ class VietnameseEngine {
     fun transformTelex(chars: List<Char>): String {
         if (chars.isEmpty()) return ""
         val lowerRaw = chars.map { it.lowercaseChar() }.joinToString("")
+
+        // Tự động khôi phục từ tiếng Anh chuẩn vnchKey (vd: text -> text, next -> next, flex -> flex, more -> more...)
+        if (autoRestoreEnglish && lowerRaw in ENGLISH_AUTO_RESTORE_WORDS) {
+            return chars.joinToString("")
+        }
 
         // Kiểm tra phụ âm đầu không chuẩn tiếng Việt (dz-, f-, j-, z-, w-) theo quy tắc vnchKey
         val firstLower = lowerRaw.first()
@@ -545,6 +552,30 @@ class VietnameseEngine {
     }
 
     companion object {
+        private val ENGLISH_AUTO_RESTORE_WORDS = setOf(
+            "text", "next", "flex", "fix", "box", "max", "mix", "six", "tax", "wax", "fox", "ox", "ex",
+            "more", "does", "life", "care", "user", "users", "test", "tests", "rest", "best", "fast",
+            "last", "past", "list", "most", "post", "host", "cost", "lost", "just", "must", "rust",
+            "dust", "trust", "first", "worst", "worth", "work", "works", "word", "words", "world",
+            "wind", "will", "with", "what", "when", "where", "which", "while", "white", "who", "why",
+            "way", "ways", "want", "wants", "wait", "walk", "wall", "warm", "wash", "watch", "wave",
+            "wear", "web", "week", "weeks", "well", "went", "were", "west", "wide", "wife", "wild",
+            "win", "wine", "wing", "winter", "wire", "wise", "wish", "woman", "women", "wonder",
+            "wood", "write", "writer", "wrong", "zero", "zeros", "zone", "zones", "zoom", "zip",
+            "zest", "zebra", "free", "fee", "fees", "feel", "feed", "feet", "file", "files", "find",
+            "fine", "fire", "firm", "five", "flat", "flow", "focus", "folder", "follow", "font",
+            "food", "foot", "force", "form", "format", "found", "four", "frame", "fresh", "friend",
+            "from", "front", "full", "func", "function", "fund", "future", "java", "json", "join",
+            "job", "jobs", "jump", "june", "july", "judge", "server", "service", "system", "status",
+            "string", "stream", "start", "stop", "step", "store", "style", "switch", "search",
+            "select", "send", "set", "show", "size", "sort", "source", "space", "split", "state",
+            "static", "sync", "tab", "tag", "target", "task", "team", "term", "theme", "then",
+            "there", "these", "they", "this", "those", "three", "time", "title", "tool", "tools",
+            "true", "type", "update", "upload", "used", "using", "value", "view", "void", "your",
+            "android", "gboard", "vnchflex", "macro", "keyboard", "shift", "enter", "delete",
+            "english", "vietnamese", "release", "debug", "build", "gradle", "commit", "push", "pull"
+        )
+
         private val ENGLISH_FJZ_PROTECTED_WORDS = setOf(
             "fee", "fees", "feel", "feed", "feet", "fast", "first", "file", "files", "find", "fine", "fire", "firm",
             "five", "flat", "flow", "focus", "folder", "follow", "font", "food", "foot", "force", "form", "format",

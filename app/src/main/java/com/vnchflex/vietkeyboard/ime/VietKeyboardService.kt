@@ -48,6 +48,7 @@ class VietKeyboardService : InputMethodService() {
     private var panelSymbols2: View? = null
 
     private var mode = Mode.LETTERS
+    private var isVietnameseMode = true
     private var shiftState = ShiftState.LOWER
     private var lastShiftClickTime = 0L
     private var lastSpaceClickTime = 0L
@@ -123,9 +124,10 @@ class VietKeyboardService : InputMethodService() {
         root.findViewById<View>(R.id.key_emoji)?.visibility =
             if (prefs.showEmojiSwitchKey) View.VISIBLE else View.GONE
 
-        // 4. Spacebar label
+        // 4. Spacebar label shows active language (Tiếng Việt / English)
+        val spaceLabel = if (isVietnameseMode) getString(R.string.key_space) else "English"
         listOf(R.id.key_space, R.id.key_space_s1, R.id.key_space_s2).forEach { id ->
-            root.findViewById<Button>(id)?.text = getString(R.string.key_space)
+            root.findViewById<Button>(id)?.text = spaceLabel
         }
 
         // 5. Theme (Gboard Light vs Dark)
@@ -210,7 +212,19 @@ class VietKeyboardService : InputMethodService() {
         bindRepeat(R.id.key_backspace_s1, ::onBackspace)
         bindRepeat(R.id.key_backspace_s2, ::onBackspace)
 
-        listOf(R.id.key_space, R.id.key_space_s1, R.id.key_space_s2).forEach { bindClick(it, ::onSpacePressed) }
+        listOf(R.id.key_space, R.id.key_space_s1, R.id.key_space_s2).forEach { id ->
+            val btn = root.findViewById<View>(id) ?: return@forEach
+            btn.setOnClickListener {
+                performKeyFeedback(btn)
+                onSpacePressed()
+            }
+            // Gboard behavior: Long-press Spacebar opens IME picker (choose Gboard / vnchFlex)
+            btn.setOnLongClickListener {
+                performKeyFeedback(btn, isLongPress = true)
+                showImePicker()
+                true
+            }
+        }
         listOf(R.id.key_enter, R.id.key_enter_s1, R.id.key_enter_s2).forEach { bindClick(it, ::onEnter) }
         listOf(R.id.key_comma, R.id.key_dot).forEach { id ->
             bindClick(id) { onPunctuation(root.findViewById<Button>(id).text.first()) }
@@ -353,6 +367,20 @@ class VietKeyboardService : InputMethodService() {
             commitRaw(c.toString())
             return
         }
+        if (!isVietnameseMode) {
+            if (isMacroTrigger(c)) {
+                if (prefs.macroEnabled && macroEngine.tryExpand(ic, c)) {
+                    syncContextFromEditor()
+                    updateAutoCapitalization()
+                    updateSuggestions("")
+                    return
+                }
+            }
+            ic.commitText(c.toString(), 1)
+            updateAutoCapitalization()
+            updateSuggestions("")
+            return
+        }
         if (isMacroTrigger(c)) {
             val finishedWord = vnEngine.composingText
             vnEngine.commit(ic)
@@ -448,14 +476,20 @@ class VietKeyboardService : InputMethodService() {
         startActivity(intent)
     }
 
+    /**
+     * Gboard behavior: Tap language switch key toggles Tiếng Việt <-> English.
+     * Long-press Spacebar opens the system IME Picker.
+     */
     private fun switchKeyboard() {
+        currentInputConnection?.let { vnEngine.commit(it) }
+        isVietnameseMode = !isVietnameseMode
+        applyPreferencesToView()
+        updateSuggestions("")
+    }
+
+    private fun showImePicker() {
         val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-        val token: IBinder? = window.window?.attributes?.token
-        if (token != null && imm.shouldOfferSwitchingToNextInputMethod(token)) {
-            imm.switchToNextInputMethod(token, false)
-        } else {
-            imm.showInputMethodPicker()
-        }
+        imm.showInputMethodPicker()
     }
 
     private fun performKeyFeedback(view: View, isLongPress: Boolean = false) {
