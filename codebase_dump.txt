@@ -4516,8 +4516,8 @@ iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAG7ElEQVR4AUxUCWxUxxn+Zt7l9d5mbbPG
     </style>
 
     <style name="LogoSwitchKeyBtn" parent="FuncKeyBtn">
-        <item name="android:scaleType">centerInside</item>
-        <item name="android:padding">9dp</item>
+        <item name="android:scaleType">fitCenter</item>
+        <item name="android:padding">4dp</item>
     </style>
 
     <style name="EnterKeyBtn" parent="KeyBase">
