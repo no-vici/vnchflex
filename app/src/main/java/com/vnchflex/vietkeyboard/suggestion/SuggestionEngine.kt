@@ -494,6 +494,18 @@ class SuggestionEngine(context: Context? = null) {
         "rất" to listOf("vui", "nhiều", "tốt", "hay"),
     )
 
+    private val englishContractions = mapOf(
+        "dont" to "don't", "cant" to "can't", "wont" to "won't", "didnt" to "didn't",
+        "doesnt" to "doesn't", "isnt" to "isn't", "arent" to "aren't", "wasnt" to "wasn't",
+        "werent" to "weren't", "havent" to "haven't", "hasnt" to "hasn't", "hadnt" to "hadn't",
+        "wouldnt" to "wouldn't", "couldnt" to "couldn't", "shouldnt" to "shouldn't",
+        "im" to "I'm", "ive" to "I've", "ill" to "I'll", "id" to "I'd",
+        "youre" to "you're", "youve" to "you've", "youll" to "you'll", "youd" to "you'd",
+        "hes" to "he's", "shes" to "she's", "its" to "it's", "theyre" to "they're",
+        "thats" to "that's", "whats" to "what's", "heres" to "here's", "theres" to "there's",
+        "lets" to "let's", "whos" to "who's", "wheres" to "where's", "hows" to "how's"
+    )
+
     private val emojiMap = mapOf(
         "vui" to "😊", "dzui" to "😄", "cười" to "😂", "yêu" to "❤️", "tim" to "❤️",
         "ok" to "👍", "được" to "👍", "dzách" to "🔥", "dzô" to "🍻", "buồn" to "😢",
@@ -546,6 +558,10 @@ class SuggestionEngine(context: Context? = null) {
         val results = mutableListOf<String>()
         // Slot 0 (Gboard left slot): exact composing text
         results.add(q)
+
+        englishContractions[lower]?.let { contraction ->
+            if (!results.contains(contraction)) results.add(contraction)
+        }
 
         // Slot 1 priority: Macro preview or Personal Dictionary shortcut
         if (!macroPreview.isNullOrEmpty() && !results.contains(macroPreview)) {

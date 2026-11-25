@@ -52,6 +52,7 @@ class VietKeyboardService : InputMethodService() {
 
     private var mode = Mode.LETTERS
     private var isVietnameseMode = true
+    private val enComposing = StringBuilder()
     private var shiftState = ShiftState.LOWER
     private var lastShiftClickTime = 0L
     private var lastSpaceClickTime = 0L
@@ -698,16 +699,31 @@ class VietKeyboardService : InputMethodService() {
             return
         }
         if (!isVietnameseMode) {
-            if (isMacroTrigger(c) && prefs.macroEnabled && prevCommittedWord1.isNotEmpty()) {
-                if (macroEngine.tryExpand(ic, c, beforeCursor = prevCommittedWord1)) {
+            if (isMacroTrigger(c)) {
+                val finishedEn = enComposing.toString()
+                enComposing.clear()
+                val lookup = if (finishedEn.isNotEmpty()) finishedEn else prevCommittedWord1
+                if (finishedEn.isNotEmpty()) {
+                    recordCommittedWord(finishedEn)
+                }
+                if (prefs.macroEnabled && lookup.isNotEmpty() && macroEngine.tryExpand(ic, c, beforeCursor = lookup)) {
                     updateAutoCapitalization()
                     updateSuggestions("")
                     return
                 }
+                ic.commitText(c.toString(), 1)
+                updateAutoCapitalization()
+                updateSuggestions("")
+                return
+            }
+            if (c.isLetter() || c == '\'') {
+                enComposing.append(c)
+            } else {
+                enComposing.clear()
             }
             ic.commitText(c.toString(), 1)
             updateAutoCapitalization()
-            updateSuggestions("")
+            updateSuggestions(enComposing.toString())
             return
         }
         if (isMacroTrigger(c)) {
@@ -1323,6 +1339,13 @@ class VietKeyboardService : InputMethodService() {
             vnEngine.reset(ic)
             ic.beginBatchEdit()
             ic.deleteSurroundingText(composing.length, 0)
+            ic.commitText("$word ", 1)
+            ic.endBatchEdit()
+        } else if (!isVietnameseMode && enComposing.isNotEmpty()) {
+            val len = enComposing.length
+            enComposing.clear()
+            ic.beginBatchEdit()
+            ic.deleteSurroundingText(len, 0)
             ic.commitText("$word ", 1)
             ic.endBatchEdit()
         } else {
