@@ -240,12 +240,13 @@ class VietKeyboardService : InputMethodService() {
             val sec = if (showSymbols) secondarySymbolForLetter(base) else null
             applyLetterKeyLabel(btn, displayPrimary, sec)
         }
-        val shiftBtn = keyboardView?.findViewById<Button>(R.id.key_shift)
-        shiftBtn?.text = when (shiftState) {
-            ShiftState.LOWER -> "⇧"
-            ShiftState.SHIFTED -> "⬆"
-            ShiftState.CAPS_LOCK -> "⇪"
-        }
+        val shiftBtn = keyboardView?.findViewById<android.widget.ImageButton>(R.id.key_shift)
+        shiftBtn?.setImageResource(
+            when (shiftState) {
+                ShiftState.LOWER -> R.drawable.ic_gboard_shift
+                ShiftState.SHIFTED, ShiftState.CAPS_LOCK -> R.drawable.ic_gboard_shift_filled
+            }
+        )
     }
 
     private fun onShiftPressed() {

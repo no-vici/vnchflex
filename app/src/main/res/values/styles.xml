@@ -45,10 +45,13 @@
 
     <style name="OvalFuncKeyBtn" parent="FuncKeyBtn">
         <item name="android:background">@drawable/key_oval_func_bg</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:paddingHorizontal">4dp</item>
     </style>
 
-    <style name="OvalIconKeyBtn" parent="OvalFuncKeyBtn">
-        <item name="android:textSize">21sp</item>
+    <style name="OvalImageKeyBtn" parent="OvalFuncKeyBtn">
+        <item name="android:scaleType">centerInside</item>
+        <item name="android:padding">10dp</item>
     </style>
 
     <style name="LogoSwitchKeyBtn" parent="FuncKeyBtn">
@@ -58,9 +61,8 @@
 
     <style name="EnterKeyBtn" parent="KeyBase">
         <item name="android:background">@drawable/key_enter_bg</item>
-        <item name="android:textColor">@color/enter_text</item>
-        <item name="android:textSize">22sp</item>
-        <item name="android:gravity">center</item>
+        <item name="android:scaleType">centerInside</item>
+        <item name="android:padding">10dp</item>
     </style>
 
     <style name="SpaceKeyBtn" parent="KeyBtn">
