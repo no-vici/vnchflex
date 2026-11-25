@@ -235,6 +235,8 @@ class VietKeyboardService : InputMethodService() {
             btn.setOnLongClickListener {
                 if (!prefs.longPressForSymbols) return@setOnLongClickListener false
                 val sec = secondarySymbolForLetter(baseLetter) ?: return@setOnLongClickListener false
+                dismissKeyPopup()
+                showKeyPopup(btn, sec)
                 performKeyFeedback(btn, isLongPress = true)
                 onSecondarySymbol(sec)
                 true
