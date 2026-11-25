@@ -1,5 +1,5 @@
 # CODEBASE DUMP: vnchflex
-# Total files: 33
+# Total files: 34
 ================================================================================
 
 ## PROJECT STRUCTURE
@@ -16,6 +16,7 @@
 - app/src/main/AndroidManifest.xml
 - app/src/main/java/com/vnchflex/vietkeyboard/engine/DiacriticUtils.kt
 - app/src/main/java/com/vnchflex/vietkeyboard/engine/VietnameseEngine.kt
+- app/src/main/java/com/vnchflex/vietkeyboard/ime/GboardKeyButton.kt
 - app/src/main/java/com/vnchflex/vietkeyboard/ime/VietKeyboardService.kt
 - app/src/main/java/com/vnchflex/vietkeyboard/macro/Macro.kt
 - app/src/main/java/com/vnchflex/vietkeyboard/macro/MacroEngine.kt
@@ -1608,6 +1609,62 @@ class VietnameseEngine {
 }
 ===== END FILE: app/src/main/java/com/vnchflex/vietkeyboard/engine/VietnameseEngine.kt =====
 
+===== FILE: app/src/main/java/com/vnchflex/vietkeyboard/ime/GboardKeyButton.kt =====
+package com.vnchflex.vietkeyboard.ime
+
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.util.AttributeSet
+import androidx.appcompat.widget.AppCompatButton
+import com.vnchflex.vietkeyboard.R
+
+/**
+ * Custom Gboard-identical key button:
+ * - Draws the primary letter (`Q`, `W`, `E`... or `q`, `w`, `e`...) perfectly centered in the key
+ *   with zero multi-line clipping.
+ * - Draws the secondary symbol badge (`%`, `\`, `|`, `=`, `[`, `]`, `<`, `>`, `{`, `}`, `@`, `#`, `đ`...)
+ *   pinned neatly in the top-right corner of the key, exactly matching Gboard's layout.
+ */
+class GboardKeyButton @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = android.R.attr.buttonStyle
+) : AppCompatButton(context, attrs, defStyleAttr) {
+
+    var secondarySymbol: String? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    private val symbolPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.RIGHT
+        typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        // 1. Let AppCompatButton draw the centered single-line primary letter
+        super.onDraw(canvas)
+
+        // 2. Draw the secondary symbol badge in the top-right corner of the key (Gboard style)
+        val sec = secondarySymbol
+        if (!sec.isNullOrEmpty()) {
+            val density = resources.displayMetrics.density
+            val scaledDensity = resources.displayMetrics.scaledDensity
+            symbolPaint.textSize = 10.5f * scaledDensity
+            symbolPaint.color = context.getColor(R.color.key_hint)
+
+            val x = width - (4.5f * density)
+            val fm = symbolPaint.fontMetrics
+            val y = (3.5f * density) - fm.ascent
+            canvas.drawText(sec, x, y, symbolPaint)
+        }
+    }
+}
+===== END FILE: app/src/main/java/com/vnchflex/vietkeyboard/ime/GboardKeyButton.kt =====
+
 ===== FILE: app/src/main/java/com/vnchflex/vietkeyboard/ime/VietKeyboardService.kt =====
 package com.vnchflex.vietkeyboard.ime
 
@@ -1665,7 +1722,7 @@ class VietKeyboardService : InputMethodService() {
     private var prevCommittedWord2 = ""
     private var prevCommittedWord1 = ""
 
-    private val letterButtons = mutableMapOf<Button, String>()
+    private val letterButtons = mutableMapOf<GboardKeyButton, String>()
 
     override fun onCreate() {
         super.onCreate()
@@ -1757,7 +1814,7 @@ class VietKeyboardService : InputMethodService() {
             R.id.key_z, R.id.key_x, R.id.key_c, R.id.key_v, R.id.key_b, R.id.key_n, R.id.key_m,
         )
         letterIds.forEach { id ->
-            val btn = root.findViewById<Button>(id)
+            val btn = root.findViewById<GboardKeyButton>(id)
             val baseLetter = btn.text.toString().lowercase()
             letterButtons[btn] = baseLetter
 
@@ -1913,6 +1970,18 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun onSecondarySymbol(symbol: String) {
+        val ic = currentInputConnection ?: return
+        // Nếu ký hiệu phụ là chữ cái tiếng Việt (vd: phím D có ký hiệu phụ 'đ'/'Đ' chuẩn Gboard Tiếng Việt),
+        // tự động khớp chữ HOA/thường theo trạng thái Shift và đưa vào bộ gõ.
+        if (symbol.length == 1 && symbol[0].isLetter()) {
+            val ch = if (shiftState != ShiftState.LOWER) symbol.uppercase()[0] else symbol.lowercase()[0]
+            onChar(ch)
+            if (shiftState == ShiftState.SHIFTED) {
+                shiftState = ShiftState.LOWER
+                refreshLetterKeyLabels()
+            }
+            return
+        }
         commitRaw(symbol)
     }
 
@@ -2069,52 +2138,38 @@ class VietKeyboardService : InputMethodService() {
     }
 
     /**
-     * Chỉ phím chữ mới có symbol phụ ở góc trên.
-     * Phím số trên hàng số (Number row) chỉ hiển thị duy nhất chữ số.
+     * Chỉ phím chữ mới có symbol phụ ở góc trên bên phải (vẽ bằng GboardKeyButton,
+     * chữ cái chính luôn nằm chính giữa phím, không bao giờ bị tụt hay bị cắt).
      */
-    private fun applyLetterKeyLabel(btn: Button, primary: String, secondary: String?) {
-        if (secondary.isNullOrEmpty()) {
-            btn.text = primary
-            return
-        }
-        val label = "$secondary\n$primary"
-        val span = SpannableString(label)
-        span.setSpan(
-            RelativeSizeSpan(0.52f),
-            0,
-            secondary.length,
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
-        span.setSpan(
-            ForegroundColorSpan(getColor(R.color.key_hint)),
-            0,
-            secondary.length,
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
-        btn.setLineSpacing(0f, 0.85f)
-        btn.text = span
+    private fun applyLetterKeyLabel(btn: GboardKeyButton, primary: String, secondary: String?) {
+        btn.text = primary
+        btn.secondarySymbol = secondary
     }
 
     /**
-     * Bảng ký hiệu phụ chuẩn Gboard dành riêng cho 26 phím chữ cái.
+     * Bảng ký hiệu phụ chuẩn Gboard Tiếng Việt dành riêng cho 26 phím chữ cái:
+     * - Khi đã bật Hàng phím số (showNumberRow = true), hàng Q..P hiển thị bộ ký hiệu Gboard: % \ | = [ ] < > { }
+     * - Khi tắt Hàng phím số (showNumberRow = false), hàng Q..P hiển thị số: 1 2 3 4 5 6 7 8 9 0
+     * - Hàng A..L: @ # đ _ & - + ( )
+     * - Hàng Z..M: * " ' : ; ! ?
      */
     private fun secondarySymbolForLetter(letterKey: String): String? = when (letterKey.lowercase()) {
         // Hàng chữ trên (QWERTYUIOP)
-        "q" -> "1"
-        "w" -> "2"
-        "e" -> "3"
-        "r" -> "4"
-        "t" -> "5"
-        "y" -> "6"
-        "u" -> "7"
-        "i" -> "8"
-        "o" -> "9"
-        "p" -> "0"
-        // Hàng chữ giữa (ASDFGHJKL)
+        "q" -> if (prefs.showNumberRow) "%" else "1"
+        "w" -> if (prefs.showNumberRow) "\\" else "2"
+        "e" -> if (prefs.showNumberRow) "|" else "3"
+        "r" -> if (prefs.showNumberRow) "=" else "4"
+        "t" -> if (prefs.showNumberRow) "[" else "5"
+        "y" -> if (prefs.showNumberRow) "]" else "6"
+        "u" -> if (prefs.showNumberRow) "<" else "7"
+        "i" -> if (prefs.showNumberRow) ">" else "8"
+        "o" -> if (prefs.showNumberRow) "{" else "9"
+        "p" -> if (prefs.showNumberRow) "}" else "0"
+        // Hàng chữ giữa (ASDFGHJKL) - chuẩn Gboard Tiếng Việt (D -> đ, F -> _)
         "a" -> "@"
         "s" -> "#"
-        "d" -> "$"
-        "f" -> "%"
+        "d" -> if (shiftState != ShiftState.LOWER) "Đ" else "đ"
+        "f" -> "_"
         "g" -> "&"
         "h" -> "-"
         "j" -> "+"
@@ -4208,16 +4263,16 @@ iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAG7ElEQVR4AUxUCWxUxxn+Zt7l9d5mbbPG
 
         <!-- Row 1: Q W E R T Y U I O P -->
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <Button android:id="@+id/key_q" style="@style/KeyBtn" android:text="q" />
-            <Button android:id="@+id/key_w" style="@style/KeyBtn" android:text="w" />
-            <Button android:id="@+id/key_e" style="@style/KeyBtn" android:text="e" />
-            <Button android:id="@+id/key_r" style="@style/KeyBtn" android:text="r" />
-            <Button android:id="@+id/key_t" style="@style/KeyBtn" android:text="t" />
-            <Button android:id="@+id/key_y" style="@style/KeyBtn" android:text="y" />
-            <Button android:id="@+id/key_u" style="@style/KeyBtn" android:text="u" />
-            <Button android:id="@+id/key_i" style="@style/KeyBtn" android:text="i" />
-            <Button android:id="@+id/key_o" style="@style/KeyBtn" android:text="o" />
-            <Button android:id="@+id/key_p" style="@style/KeyBtn" android:text="p" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_q" style="@style/KeyBtn" android:text="q" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_w" style="@style/KeyBtn" android:text="w" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_e" style="@style/KeyBtn" android:text="e" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_r" style="@style/KeyBtn" android:text="r" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_t" style="@style/KeyBtn" android:text="t" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_y" style="@style/KeyBtn" android:text="y" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_u" style="@style/KeyBtn" android:text="u" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_i" style="@style/KeyBtn" android:text="i" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_o" style="@style/KeyBtn" android:text="o" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_p" style="@style/KeyBtn" android:text="p" />
         </LinearLayout>
 
         <!-- Row 2: A S D F G H J K L (Gboard half-key horizontal indent) -->
@@ -4227,27 +4282,27 @@ iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAG7ElEQVR4AUxUCWxUxxn+Zt7l9d5mbbPG
             android:orientation="horizontal"
             android:paddingStart="16dp"
             android:paddingEnd="16dp">
-            <Button android:id="@+id/key_a" style="@style/KeyBtn" android:text="a" />
-            <Button android:id="@+id/key_s" style="@style/KeyBtn" android:text="s" />
-            <Button android:id="@+id/key_d" style="@style/KeyBtn" android:text="d" />
-            <Button android:id="@+id/key_f" style="@style/KeyBtn" android:text="f" />
-            <Button android:id="@+id/key_g" style="@style/KeyBtn" android:text="g" />
-            <Button android:id="@+id/key_h" style="@style/KeyBtn" android:text="h" />
-            <Button android:id="@+id/key_j" style="@style/KeyBtn" android:text="j" />
-            <Button android:id="@+id/key_k" style="@style/KeyBtn" android:text="k" />
-            <Button android:id="@+id/key_l" style="@style/KeyBtn" android:text="l" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_a" style="@style/KeyBtn" android:text="a" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_s" style="@style/KeyBtn" android:text="s" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_d" style="@style/KeyBtn" android:text="d" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_f" style="@style/KeyBtn" android:text="f" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_g" style="@style/KeyBtn" android:text="g" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_h" style="@style/KeyBtn" android:text="h" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_j" style="@style/KeyBtn" android:text="j" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_k" style="@style/KeyBtn" android:text="k" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_l" style="@style/KeyBtn" android:text="l" />
         </LinearLayout>
 
         <!-- Row 3: Gboard Shift (⇧) + Z X C V B N M + Backspace (⌫) -->
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
             <Button android:id="@+id/key_shift" style="@style/FuncKeyBtn" android:layout_weight="1.5" android:text="⇧" />
-            <Button android:id="@+id/key_z" style="@style/KeyBtn" android:text="z" />
-            <Button android:id="@+id/key_x" style="@style/KeyBtn" android:text="x" />
-            <Button android:id="@+id/key_c" style="@style/KeyBtn" android:text="c" />
-            <Button android:id="@+id/key_v" style="@style/KeyBtn" android:text="v" />
-            <Button android:id="@+id/key_b" style="@style/KeyBtn" android:text="b" />
-            <Button android:id="@+id/key_n" style="@style/KeyBtn" android:text="n" />
-            <Button android:id="@+id/key_m" style="@style/KeyBtn" android:text="m" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_z" style="@style/KeyBtn" android:text="z" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_x" style="@style/KeyBtn" android:text="x" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_c" style="@style/KeyBtn" android:text="c" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_v" style="@style/KeyBtn" android:text="v" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_b" style="@style/KeyBtn" android:text="b" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_n" style="@style/KeyBtn" android:text="n" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_m" style="@style/KeyBtn" android:text="m" />
             <Button android:id="@+id/key_backspace" style="@style/FuncKeyBtn" android:layout_weight="1.5" android:text="⌫" />
         </LinearLayout>
 
@@ -4430,6 +4485,7 @@ iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAG7ElEQVR4AUxUCWxUxxn+Zt7l9d5mbbPG
         <item name="android:insetTop">0dp</item>
         <item name="android:insetBottom">0dp</item>
         <item name="android:textAllCaps">false</item>
+        <item name="android:includeFontPadding">false</item>
         <item name="android:textColor">@color/key_text</item>
         <item name="android:backgroundTint">@null</item>
         <item name="android:stateListAnimator">@null</item>
@@ -4438,42 +4494,42 @@ iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAG7ElEQVR4AUxUCWxUxxn+Zt7l9d5mbbPG
 
     <style name="KeyBtn" parent="KeyBase">
         <item name="android:background">@drawable/key_bg</item>
-        <item name="android:textSize">20sp</item>
+        <item name="android:textSize">21sp</item>
         <item name="android:gravity">center</item>
     </style>
 
     <!-- Gboard Number Row: Pure number keys only, no secondary symbol -->
     <style name="NumberKeyBtn" parent="KeyBase">
-        <item name="android:layout_height">38dp</item>
-        <item name="android:layout_marginTop">2dp</item>
-        <item name="android:layout_marginBottom">2dp</item>
+        <item name="android:layout_height">40dp</item>
+        <item name="android:layout_marginTop">2.5dp</item>
+        <item name="android:layout_marginBottom">2.5dp</item>
         <item name="android:background">@drawable/key_bg</item>
-        <item name="android:textSize">17sp</item>
+        <item name="android:textSize">19sp</item>
         <item name="android:textColor">@color/key_text</item>
         <item name="android:gravity">center</item>
     </style>
 
     <style name="FuncKeyBtn" parent="KeyBase">
         <item name="android:background">@drawable/key_func_bg</item>
-        <item name="android:textSize">14sp</item>
+        <item name="android:textSize">15sp</item>
         <item name="android:gravity">center</item>
     </style>
 
     <style name="LogoSwitchKeyBtn" parent="FuncKeyBtn">
         <item name="android:scaleType">centerInside</item>
-        <item name="android:padding">8dp</item>
+        <item name="android:padding">9dp</item>
     </style>
 
     <style name="EnterKeyBtn" parent="KeyBase">
         <item name="android:background">@drawable/key_enter_bg</item>
         <item name="android:textColor">@color/enter_text</item>
-        <item name="android:textSize">17sp</item>
+        <item name="android:textSize">18sp</item>
         <item name="android:gravity">center</item>
     </style>
 
     <style name="SpaceKeyBtn" parent="KeyBtn">
-        <item name="android:textSize">13sp</item>
-        <item name="android:textColor">@color/key_hint</item>
+        <item name="android:textSize">13.5sp</item>
+        <item name="android:textColor">@color/key_text</item>
     </style>
 
     <style name="ToolbarChipBtn">
@@ -4489,6 +4545,7 @@ iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAG7ElEQVR4AUxUCWxUxxn+Zt7l9d5mbbPG
         <item name="android:backgroundTint">@null</item>
         <item name="android:stateListAnimator">@null</item>
         <item name="android:textAllCaps">false</item>
+        <item name="android:includeFontPadding">false</item>
         <item name="android:textColor">@color/key_text</item>
         <item name="android:textSize">11.5sp</item>
     </style>

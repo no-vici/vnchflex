@@ -54,7 +54,7 @@ class VietKeyboardService : InputMethodService() {
     private var prevCommittedWord2 = ""
     private var prevCommittedWord1 = ""
 
-    private val letterButtons = mutableMapOf<Button, String>()
+    private val letterButtons = mutableMapOf<GboardKeyButton, String>()
 
     override fun onCreate() {
         super.onCreate()
@@ -146,7 +146,7 @@ class VietKeyboardService : InputMethodService() {
             R.id.key_z, R.id.key_x, R.id.key_c, R.id.key_v, R.id.key_b, R.id.key_n, R.id.key_m,
         )
         letterIds.forEach { id ->
-            val btn = root.findViewById<Button>(id)
+            val btn = root.findViewById<GboardKeyButton>(id)
             val baseLetter = btn.text.toString().lowercase()
             letterButtons[btn] = baseLetter
 
@@ -302,6 +302,18 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun onSecondarySymbol(symbol: String) {
+        val ic = currentInputConnection ?: return
+        // Nếu ký hiệu phụ là chữ cái tiếng Việt (vd: phím D có ký hiệu phụ 'đ'/'Đ' chuẩn Gboard Tiếng Việt),
+        // tự động khớp chữ HOA/thường theo trạng thái Shift và đưa vào bộ gõ.
+        if (symbol.length == 1 && symbol[0].isLetter()) {
+            val ch = if (shiftState != ShiftState.LOWER) symbol.uppercase()[0] else symbol.lowercase()[0]
+            onChar(ch)
+            if (shiftState == ShiftState.SHIFTED) {
+                shiftState = ShiftState.LOWER
+                refreshLetterKeyLabels()
+            }
+            return
+        }
         commitRaw(symbol)
     }
 
@@ -458,52 +470,38 @@ class VietKeyboardService : InputMethodService() {
     }
 
     /**
-     * Chỉ phím chữ mới có symbol phụ ở góc trên.
-     * Phím số trên hàng số (Number row) chỉ hiển thị duy nhất chữ số.
+     * Chỉ phím chữ mới có symbol phụ ở góc trên bên phải (vẽ bằng GboardKeyButton,
+     * chữ cái chính luôn nằm chính giữa phím, không bao giờ bị tụt hay bị cắt).
      */
-    private fun applyLetterKeyLabel(btn: Button, primary: String, secondary: String?) {
-        if (secondary.isNullOrEmpty()) {
-            btn.text = primary
-            return
-        }
-        val label = "$secondary\n$primary"
-        val span = SpannableString(label)
-        span.setSpan(
-            RelativeSizeSpan(0.52f),
-            0,
-            secondary.length,
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
-        span.setSpan(
-            ForegroundColorSpan(getColor(R.color.key_hint)),
-            0,
-            secondary.length,
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
-        btn.setLineSpacing(0f, 0.85f)
-        btn.text = span
+    private fun applyLetterKeyLabel(btn: GboardKeyButton, primary: String, secondary: String?) {
+        btn.text = primary
+        btn.secondarySymbol = secondary
     }
 
     /**
-     * Bảng ký hiệu phụ chuẩn Gboard dành riêng cho 26 phím chữ cái.
+     * Bảng ký hiệu phụ chuẩn Gboard Tiếng Việt dành riêng cho 26 phím chữ cái:
+     * - Khi đã bật Hàng phím số (showNumberRow = true), hàng Q..P hiển thị bộ ký hiệu Gboard: % \ | = [ ] < > { }
+     * - Khi tắt Hàng phím số (showNumberRow = false), hàng Q..P hiển thị số: 1 2 3 4 5 6 7 8 9 0
+     * - Hàng A..L: @ # đ _ & - + ( )
+     * - Hàng Z..M: * " ' : ; ! ?
      */
     private fun secondarySymbolForLetter(letterKey: String): String? = when (letterKey.lowercase()) {
         // Hàng chữ trên (QWERTYUIOP)
-        "q" -> "1"
-        "w" -> "2"
-        "e" -> "3"
-        "r" -> "4"
-        "t" -> "5"
-        "y" -> "6"
-        "u" -> "7"
-        "i" -> "8"
-        "o" -> "9"
-        "p" -> "0"
-        // Hàng chữ giữa (ASDFGHJKL)
+        "q" -> if (prefs.showNumberRow) "%" else "1"
+        "w" -> if (prefs.showNumberRow) "\\" else "2"
+        "e" -> if (prefs.showNumberRow) "|" else "3"
+        "r" -> if (prefs.showNumberRow) "=" else "4"
+        "t" -> if (prefs.showNumberRow) "[" else "5"
+        "y" -> if (prefs.showNumberRow) "]" else "6"
+        "u" -> if (prefs.showNumberRow) "<" else "7"
+        "i" -> if (prefs.showNumberRow) ">" else "8"
+        "o" -> if (prefs.showNumberRow) "{" else "9"
+        "p" -> if (prefs.showNumberRow) "}" else "0"
+        // Hàng chữ giữa (ASDFGHJKL) - chuẩn Gboard Tiếng Việt (D -> đ, F -> _)
         "a" -> "@"
         "s" -> "#"
-        "d" -> "$"
-        "f" -> "%"
+        "d" -> if (shiftState != ShiftState.LOWER) "Đ" else "đ"
+        "f" -> "_"
         "g" -> "&"
         "h" -> "-"
         "j" -> "+"

@@ -13,6 +13,7 @@
         <item name="android:insetTop">0dp</item>
         <item name="android:insetBottom">0dp</item>
         <item name="android:textAllCaps">false</item>
+        <item name="android:includeFontPadding">false</item>
         <item name="android:textColor">@color/key_text</item>
         <item name="android:backgroundTint">@null</item>
         <item name="android:stateListAnimator">@null</item>
@@ -21,42 +22,42 @@
 
     <style name="KeyBtn" parent="KeyBase">
         <item name="android:background">@drawable/key_bg</item>
-        <item name="android:textSize">20sp</item>
+        <item name="android:textSize">21sp</item>
         <item name="android:gravity">center</item>
     </style>
 
     <!-- Gboard Number Row: Pure number keys only, no secondary symbol -->
     <style name="NumberKeyBtn" parent="KeyBase">
-        <item name="android:layout_height">38dp</item>
-        <item name="android:layout_marginTop">2dp</item>
-        <item name="android:layout_marginBottom">2dp</item>
+        <item name="android:layout_height">40dp</item>
+        <item name="android:layout_marginTop">2.5dp</item>
+        <item name="android:layout_marginBottom">2.5dp</item>
         <item name="android:background">@drawable/key_bg</item>
-        <item name="android:textSize">17sp</item>
+        <item name="android:textSize">19sp</item>
         <item name="android:textColor">@color/key_text</item>
         <item name="android:gravity">center</item>
     </style>
 
     <style name="FuncKeyBtn" parent="KeyBase">
         <item name="android:background">@drawable/key_func_bg</item>
-        <item name="android:textSize">14sp</item>
+        <item name="android:textSize">15sp</item>
         <item name="android:gravity">center</item>
     </style>
 
     <style name="LogoSwitchKeyBtn" parent="FuncKeyBtn">
         <item name="android:scaleType">centerInside</item>
-        <item name="android:padding">8dp</item>
+        <item name="android:padding">9dp</item>
     </style>
 
     <style name="EnterKeyBtn" parent="KeyBase">
         <item name="android:background">@drawable/key_enter_bg</item>
         <item name="android:textColor">@color/enter_text</item>
-        <item name="android:textSize">17sp</item>
+        <item name="android:textSize">18sp</item>
         <item name="android:gravity">center</item>
     </style>
 
     <style name="SpaceKeyBtn" parent="KeyBtn">
-        <item name="android:textSize">13sp</item>
-        <item name="android:textColor">@color/key_hint</item>
+        <item name="android:textSize">13.5sp</item>
+        <item name="android:textColor">@color/key_text</item>
     </style>
 
     <style name="ToolbarChipBtn">
@@ -72,6 +73,7 @@
         <item name="android:backgroundTint">@null</item>
         <item name="android:stateListAnimator">@null</item>
         <item name="android:textAllCaps">false</item>
+        <item name="android:includeFontPadding">false</item>
         <item name="android:textColor">@color/key_text</item>
         <item name="android:textSize">11.5sp</item>
     </style>

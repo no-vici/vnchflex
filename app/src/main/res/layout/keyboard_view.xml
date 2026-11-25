@@ -80,16 +80,16 @@
 
         <!-- Row 1: Q W E R T Y U I O P -->
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <Button android:id="@+id/key_q" style="@style/KeyBtn" android:text="q" />
-            <Button android:id="@+id/key_w" style="@style/KeyBtn" android:text="w" />
-            <Button android:id="@+id/key_e" style="@style/KeyBtn" android:text="e" />
-            <Button android:id="@+id/key_r" style="@style/KeyBtn" android:text="r" />
-            <Button android:id="@+id/key_t" style="@style/KeyBtn" android:text="t" />
-            <Button android:id="@+id/key_y" style="@style/KeyBtn" android:text="y" />
-            <Button android:id="@+id/key_u" style="@style/KeyBtn" android:text="u" />
-            <Button android:id="@+id/key_i" style="@style/KeyBtn" android:text="i" />
-            <Button android:id="@+id/key_o" style="@style/KeyBtn" android:text="o" />
-            <Button android:id="@+id/key_p" style="@style/KeyBtn" android:text="p" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_q" style="@style/KeyBtn" android:text="q" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_w" style="@style/KeyBtn" android:text="w" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_e" style="@style/KeyBtn" android:text="e" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_r" style="@style/KeyBtn" android:text="r" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_t" style="@style/KeyBtn" android:text="t" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_y" style="@style/KeyBtn" android:text="y" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_u" style="@style/KeyBtn" android:text="u" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_i" style="@style/KeyBtn" android:text="i" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_o" style="@style/KeyBtn" android:text="o" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_p" style="@style/KeyBtn" android:text="p" />
         </LinearLayout>
 
         <!-- Row 2: A S D F G H J K L (Gboard half-key horizontal indent) -->
@@ -99,27 +99,27 @@
             android:orientation="horizontal"
             android:paddingStart="16dp"
             android:paddingEnd="16dp">
-            <Button android:id="@+id/key_a" style="@style/KeyBtn" android:text="a" />
-            <Button android:id="@+id/key_s" style="@style/KeyBtn" android:text="s" />
-            <Button android:id="@+id/key_d" style="@style/KeyBtn" android:text="d" />
-            <Button android:id="@+id/key_f" style="@style/KeyBtn" android:text="f" />
-            <Button android:id="@+id/key_g" style="@style/KeyBtn" android:text="g" />
-            <Button android:id="@+id/key_h" style="@style/KeyBtn" android:text="h" />
-            <Button android:id="@+id/key_j" style="@style/KeyBtn" android:text="j" />
-            <Button android:id="@+id/key_k" style="@style/KeyBtn" android:text="k" />
-            <Button android:id="@+id/key_l" style="@style/KeyBtn" android:text="l" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_a" style="@style/KeyBtn" android:text="a" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_s" style="@style/KeyBtn" android:text="s" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_d" style="@style/KeyBtn" android:text="d" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_f" style="@style/KeyBtn" android:text="f" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_g" style="@style/KeyBtn" android:text="g" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_h" style="@style/KeyBtn" android:text="h" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_j" style="@style/KeyBtn" android:text="j" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_k" style="@style/KeyBtn" android:text="k" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_l" style="@style/KeyBtn" android:text="l" />
         </LinearLayout>
 
         <!-- Row 3: Gboard Shift (⇧) + Z X C V B N M + Backspace (⌫) -->
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
             <Button android:id="@+id/key_shift" style="@style/FuncKeyBtn" android:layout_weight="1.5" android:text="⇧" />
-            <Button android:id="@+id/key_z" style="@style/KeyBtn" android:text="z" />
-            <Button android:id="@+id/key_x" style="@style/KeyBtn" android:text="x" />
-            <Button android:id="@+id/key_c" style="@style/KeyBtn" android:text="c" />
-            <Button android:id="@+id/key_v" style="@style/KeyBtn" android:text="v" />
-            <Button android:id="@+id/key_b" style="@style/KeyBtn" android:text="b" />
-            <Button android:id="@+id/key_n" style="@style/KeyBtn" android:text="n" />
-            <Button android:id="@+id/key_m" style="@style/KeyBtn" android:text="m" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_z" style="@style/KeyBtn" android:text="z" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_x" style="@style/KeyBtn" android:text="x" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_c" style="@style/KeyBtn" android:text="c" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_v" style="@style/KeyBtn" android:text="v" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_b" style="@style/KeyBtn" android:text="b" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_n" style="@style/KeyBtn" android:text="n" />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_m" style="@style/KeyBtn" android:text="m" />
             <Button android:id="@+id/key_backspace" style="@style/FuncKeyBtn" android:layout_weight="1.5" android:text="⌫" />
         </LinearLayout>
 
