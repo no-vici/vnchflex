@@ -56,8 +56,9 @@ object GlideDecoder {
             if (exactFirst) score += 90 else score += 25
             if (exactLast) score += 90 else score += 25
             if (subseqMatched) score += 220
-            score -= dist * 28
-            score -= kotlin.math.abs(collapsedTarget.length - raw.length) * 10
+            if (dist == 0) score += 140
+            score -= dist * 45
+            score -= kotlin.math.abs(collapsedTarget.length - raw.length) * 18
             score += (contextWeights[word] ?: 0) * 65
             scored.add(word to score)
         }

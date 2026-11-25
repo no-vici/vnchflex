@@ -490,7 +490,13 @@ class VietKeyboardService : InputMethodService() {
                             }
                         }
                     }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    MotionEvent.ACTION_UP -> {
+                        if (didSwipe) return@setOnTouchListener true
+                        performKeyFeedback(btn)
+                        onSpacePressed()
+                        return@setOnTouchListener true
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
                         if (didSwipe) return@setOnTouchListener true
                     }
                 }
