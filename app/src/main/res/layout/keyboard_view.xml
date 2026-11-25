@@ -1,27 +1,71 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/keyboard_root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@color/keyboard_bg"
     android:orientation="vertical"
-    android:padding="4dp">
+    android:paddingHorizontal="3dp"
+    android:paddingTop="3dp"
+    android:paddingBottom="6dp">
 
+    <!-- GBOARD TOP BAR: Quick Tools (Bỏ dấu tự do vnchKey, Macro, Clipboard, Settings) + 3-Slot Suggestion Strip -->
     <LinearLayout
-        android:id="@+id/suggestion_bar"
+        android:id="@+id/top_strip_container"
         android:layout_width="match_parent"
-        android:layout_height="44dp"
+        android:layout_height="42dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingHorizontal="4dp" />
+        android:paddingHorizontal="2dp">
 
-    <!-- LETTERS PANEL -->
+        <!-- Nút Bỏ dấu tự do (vnchKey) -->
+        <Button
+            android:id="@+id/key_strip_diacritics"
+            style="@style/ToolbarChipBtn"
+            android:text="@string/key_strip_diacritics" />
+
+        <!-- Nút mở nhanh Bảng gõ tắt Macro (vnchKey) -->
+        <Button
+            android:id="@+id/btn_toolbar_macro"
+            style="@style/ToolbarChipBtn"
+            android:text="Gõ tắt" />
+
+        <!-- Nút dán nhanh Bảng nhớ tạm Gboard -->
+        <Button
+            android:id="@+id/btn_toolbar_clipboard"
+            style="@style/ToolbarChipBtn"
+            android:text="📋" />
+
+        <!-- Gboard 3-slot Suggestion Strip -->
+        <LinearLayout
+            android:id="@+id/suggestion_bar"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingHorizontal="2dp" />
+
+        <!-- Nút mở Cài đặt Gboard & vnchKey -->
+        <Button
+            android:id="@+id/btn_toolbar_settings"
+            style="@style/ToolbarChipBtn"
+            android:text="⚙" />
+    </LinearLayout>
+
+    <!-- LETTERS PANEL (GBOARD IDENTICAL LAYOUT) -->
     <LinearLayout
         android:id="@+id/panel_letters"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <!-- Optional Gboard Number Row (Pure digits 1..0 ONLY, toggled via Preferences -> Number row) -->
+        <LinearLayout
+            android:id="@+id/row_numbers"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
             <Button android:id="@+id/key_num_1" style="@style/NumberKeyBtn" android:text="1" />
             <Button android:id="@+id/key_num_2" style="@style/NumberKeyBtn" android:text="2" />
             <Button android:id="@+id/key_num_3" style="@style/NumberKeyBtn" android:text="3" />
@@ -34,6 +78,7 @@
             <Button android:id="@+id/key_num_0" style="@style/NumberKeyBtn" android:text="0" />
         </LinearLayout>
 
+        <!-- Row 1: Q W E R T Y U I O P -->
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
             <Button android:id="@+id/key_q" style="@style/KeyBtn" android:text="q" />
             <Button android:id="@+id/key_w" style="@style/KeyBtn" android:text="w" />
@@ -47,7 +92,13 @@
             <Button android:id="@+id/key_p" style="@style/KeyBtn" android:text="p" />
         </LinearLayout>
 
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingStart="14dp" android:paddingEnd="14dp">
+        <!-- Row 2: A S D F G H J K L (Gboard half-key horizontal indent) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
             <Button android:id="@+id/key_a" style="@style/KeyBtn" android:text="a" />
             <Button android:id="@+id/key_s" style="@style/KeyBtn" android:text="s" />
             <Button android:id="@+id/key_d" style="@style/KeyBtn" android:text="d" />
@@ -59,8 +110,9 @@
             <Button android:id="@+id/key_l" style="@style/KeyBtn" android:text="l" />
         </LinearLayout>
 
+        <!-- Row 3: Gboard Shift (⇧) + Z X C V B N M + Backspace (⌫) -->
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <Button android:id="@+id/key_strip_diacritics" style="@style/FuncKeyBtn" android:layout_weight="1.5" android:text="@string/key_strip_diacritics" />
+            <Button android:id="@+id/key_shift" style="@style/FuncKeyBtn" android:layout_weight="1.5" android:text="⇧" />
             <Button android:id="@+id/key_z" style="@style/KeyBtn" android:text="z" />
             <Button android:id="@+id/key_x" style="@style/KeyBtn" android:text="x" />
             <Button android:id="@+id/key_c" style="@style/KeyBtn" android:text="c" />
@@ -71,13 +123,15 @@
             <Button android:id="@+id/key_backspace" style="@style/FuncKeyBtn" android:layout_weight="1.5" android:text="⌫" />
         </LinearLayout>
 
+        <!-- Row 4: ?123 | , | Logo Switch IME | (Optional Emoji) | Spacebar | . | Enter -->
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <Button android:id="@+id/key_mode_symbols" style="@style/FuncKeyBtn" android:layout_weight="1.2" android:text="\?123" />
-            <Button android:id="@+id/key_comma" style="@style/KeyBtn" android:text="," />
-            <Button android:id="@+id/key_switch_ime" style="@style/FuncKeyBtn" android:text="🌐" />
-            <Button android:id="@+id/key_space" style="@style/SpaceKeyBtn" android:layout_weight="4" android:text="@string/key_space" />
-            <Button android:id="@+id/key_dot" style="@style/KeyBtn" android:text="." />
-            <Button android:id="@+id/key_enter" style="@style/EnterKeyBtn" android:layout_weight="1.2" android:text="↵" />
+            <Button android:id="@+id/key_mode_symbols" style="@style/FuncKeyBtn" android:layout_weight="1.3" android:text="\?123" />
+            <Button android:id="@+id/key_comma" style="@style/FuncKeyBtn" android:layout_weight="0.9" android:text="," />
+            <ImageButton android:id="@+id/key_switch_ime" style="@style/LogoSwitchKeyBtn" android:layout_weight="1.0" android:src="@drawable/ic_switch_ime_logo" android:contentDescription="@string/app_name" />
+            <Button android:id="@+id/key_emoji" style="@style/FuncKeyBtn" android:layout_weight="0.9" android:text="😊" android:visibility="gone" />
+            <Button android:id="@+id/key_space" style="@style/SpaceKeyBtn" android:layout_weight="4.2" android:text="@string/key_space" />
+            <Button android:id="@+id/key_dot" style="@style/FuncKeyBtn" android:layout_weight="0.9" android:text="." />
+            <Button android:id="@+id/key_enter" style="@style/EnterKeyBtn" android:layout_weight="1.4" android:text="↵" />
         </LinearLayout>
     </LinearLayout>
 
@@ -106,12 +160,13 @@
             <Button android:id="@+id/s1_at" style="@style/KeyBtn" android:text="\@" />
             <Button android:id="@+id/s1_hash" style="@style/KeyBtn" android:text="#" />
             <Button android:id="@+id/s1_dollar" style="@style/KeyBtn" android:text="$" />
-            <Button android:id="@+id/s1_percent" style="@style/KeyBtn" android:text="%" />
+            <Button android:id="@+id/s1_underscore" style="@style/KeyBtn" android:text="_" />
             <Button android:id="@+id/s1_amp" style="@style/KeyBtn" android:text="&amp;" />
             <Button android:id="@+id/s1_minus" style="@style/KeyBtn" android:text="-" />
             <Button android:id="@+id/s1_plus" style="@style/KeyBtn" android:text="+" />
             <Button android:id="@+id/s1_lparen" style="@style/KeyBtn" android:text="(" />
             <Button android:id="@+id/s1_rparen" style="@style/KeyBtn" android:text=")" />
+            <Button android:id="@+id/s1_slash" style="@style/KeyBtn" android:text="/" />
         </LinearLayout>
 
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
@@ -127,12 +182,12 @@
         </LinearLayout>
 
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <Button android:id="@+id/key_mode_letters_s1" style="@style/FuncKeyBtn" android:layout_weight="1.2" android:text="ABC" />
-            <Button android:id="@+id/s1_comma" style="@style/KeyBtn" android:text="," />
-            <Button android:id="@+id/key_switch_ime_s1" style="@style/FuncKeyBtn" android:text="🌐" />
-            <Button android:id="@+id/key_space_s1" style="@style/SpaceKeyBtn" android:layout_weight="4" android:text="@string/key_space" />
-            <Button android:id="@+id/s1_dot" style="@style/KeyBtn" android:text="." />
-            <Button android:id="@+id/key_enter_s1" style="@style/EnterKeyBtn" android:layout_weight="1.2" android:text="↵" />
+            <Button android:id="@+id/key_mode_letters_s1" style="@style/FuncKeyBtn" android:layout_weight="1.3" android:text="ABC" />
+            <Button android:id="@+id/s1_comma" style="@style/FuncKeyBtn" android:layout_weight="0.9" android:text="," />
+            <ImageButton android:id="@+id/key_switch_ime_s1" style="@style/LogoSwitchKeyBtn" android:layout_weight="1.0" android:src="@drawable/ic_switch_ime_logo" android:contentDescription="@string/app_name" />
+            <Button android:id="@+id/key_space_s1" style="@style/SpaceKeyBtn" android:layout_weight="4.2" android:text="@string/key_space" />
+            <Button android:id="@+id/s1_dot" style="@style/FuncKeyBtn" android:layout_weight="0.9" android:text="." />
+            <Button android:id="@+id/key_enter_s1" style="@style/EnterKeyBtn" android:layout_weight="1.4" android:text="↵" />
         </LinearLayout>
     </LinearLayout>
 
@@ -167,6 +222,7 @@
             <Button android:id="@+id/s2_eq" style="@style/KeyBtn" android:text="=" />
             <Button android:id="@+id/s2_lbrace" style="@style/KeyBtn" android:text="{" />
             <Button android:id="@+id/s2_rbrace" style="@style/KeyBtn" android:text="}" />
+            <Button android:id="@+id/s1_percent" style="@style/KeyBtn" android:text="%" />
         </LinearLayout>
 
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
@@ -182,12 +238,12 @@
         </LinearLayout>
 
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <Button android:id="@+id/key_mode_letters_s2" style="@style/FuncKeyBtn" android:layout_weight="1.2" android:text="ABC" />
-            <Button android:id="@+id/s2_lt" style="@style/KeyBtn" android:text="&lt;" />
-            <Button android:id="@+id/key_switch_ime_s2" style="@style/FuncKeyBtn" android:text="🌐" />
-            <Button android:id="@+id/key_space_s2" style="@style/SpaceKeyBtn" android:layout_weight="4" android:text="@string/key_space" />
-            <Button android:id="@+id/s2_gt" style="@style/KeyBtn" android:text="&gt;" />
-            <Button android:id="@+id/key_enter_s2" style="@style/EnterKeyBtn" android:layout_weight="1.2" android:text="↵" />
+            <Button android:id="@+id/key_mode_letters_s2" style="@style/FuncKeyBtn" android:layout_weight="1.3" android:text="ABC" />
+            <Button android:id="@+id/s2_lt" style="@style/FuncKeyBtn" android:layout_weight="0.9" android:text="&lt;" />
+            <ImageButton android:id="@+id/key_switch_ime_s2" style="@style/LogoSwitchKeyBtn" android:layout_weight="1.0" android:src="@drawable/ic_switch_ime_logo" android:contentDescription="@string/app_name" />
+            <Button android:id="@+id/key_space_s2" style="@style/SpaceKeyBtn" android:layout_weight="4.2" android:text="@string/key_space" />
+            <Button android:id="@+id/s2_gt" style="@style/FuncKeyBtn" android:layout_weight="0.9" android:text="&gt;" />
+            <Button android:id="@+id/key_enter_s2" style="@style/EnterKeyBtn" android:layout_weight="1.4" android:text="↵" />
         </LinearLayout>
     </LinearLayout>
 

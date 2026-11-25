@@ -2,6 +2,11 @@ package com.antigravity.vietkeyboard.macro
 
 import android.view.inputmethod.InputConnection
 
+/**
+ * Macro replacement engine with vnchKey smart case adaptation
+ * (e.g. "hn" -> "Hà Nội", "HN" -> "HÀ NỘI", "dc" -> "được", "Dc" -> "Được", "DC" -> "ĐƯỢC")
+ * and technical delimiter suppression (e.g. `.vn`, `user@hn`, `file_dc.txt`).
+ */
 class MacroEngine(initialMacros: List<Macro> = emptyList()) {
     @Volatile
     private var macros: List<Macro> = initialMacros
@@ -10,23 +15,26 @@ class MacroEngine(initialMacros: List<Macro> = emptyList()) {
         macros = newMacros
     }
 
-    /**
-     * Tries to expand the token before cursor when a delimiter is typed.
-     * Returns true if expansion was performed; caller should skip committing trigger.
-     */
     fun tryExpand(ic: InputConnection, trigger: Char): Boolean {
+        if (isTechnicalDelimiter(trigger) || trigger in "([{<") return false
+
         val before = ic.getTextBeforeCursor(MAX_LOOKBACK, 0)?.toString() ?: return false
-        val token = before.takeLastWhile { !it.isWhitespace() }
+        val token = before.takeLastWhile { !it.isWhitespace() && !isTechnicalDelimiter(it) }
         if (token.isEmpty()) return false
 
+        val charBeforeTokenIdx = before.length - token.length - 1
+        if (charBeforeTokenIdx >= 0 && isTechnicalDelimiter(before[charBeforeTokenIdx])) {
+            return false
+        }
+
         val macro = findMacro(token) ?: return false
-        val replacement = resolveVariables(macro.expansion)
+        val expanded = adaptCase(token, resolveVariables(macro.expansion))
 
         ic.beginBatchEdit()
         try {
             val deleted = ic.deleteSurroundingText(token.length, 0)
             if (!deleted) return false
-            ic.commitText(replacement + trigger, 1)
+            ic.commitText(expanded + trigger, 1)
         } finally {
             ic.endBatchEdit()
         }
@@ -37,13 +45,31 @@ class MacroEngine(initialMacros: List<Macro> = emptyList()) {
         m.enabled && (if (m.caseSensitive) m.shortcut == token else m.shortcut.equals(token, ignoreCase = true))
     }
 
+    fun lookupPreview(token: String): String? {
+        if (token.isEmpty()) return null
+        val macro = findMacro(token) ?: return null
+        return adaptCase(token, resolveVariables(macro.expansion))
+    }
+
+    private fun adaptCase(inputToken: String, expansion: String): String {
+        if (expansion.isEmpty()) return expansion
+        if (inputToken.length >= 2 && inputToken == inputToken.uppercase() && inputToken != inputToken.lowercase()) {
+            return expansion.uppercase()
+        }
+        if (inputToken.first().isUpperCase()) {
+            return expansion.replaceFirstChar { it.uppercaseChar() }
+        }
+        return expansion
+    }
+
     private fun resolveVariables(text: String): String {
-        // MVP: static variables; extend with date/time/clipboard/cursor.
         val now = java.time.ZonedDateTime.now()
         return text
             .replace("{date}", now.toLocalDate().toString())
             .replace("{time}", now.toLocalTime().withNano(0).toString())
     }
+
+    private fun isTechnicalDelimiter(c: Char): Boolean = c in "/@_-#\\=$~`0123456789"
 
     companion object {
         private const val MAX_LOOKBACK = 64
