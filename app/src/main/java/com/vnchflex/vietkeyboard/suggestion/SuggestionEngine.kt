@@ -498,6 +498,14 @@ class SuggestionEngine(context: Context? = null) {
         "vui" to "😊", "dzui" to "😄", "cười" to "😂", "yêu" to "❤️", "tim" to "❤️",
         "ok" to "👍", "được" to "👍", "dzách" to "🔥", "dzô" to "🍻", "buồn" to "😢",
         "khóc" to "😭", "chào" to "👋", "cafe" to "☕", "lửa" to "🔥",
+        "bia" to "🍺", "rượu" to "🍷", "mưa" to "☔", "nắng" to "☀️", "trời" to "🌤️",
+        "trà" to "🍵", "cơm" to "🍚", "phở" to "🍜", "bún" to "🍜", "bánh" to "🍰",
+        "ngủ" to "😴", "mệt" to "😩", "tiền" to "💰", "hoa" to "🌸", "chó" to "🐶",
+        "mèo" to "🐱", "xe" to "🚗", "nhà" to "🏠", "nhạc" to "🎵", "ảnh" to "📷",
+        "chúc" to "🎉", "quà" to "🎁", "sách" to "📚", "sao" to "⭐", "nóng" to "🥵",
+        "lạnh" to "🥶", "đói" to "😋", "ngon" to "😋", "tức" to "😡", "giận" to "😠",
+        "love" to "❤️", "beer" to "🍺", "rain" to "☔", "coffee" to "☕", "happy" to "😊",
+        "sad" to "😢", "fire" to "🔥", "star" to "⭐", "music" to "🎵", "sleep" to "😴",
     )
 
     private val userUnigramCounts = mutableMapOf<String, Int>()

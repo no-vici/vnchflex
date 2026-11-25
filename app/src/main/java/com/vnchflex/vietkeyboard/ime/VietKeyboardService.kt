@@ -452,10 +452,7 @@ class VietKeyboardService : InputMethodService() {
         bindClick(R.id.key_emoji) { commitRaw("😊") }
         root.findViewById<View>(R.id.key_emoji)?.setOnLongClickListener { emojiBtn ->
             performKeyFeedback(emojiBtn, isLongPress = true)
-            showAlternatesPopup(
-                emojiBtn,
-                listOf("😊", "😂", "❤️", "😍", "😭", "🙏", "👍", "🔥", "🎉", "😎", "🤔", "🥰")
-            )
+            showEmojiPickerPopup(emojiBtn)
             true
         }
 
@@ -979,6 +976,57 @@ class VietKeyboardService : InputMethodService() {
         altButtons.clear()
         altSelectedIndex = -1
         altAnchor = null
+    }
+
+    private fun showEmojiPickerPopup(anchor: View) {
+        dismissKeyPopup()
+        dismissAltPopup()
+        val density = resources.displayMetrics.density
+        val emojis = listOf(
+            "😊", "😂", "🤣", "❤️", "😍", "🥰", "😘", "😭",
+            "😢", "😅", "😎", "🤔", "😴", "😡", "🥵", "🥶",
+            "👍", "👎", "👌", "🙏", "👏", "🤝", "✌️", "💪",
+            "🔥", "✨", "🎉", "🎂", "🎁", "⭐", "💯", "🎶",
+            "🍺", "🍻", "☕", "🍵", "🍚", "🍜", "🍰", "🍷",
+            "☔", "☀️", "🌤️", "🌧️", "🌸", "🐶", "🐱", "🏠",
+            "🚗", "✈️", "📱", "💻", "📷", "📚", "💰", "⏰"
+        )
+        val grid = android.widget.GridLayout(this).apply {
+            columnCount = 8
+            setPadding((8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
+        }
+        var popupRef: PopupWindow? = null
+        val cellSize = (40 * density).toInt()
+        for (emoji in emojis) {
+            val tv = TextView(this).apply {
+                text = emoji
+                textSize = 22f
+                gravity = android.view.Gravity.CENTER
+                layoutParams = android.widget.GridLayout.LayoutParams().apply {
+                    width = cellSize
+                    height = cellSize
+                }
+                setOnClickListener {
+                    performKeyFeedback(this)
+                    commitRaw(emoji)
+                    popupRef?.dismiss()
+                }
+            }
+            grid.addView(tv)
+        }
+        val scroll = android.widget.ScrollView(this).apply {
+            addView(grid)
+            setBackgroundColor(getColor(R.color.keyboard_bg))
+            elevation = 8 * density
+        }
+        val widthPx = (336 * density).toInt()
+        val heightPx = (210 * density).toInt()
+        val popup = PopupWindow(scroll, widthPx, heightPx, false).apply {
+            isOutsideTouchable = true
+            isTouchable = true
+        }
+        popupRef = popup
+        popup.showAtLocation(anchor.rootView, android.view.Gravity.BOTTOM or android.view.Gravity.CENTER_HORIZONTAL, 0, (56 * density).toInt())
     }
 
     private fun commitPopupSelection(text: String) {
