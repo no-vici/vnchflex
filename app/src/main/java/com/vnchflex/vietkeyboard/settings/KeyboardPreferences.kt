@@ -140,11 +140,11 @@ class KeyboardPreferences(context: Context) {
 
     // ==================== GBOARD: GLIDE TYPING / VOICE / CLIPBOARD ====================
     var enableGlideTyping: Boolean
-        get() = prefs.getBoolean("pref_glide_typing", false)
+        get() = prefs.getBoolean("pref_glide_typing", true)
         set(v) = prefs.edit().putBoolean("pref_glide_typing", v).apply()
 
     var showGestureTrail: Boolean
-        get() = prefs.getBoolean("pref_gesture_trail", false)
+        get() = prefs.getBoolean("pref_gesture_trail", true)
         set(v) = prefs.edit().putBoolean("pref_gesture_trail", v).apply()
 
     var enableGestureDelete: Boolean

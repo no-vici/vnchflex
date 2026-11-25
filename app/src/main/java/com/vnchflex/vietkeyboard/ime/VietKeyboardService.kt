@@ -57,6 +57,7 @@ class VietKeyboardService : InputMethodService() {
     private var lastSpaceClickTime = 0L
     private var lastBackspaceClickTime = 0L
     private var backspaceRepeating = false
+    private var lastGlideCommittedLength = 0
     private var prevCommittedWord2 = ""
     private var prevCommittedWord1 = ""
     private var keyPopup: PopupWindow? = null
@@ -135,7 +136,12 @@ class VietKeyboardService : InputMethodService() {
 
     private fun setupGlideTyping() {
         glideOverlay?.registerLetterKeys(letterButtons)
+        glideOverlay?.onGlideStart = {
+            dismissKeyPopup()
+            dismissAltPopup()
+        }
         glideOverlay?.onGlideComplete = { swipedKeys ->
+            dismissKeyPopup()
             val ic = currentInputConnection
             if (ic != null && mode == Mode.LETTERS) {
                 vnEngine.commit(ic)
@@ -151,17 +157,66 @@ class VietKeyboardService : InputMethodService() {
                     val out = if (shiftState != ShiftState.LOWER) {
                         best.replaceFirstChar { it.uppercaseChar() }
                     } else best
-                    ic.commitText("$out ", 1)
+                    val committedText = "$out "
+                    ic.commitText(committedText, 1)
+                    lastGlideCommittedLength = committedText.length
                     recordCommittedWord(out)
                     if (shiftState == ShiftState.SHIFTED) {
                         shiftState = ShiftState.LOWER
                         refreshLetterKeyLabels()
                     }
                     updateAutoCapitalization()
-                    updateSuggestions("")
+                    renderGlideCandidates(candidates)
                 }
             }
         }
+    }
+
+    private fun renderGlideCandidates(candidates: List<String>) {
+        if (!prefs.showSuggestionStrip || mode != Mode.LETTERS) return
+        if (suggestionSlots.isEmpty()) initSuggestionSlots()
+        lastSuggestionKey = "GLIDE:" + candidates.joinToString("\u0002")
+        for (i in 0 until 3) {
+            val tv = suggestionSlots[i]
+            val word = candidates.getOrNull(i)
+            if (word == null) {
+                tv.visibility = View.INVISIBLE
+                tv.text = ""
+                tv.setOnClickListener(null)
+            } else {
+                val cased = if (shiftState == ShiftState.CAPS_LOCK) word.uppercase() else word
+                tv.text = cased
+                tv.setTextColor(if (i == 0) getColor(R.color.suggestion_primary) else getColor(R.color.key_text))
+                tv.setTypeface(null, if (i == 0) Typeface.BOLD else Typeface.NORMAL)
+                tv.setOnClickListener {
+                    performKeyFeedback(tv)
+                    replaceLastGlideWordOrAccept(cased)
+                }
+                tv.visibility = View.VISIBLE
+            }
+        }
+        suggestionDividers.forEachIndexed { idx, div ->
+            val leftVisible = suggestionSlots.getOrNull(idx)?.visibility == View.VISIBLE
+            val rightVisible = suggestionSlots.getOrNull(idx + 1)?.visibility == View.VISIBLE
+            div.visibility = if (leftVisible && rightVisible) View.VISIBLE else View.INVISIBLE
+        }
+    }
+
+    private fun replaceLastGlideWordOrAccept(word: String) {
+        val ic = currentInputConnection ?: return
+        if (lastGlideCommittedLength > 0) {
+            ic.beginBatchEdit()
+            ic.deleteSurroundingText(lastGlideCommittedLength, 0)
+            val newCommitted = "$word "
+            ic.commitText(newCommitted, 1)
+            ic.endBatchEdit()
+            lastGlideCommittedLength = newCommitted.length
+            prevCommittedWord1 = word
+            updateAutoCapitalization()
+            updateSuggestions("")
+            return
+        }
+        acceptSuggestion(word)
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
@@ -194,7 +249,8 @@ class VietKeyboardService : InputMethodService() {
         val prefsKey = listOf(
             prefs.showNumberRow, prefs.showSuggestionStrip, prefs.showLanguageSwitchKey,
             prefs.showEmojiSwitchKey, prefs.themeMode, prefs.oneHandedMode, prefs.keyboardHeight,
-            prefs.longPressForSymbols, isVietnameseMode, shiftState.name
+            prefs.longPressForSymbols, prefs.enableGlideTyping, prefs.showGestureTrail,
+            isVietnameseMode, shiftState.name
         ).joinToString("|")
         if (prefsKey == lastAppliedPrefsKey) return
         lastAppliedPrefsKey = prefsKey
@@ -625,6 +681,7 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun onChar(c: Char) {
+        lastGlideCommittedLength = 0
         if (altPopup?.isShowing == true) dismissAltPopup()
         val ic = currentInputConnection ?: return
         if (mode != Mode.LETTERS) {
@@ -672,6 +729,7 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun commitRaw(text: String) {
+        lastGlideCommittedLength = 0
         if (altPopup?.isShowing == true) dismissAltPopup()
         val ic = currentInputConnection ?: return
         vnEngine.commit(ic)
@@ -699,6 +757,17 @@ class VietKeyboardService : InputMethodService() {
     private fun onBackspace() {
         val ic = currentInputConnection ?: return
         val now = System.currentTimeMillis()
+
+        // 0. Gboard Glide Typing behavior: Single Backspace immediately after a glided word deletes the whole glided word
+        if (lastGlideCommittedLength > 0 && !backspaceRepeating) {
+            ic.deleteSurroundingText(lastGlideCommittedLength, 0)
+            lastGlideCommittedLength = 0
+            syncContextFromEditor()
+            updateAutoCapitalization()
+            updateSuggestions("")
+            return
+        }
+        lastGlideCommittedLength = 0
 
         // 1. Double-backspace to undo last macro expansion (e.g. "Hà Nội " -> "hn ")
         val lastMacro = macroEngine.lastExpansion
@@ -930,7 +999,8 @@ class VietKeyboardService : InputMethodService() {
         popupHandler.removeCallbacks(showPopupRunnable)
         pendingPopupAnchor = anchor
         pendingPopupLabel = label
-        popupHandler.postDelayed(showPopupRunnable, 35L)
+        val delay = if (prefs.enableGlideTyping) 65L else 35L
+        popupHandler.postDelayed(showPopupRunnable, delay)
     }
 
     private fun showKeyPopup(anchor: View, label: String) {

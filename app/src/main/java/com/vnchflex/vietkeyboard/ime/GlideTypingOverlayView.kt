@@ -14,8 +14,10 @@ import kotlin.math.hypot
 /**
  * Transparent overlay wrapping `panel_letters` for Gboard-style Glide Typing:
  * - Zero overhead on normal taps: only intercepts touch when finger moves > glideThresholdPx.
+ * - Automatically refreshes key hit rects on every layout pass (`onLayout`) and lazily on touch
+ *   so toggling the number row, changing keyboard height, or rotating the screen never causes stale coordinates.
  * - Draws a smooth Gboard-blue gesture trail when `showTrail` is enabled.
- * - Tracks the sequence of letter keys (`q..m`) traversed and notifies `onGlideComplete`.
+ * - Tracks the sequence of letter keys (`q..m`) traversed and notifies `onGlideStart` / `onGlideComplete`.
  */
 class GlideTypingOverlayView @JvmOverloads constructor(
     context: Context,
@@ -25,9 +27,13 @@ class GlideTypingOverlayView @JvmOverloads constructor(
 
     var glideEnabled: Boolean = true
     var showTrail: Boolean = true
+    var onGlideStart: (() -> Unit)? = null
     var onGlideComplete: ((swipedKeys: String) -> Unit)? = null
 
+    private var registeredButtons: Map<GboardKeyButton, String> = emptyMap()
     private val letterKeyRects = mutableListOf<Pair<Char, Rect>>()
+    private var keyRectsDirty = true
+
     private val trailPath = Path()
     private val trailPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#CC1A73E8")
@@ -49,21 +55,39 @@ class GlideTypingOverlayView @JvmOverloads constructor(
     }
 
     fun registerLetterKeys(keys: Map<GboardKeyButton, String>) {
-        post {
-            letterKeyRects.clear()
-            keys.forEach { (btn, letter) ->
-                if (letter.length == 1) {
-                    val r = Rect()
-                    btn.getDrawingRect(r)
-                    offsetDescendantRectToMyCoords(btn, r)
-                    letterKeyRects.add(letter[0] to r)
-                }
+        registeredButtons = keys
+        keyRectsDirty = true
+        post { rebuildKeyRects() }
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        keyRectsDirty = true
+        rebuildKeyRects()
+    }
+
+    private fun rebuildKeyRects() {
+        if (registeredButtons.isEmpty() || width == 0 || height == 0) return
+        letterKeyRects.clear()
+        registeredButtons.forEach { (btn, letter) ->
+            if (letter.length == 1 && btn.width > 0 && btn.height > 0) {
+                val r = Rect()
+                btn.getDrawingRect(r)
+                offsetDescendantRectToMyCoords(btn, r)
+                letterKeyRects.add(letter[0] to r)
             }
+        }
+        if (letterKeyRects.isNotEmpty()) {
+            keyRectsDirty = false
         }
     }
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
-        if (!glideEnabled || letterKeyRects.isEmpty()) return false
+        if (!glideEnabled) return false
+        if (keyRectsDirty || letterKeyRects.isEmpty()) {
+            rebuildKeyRects()
+        }
+        if (letterKeyRects.isEmpty()) return false
 
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
@@ -85,6 +109,7 @@ class GlideTypingOverlayView @JvmOverloads constructor(
                 val dist = hypot(ev.x - downX, ev.y - downY)
                 if (dist >= glideThresholdPx) {
                     isGliding = true
+                    onGlideStart?.invoke()
                     recordPoint(ev.x, ev.y)
                     return true // Intercept from child button
                 }

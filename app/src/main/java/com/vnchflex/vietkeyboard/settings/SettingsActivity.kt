@@ -664,15 +664,15 @@ class SettingsActivity : AppCompatActivity() {
         addSectionHeader("Cử chỉ Gboard")
         addSwitchItem(
             title = "Bật nhập bằng cử chỉ (Enable glide typing)",
-            subtitle = "Chưa hỗ trợ trong phiên bản này (cần engine nhận dạng vuốt chữ)",
-            checked = false
-        ) { /* not implemented yet */ }
+            subtitle = "Nhập từ bằng cách trượt ngón tay qua các chữ cái",
+            checked = prefs.enableGlideTyping
+        ) { prefs.enableGlideTyping = it }
 
         addSwitchItem(
             title = "Hiển thị vệt cử chỉ (Show gesture trail)",
-            subtitle = "Chưa hỗ trợ (đi kèm nhập bằng cử chỉ)",
-            checked = false
-        ) { /* not implemented yet */ }
+            subtitle = "Hiện đường dẫn màu xanh khi lướt trên bàn phím",
+            checked = prefs.showGestureTrail
+        ) { prefs.showGestureTrail = it }
 
         addSwitchItem(
             title = "Bật xóa bằng cử chỉ (Enable gesture delete)",
