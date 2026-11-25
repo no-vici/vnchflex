@@ -25,6 +25,40 @@ class MacroStore(context: Context) {
         return defaults
     }
 
+    fun exportJson(): String {
+        val obj = JSONObject()
+        load().forEach { m -> obj.put(m.shortcut, m.expansion) }
+        return obj.toString(2)
+    }
+
+    fun importJson(rawJson: String): Int {
+        val current = load().toMutableList()
+        var importedCount = 0
+        val trimmed = rawJson.trim()
+        if (trimmed.startsWith("{")) {
+            val obj = JSONObject(trimmed)
+            val keys = obj.keys()
+            while (keys.hasNext()) {
+                val k = keys.next().trim().lowercase()
+                val v = obj.optString(k, "").trim()
+                if (k.isNotEmpty() && v.isNotEmpty()) {
+                    current.removeAll { it.shortcut.equals(k, ignoreCase = true) }
+                    current.add(0, Macro(k, v))
+                    importedCount++
+                }
+            }
+        } else if (trimmed.startsWith("[")) {
+            val parsed = parse(trimmed)
+            parsed.forEach { m ->
+                current.removeAll { it.shortcut.equals(m.shortcut, ignoreCase = true) }
+                current.add(0, m)
+                importedCount++
+            }
+        }
+        if (importedCount > 0) save(current)
+        return importedCount
+    }
+
     private fun parse(raw: String): List<Macro> {
         val arr = JSONArray(raw)
         return List(arr.length()) { i ->

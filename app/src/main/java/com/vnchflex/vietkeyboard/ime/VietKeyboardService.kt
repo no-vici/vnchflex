@@ -15,11 +15,13 @@ import android.text.style.RelativeSizeSpan
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.PopupWindow
 import android.widget.TextView
 import com.vnchflex.vietkeyboard.R
 import com.vnchflex.vietkeyboard.engine.VietnameseEngine
@@ -52,8 +54,10 @@ class VietKeyboardService : InputMethodService() {
     private var shiftState = ShiftState.LOWER
     private var lastShiftClickTime = 0L
     private var lastSpaceClickTime = 0L
+    private var lastBackspaceClickTime = 0L
     private var prevCommittedWord2 = ""
     private var prevCommittedWord1 = ""
+    private var keyPopup: PopupWindow? = null
 
     private val letterButtons = mutableMapOf<GboardKeyButton, String>()
 
@@ -134,7 +138,29 @@ class VietKeyboardService : InputMethodService() {
         val isDark = prefs.themeMode == "gboard_dark"
         root.setBackgroundColor(getColor(if (isDark) R.color.keyboard_bg_dark else R.color.keyboard_bg))
 
-        // 6. Refresh letter labels (secondary symbols shown ONLY on letter keys)
+        // 6. One-handed mode & Keyboard height
+        val density = resources.displayMetrics.density
+        val sidePad = (resources.displayMetrics.widthPixels * 0.16f).toInt()
+        val baseHPad = (3 * density).toInt()
+        val topPad = (3 * density).toInt()
+        val bottomPad = (6 * density).toInt()
+        when (prefs.oneHandedMode) {
+            "left" -> root.setPadding(baseHPad, topPad, sidePad, bottomPad)
+            "right" -> root.setPadding(sidePad, topPad, baseHPad, bottomPad)
+            else -> root.setPadding(baseHPad, topPad, baseHPad, bottomPad)
+        }
+        val scale = prefs.keyHeightScale()
+        val letterH = (46 * density * scale).toInt()
+        val numH = (40 * density * scale).toInt()
+        letterButtons.keys.forEach { it.layoutParams = it.layoutParams.apply { height = letterH } }
+        listOf(
+            R.id.key_num_1, R.id.key_num_2, R.id.key_num_3, R.id.key_num_4, R.id.key_num_5,
+            R.id.key_num_6, R.id.key_num_7, R.id.key_num_8, R.id.key_num_9, R.id.key_num_0,
+        ).forEach { id ->
+            root.findViewById<View>(id)?.let { it.layoutParams = it.layoutParams.apply { height = numH } }
+        }
+
+        // 7. Refresh letter labels (secondary symbols shown ONLY on letter keys)
         refreshLetterKeyLabels()
     }
 
@@ -152,7 +178,17 @@ class VietKeyboardService : InputMethodService() {
             val baseLetter = btn.text.toString().lowercase()
             letterButtons[btn] = baseLetter
 
+            btn.setOnTouchListener { v, event ->
+                if (prefs.popupOnKeypress) {
+                    when (event.actionMasked) {
+                        MotionEvent.ACTION_DOWN -> showKeyPopup(v, btn.text.toString())
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> dismissKeyPopup()
+                    }
+                }
+                false
+            }
             btn.setOnClickListener {
+                dismissKeyPopup()
                 performKeyFeedback(btn)
                 val ch = if (shiftState != ShiftState.LOWER) baseLetter.uppercase()[0] else baseLetter[0]
                 onChar(ch)
@@ -179,7 +215,17 @@ class VietKeyboardService : InputMethodService() {
             val btn = root.findViewById<Button>(id)
             val digit = btn.text.toString()
             btn.text = digit // Pure number only
+            btn.setOnTouchListener { v, event ->
+                if (prefs.popupOnKeypress) {
+                    when (event.actionMasked) {
+                        MotionEvent.ACTION_DOWN -> showKeyPopup(v, btn.text.toString())
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> dismissKeyPopup()
+                    }
+                }
+                false
+            }
             btn.setOnClickListener {
+                dismissKeyPopup()
                 performKeyFeedback(btn)
                 onDigitOrSymbol(digit)
             }
@@ -199,7 +245,17 @@ class VietKeyboardService : InputMethodService() {
         )
         symbolIds.forEach { id ->
             val btn = root.findViewById<Button>(id) ?: return@forEach
+            btn.setOnTouchListener { v, event ->
+                if (prefs.popupOnKeypress) {
+                    when (event.actionMasked) {
+                        MotionEvent.ACTION_DOWN -> showKeyPopup(v, btn.text.toString())
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> dismissKeyPopup()
+                    }
+                }
+                false
+            }
             btn.setOnClickListener {
+                dismissKeyPopup()
                 performKeyFeedback(btn)
                 commitRaw(btn.text.toString())
             }
@@ -214,7 +270,17 @@ class VietKeyboardService : InputMethodService() {
 
         listOf(R.id.key_space, R.id.key_space_s1, R.id.key_space_s2).forEach { id ->
             val btn = root.findViewById<View>(id) ?: return@forEach
+            btn.setOnTouchListener { v, event ->
+                if (prefs.popupOnKeypress) {
+                    when (event.actionMasked) {
+                        MotionEvent.ACTION_DOWN -> showKeyPopup(v, btn.text.toString())
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> dismissKeyPopup()
+                    }
+                }
+                false
+            }
             btn.setOnClickListener {
+                dismissKeyPopup()
                 performKeyFeedback(btn)
                 onSpacePressed()
             }
@@ -293,11 +359,34 @@ class VietKeyboardService : InputMethodService() {
 
     private fun bindRepeat(id: Int, action: () -> Unit) {
         val view = keyboardView?.findViewById<View>(id) ?: return
+        var startX = 0f
+        var didSwipeDelete = false
+        view.setOnTouchListener { _, event ->
+            if (!prefs.enableGestureDelete) return@setOnTouchListener false
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    startX = event.x
+                    didSwipeDelete = false
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (!didSwipeDelete && startX - event.x > 60f) {
+                        didSwipeDelete = true
+                        performKeyFeedback(view, isLongPress = true)
+                        deleteWordBeforeCursor()
+                    }
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (didSwipeDelete) return@setOnTouchListener true
+                }
+            }
+            false
+        }
         view.setOnClickListener {
             performKeyFeedback(view)
             action()
         }
         view.setOnLongClickListener {
+            if (didSwipeDelete) return@setOnLongClickListener true
             // Gboard gesture/long-press delete whole word
             performKeyFeedback(view, isLongPress = true)
             deleteWordBeforeCursor()
@@ -417,13 +506,78 @@ class VietKeyboardService : InputMethodService() {
 
     private fun onBackspace() {
         val ic = currentInputConnection ?: return
-        if (mode == Mode.LETTERS && vnEngine.onBackspace(ic)) {
+        val now = System.currentTimeMillis()
+
+        // 1. Double-backspace to undo last macro expansion (e.g. "Hà Nội " -> "hn ")
+        val lastMacro = macroEngine.lastExpansion
+        if (lastMacro != null && now - lastBackspaceClickTime < 600L) {
+            val (orig, expanded) = lastMacro
+            val before = ic.getTextBeforeCursor(expanded.length + 2, 0)?.toString().orEmpty()
+            // After first backspace, 1 char was already deleted from `expanded`
+            val expandedAfterOneDelete = expanded.dropLast(1)
+            if (expandedAfterOneDelete.isNotEmpty() && before.endsWith(expandedAfterOneDelete)) {
+                ic.beginBatchEdit()
+                ic.deleteSurroundingText(expandedAfterOneDelete.length, 0)
+                ic.commitText(orig, 1)
+                ic.endBatchEdit()
+                macroEngine.clearLastExpansion()
+                lastBackspaceClickTime = 0L
+                updateSuggestions("")
+                return
+            }
+        }
+        lastBackspaceClickTime = now
+
+        // 2. Normal Vietnamese composing backspace
+        if (mode == Mode.LETTERS && isVietnameseMode && vnEngine.onBackspace(ic)) {
             updateSuggestions(vnEngine.composingText)
             return
         }
+
+        // 3. Delete 1 char, then post-commit rehydrate previous Vietnamese word if cursor lands on a letter
         ic.deleteSurroundingText(1, 0)
+        if (mode == Mode.LETTERS && isVietnameseMode) {
+            val afterDel = ic.getTextBeforeCursor(32, 0)?.toString().orEmpty()
+            val prevWord = afterDel.takeLastWhile { it.isLetter() }
+            if (prevWord.isNotEmpty()) {
+                vnEngine.rehydrateWord(prevWord)
+                updateSuggestions(vnEngine.composingText)
+                updateAutoCapitalization()
+                return
+            }
+        }
         updateAutoCapitalization()
         updateSuggestions("")
+    }
+
+    private fun moveCursor(delta: Int) {
+        val ic = currentInputConnection ?: return
+        val keyCode = if (delta < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
+        ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
+        ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
+    }
+
+    private fun showKeyPopup(anchor: View, label: String) {
+        dismissKeyPopup()
+        val tv = TextView(this).apply {
+            text = label
+            textSize = 26f
+            gravity = Gravity.CENTER
+            setTextColor(getColor(R.color.key_text))
+            setBackgroundResource(R.drawable.key_bg)
+            setPadding(28, 14, 28, 14)
+            elevation = 8f
+        }
+        val popup = PopupWindow(tv, LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT, false)
+        val loc = IntArray(2)
+        anchor.getLocationInWindow(loc)
+        popup.showAtLocation(anchor, Gravity.NO_GRAVITY, loc[0], loc[1] - anchor.height - 16)
+        keyPopup = popup
+    }
+
+    private fun dismissKeyPopup() {
+        keyPopup?.dismiss()
+        keyPopup = null
     }
 
     private fun deleteWordBeforeCursor() {

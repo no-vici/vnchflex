@@ -556,6 +556,36 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         addActionItem(
+            title = "Xuất / Sao chép Macro JSON (macros.json)",
+            subtitle = "Sao chép toàn bộ bảng gõ tắt sang JSON để dùng chung với vnchKey"
+        ) {
+            val json = macroStore.exportJson()
+            val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            cm.setPrimaryClip(android.content.ClipData.newPlainText("macros.json", json))
+            Toast.makeText(this, "Đã sao chép macros.json vào Clipboard", Toast.LENGTH_SHORT).show()
+        }
+
+        addActionItem(
+            title = "Nhập Macro từ JSON (Import macros.json)",
+            subtitle = "Dán nội dung JSON từ vnchKey để nhập nhanh vào bảng gõ tắt"
+        ) {
+            val etJson = EditText(this).apply {
+                hint = "{\"hn\": \"Hà Nội\", \"sg\": \"Sài Gòn\"}"
+                minLines = 4
+            }
+            AlertDialog.Builder(this)
+                .setTitle("Nhập Macro từ JSON")
+                .setView(etJson)
+                .setPositiveButton("Nhập") { _, _ ->
+                    val count = runCatching { macroStore.importJson(etJson.text.toString()) }.getOrDefault(0)
+                    Toast.makeText(this, "Đã nhập $count phím tắt", Toast.LENGTH_SHORT).show()
+                    navigateTo(Screen.MACRO_EDITOR)
+                }
+                .setNegativeButton("Hủy", null)
+                .show()
+        }
+
+        addActionItem(
             title = "Khôi phục danh sách gõ tắt mặc định (vnchKey)",
             subtitle = "Khôi phục 40+ từ viết tắt tiếng Việt thông dụng (hn, sg, tphcm, dc, ko, sđt...)"
         ) {

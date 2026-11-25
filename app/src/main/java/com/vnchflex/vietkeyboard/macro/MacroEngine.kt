@@ -11,6 +11,14 @@ class MacroEngine(initialMacros: List<Macro> = emptyList()) {
     @Volatile
     private var macros: List<Macro> = initialMacros
 
+    /** Stores (originalTokenWithTrigger, expandedTextWithTrigger) for double-backspace undo */
+    var lastExpansion: Pair<String, String>? = null
+        private set
+
+    fun clearLastExpansion() {
+        lastExpansion = null
+    }
+
     fun update(newMacros: List<Macro>) {
         macros = newMacros
     }
@@ -34,7 +42,9 @@ class MacroEngine(initialMacros: List<Macro> = emptyList()) {
         try {
             val deleted = ic.deleteSurroundingText(token.length, 0)
             if (!deleted) return false
-            ic.commitText(expanded + trigger, 1)
+            val expandedWithTrigger = expanded + trigger
+            ic.commitText(expandedWithTrigger, 1)
+            lastExpansion = (token + trigger) to expandedWithTrigger
         } finally {
             ic.endBatchEdit()
         }

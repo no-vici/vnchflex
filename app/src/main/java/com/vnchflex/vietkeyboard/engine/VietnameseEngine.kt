@@ -87,6 +87,17 @@ class VietnameseEngine {
         renderedOutput = ""
     }
 
+    /**
+     * Post-commit editing (chuẩn vnchKey): nạp lại từ đã gõ trước con trỏ vào bộ đệm
+     * để người dùng có thể sửa dấu hoặc xóa lùi tiếp trên từ đó.
+     */
+    fun rehydrateWord(word: String) {
+        if (word.isEmpty()) return
+        rawChars.clear()
+        rawChars.addAll(rawKeysFor(word).toList())
+        renderedOutput = word
+    }
+
     /** Bỏ dấu tự do (kiểu vnchKey): xóa dấu trên từ đang gõ, vùng đang chọn, hoặc từ ngay trước con trỏ. */
     fun removeDiacritics(ic: InputConnection) {
         if (rawChars.isNotEmpty()) {
