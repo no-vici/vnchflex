@@ -23,10 +23,10 @@ class MacroEngine(initialMacros: List<Macro> = emptyList()) {
         macros = newMacros
     }
 
-    fun tryExpand(ic: InputConnection, trigger: Char): Boolean {
+    fun tryExpand(ic: InputConnection, trigger: Char, beforeCursor: String? = null): Boolean {
         if (isTechnicalDelimiter(trigger) || trigger in "([{<") return false
 
-        val before = ic.getTextBeforeCursor(MAX_LOOKBACK, 0)?.toString() ?: return false
+        val before = beforeCursor ?: ic.getTextBeforeCursor(MAX_LOOKBACK, 0)?.toString() ?: return false
         val token = before.takeLastWhile { !it.isWhitespace() && !isTechnicalDelimiter(it) }
         if (token.isEmpty()) return false
 

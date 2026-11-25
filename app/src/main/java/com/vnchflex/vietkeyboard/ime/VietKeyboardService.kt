@@ -58,7 +58,21 @@ class VietKeyboardService : InputMethodService() {
     private var prevCommittedWord2 = ""
     private var prevCommittedWord1 = ""
     private var keyPopup: PopupWindow? = null
+    private var keyPopupText: TextView? = null
+    private var audioManager: AudioManager? = null
+    private val popupHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var pendingPopupAnchor: View? = null
+    private var pendingPopupLabel: String = ""
+    private val showPopupRunnable = Runnable {
+        val anchor = pendingPopupAnchor ?: return@Runnable
+        if (anchor.isAttachedToWindow) showKeyPopup(anchor, pendingPopupLabel)
+    }
 
+    private val suggestionSlots = mutableListOf<TextView>()
+    private val suggestionDividers = mutableListOf<View>()
+    private var lastSuggestionKey: String? = null
+
+    private var lastAppliedPrefsKey: String? = null
     private val letterButtons = mutableMapOf<GboardKeyButton, String>()
 
     override fun onCreate() {
@@ -68,7 +82,13 @@ class VietKeyboardService : InputMethodService() {
         macroStore = MacroStore(this)
         macroEngine = MacroEngine(macroStore.load())
         suggestionEngine = SuggestionEngine(this)
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         syncPreferencesToEngines()
+    }
+
+    override fun onDestroy() {
+        if (::suggestionEngine.isInitialized) suggestionEngine.flushPendingSaves()
+        super.onDestroy()
     }
 
     override fun onCreateInputView(): View {
@@ -80,7 +100,15 @@ class VietKeyboardService : InputMethodService() {
         panelLetters = view.findViewById(R.id.panel_letters)
         panelSymbols1 = view.findViewById(R.id.panel_symbols1)
         panelSymbols2 = view.findViewById(R.id.panel_symbols2)
+        suggestionSlots.clear()
+        suggestionDividers.clear()
+        lastSuggestionKey = null
+        lastAppliedPrefsKey = null
+        keyPopup?.dismiss()
+        keyPopup = null
+        keyPopupText = null
         bindKeys(view)
+        initSuggestionSlots()
         applyPreferencesToView()
         showMode(Mode.LETTERS)
         return view
@@ -113,6 +141,13 @@ class VietKeyboardService : InputMethodService() {
 
     private fun applyPreferencesToView() {
         val root = keyboardView ?: return
+        val prefsKey = listOf(
+            prefs.showNumberRow, prefs.showSuggestionStrip, prefs.showLanguageSwitchKey,
+            prefs.showEmojiSwitchKey, prefs.themeMode, prefs.oneHandedMode, prefs.keyboardHeight,
+            prefs.longPressForSymbols, isVietnameseMode, shiftState.name
+        ).joinToString("|")
+        if (prefsKey == lastAppliedPrefsKey) return
+        lastAppliedPrefsKey = prefsKey
 
         // 1. Gboard Number row option: Pure numbers 1..0 only at the top row
         rowNumbers?.visibility = if (prefs.showNumberRow) View.VISIBLE else View.GONE
@@ -181,7 +216,7 @@ class VietKeyboardService : InputMethodService() {
             btn.setOnTouchListener { v, event ->
                 if (prefs.popupOnKeypress) {
                     when (event.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> showKeyPopup(v, btn.text.toString())
+                        MotionEvent.ACTION_DOWN -> scheduleKeyPopup(v, btn.text.toString())
                         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> dismissKeyPopup()
                     }
                 }
@@ -218,7 +253,7 @@ class VietKeyboardService : InputMethodService() {
             btn.setOnTouchListener { v, event ->
                 if (prefs.popupOnKeypress) {
                     when (event.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> showKeyPopup(v, btn.text.toString())
+                        MotionEvent.ACTION_DOWN -> scheduleKeyPopup(v, btn.text.toString())
                         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> dismissKeyPopup()
                     }
                 }
@@ -248,7 +283,7 @@ class VietKeyboardService : InputMethodService() {
             btn.setOnTouchListener { v, event ->
                 if (prefs.popupOnKeypress) {
                     when (event.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> showKeyPopup(v, btn.text.toString())
+                        MotionEvent.ACTION_DOWN -> scheduleKeyPopup(v, btn.text.toString())
                         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> dismissKeyPopup()
                     }
                 }
@@ -580,27 +615,42 @@ class VietKeyboardService : InputMethodService() {
         ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
     }
 
+    private fun scheduleKeyPopup(anchor: View, label: String) {
+        popupHandler.removeCallbacks(showPopupRunnable)
+        pendingPopupAnchor = anchor
+        pendingPopupLabel = label
+        popupHandler.postDelayed(showPopupRunnable, 35L)
+    }
+
     private fun showKeyPopup(anchor: View, label: String) {
-        dismissKeyPopup()
-        val tv = TextView(this).apply {
-            text = label
+        val tv = keyPopupText ?: TextView(this).apply {
             textSize = 26f
             gravity = Gravity.CENTER
             setTextColor(getColor(R.color.key_text))
             setBackgroundResource(R.drawable.key_bg)
             setPadding(28, 14, 28, 14)
             elevation = 8f
+            keyPopupText = this
         }
-        val popup = PopupWindow(tv, LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT, false)
+        tv.text = label
+        val popup = keyPopup ?: PopupWindow(
+            tv,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            false
+        ).also { keyPopup = it }
+        if (popup.contentView !== tv) popup.contentView = tv
         val loc = IntArray(2)
         anchor.getLocationInWindow(loc)
-        popup.showAtLocation(anchor, Gravity.NO_GRAVITY, loc[0], loc[1] - anchor.height - 16)
-        keyPopup = popup
+        val y = (loc[1] - anchor.height - 16).coerceAtLeast(0)
+        if (popup.isShowing) popup.dismiss()
+        popup.showAtLocation(anchor, Gravity.NO_GRAVITY, loc[0], y)
     }
 
     private fun dismissKeyPopup() {
-        keyPopup?.dismiss()
-        keyPopup = null
+        popupHandler.removeCallbacks(showPopupRunnable)
+        pendingPopupAnchor = null
+        keyPopup?.let { if (it.isShowing) it.dismiss() }
     }
 
     private fun deleteWordBeforeCursor() {
@@ -675,7 +725,7 @@ class VietKeyboardService : InputMethodService() {
             view.performHapticFeedback(flag)
         }
         if (prefs.soundOnKeypress) {
-            val am = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            val am = audioManager ?: (getSystemService(Context.AUDIO_SERVICE) as? AudioManager)?.also { audioManager = it }
             val vol = (prefs.soundVolume / 100f).coerceIn(0f, 1f)
             am?.playSoundEffect(AudioManager.FX_KEY_CLICK, vol)
         }
@@ -730,13 +780,47 @@ class VietKeyboardService : InputMethodService() {
         else -> null
     }
 
+    private fun initSuggestionSlots() {
+        val bar = suggestionBar ?: return
+        if (suggestionSlots.isNotEmpty()) return
+        bar.removeAllViews()
+        for (i in 0 until 3) {
+            if (i > 0) {
+                val divider = View(this).apply {
+                    layoutParams = LinearLayout.LayoutParams(2, 42)
+                    setBackgroundColor(getColor(R.color.strip_divider))
+                    visibility = View.INVISIBLE
+                }
+                suggestionDividers.add(divider)
+                bar.addView(divider)
+            }
+            val tv = TextView(this).apply {
+                gravity = Gravity.CENTER
+                maxLines = 1
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+                textSize = 15f
+                visibility = View.INVISIBLE
+            }
+            suggestionSlots.add(tv)
+            bar.addView(tv)
+        }
+    }
+
     /**
      * Gboard 3-slot suggestion strip with Trigram Next-Word & Context-Aware Word Suggestions.
+     * Reuses fixed slots to avoid view churn on every keystroke.
      */
     private fun updateSuggestions(prefix: String) {
         val bar = suggestionBar ?: return
-        bar.removeAllViews()
-        if (!prefs.showSuggestionStrip || mode != Mode.LETTERS) return
+        if (suggestionSlots.isEmpty()) initSuggestionSlots()
+        if (!prefs.showSuggestionStrip || mode != Mode.LETTERS) {
+            if (lastSuggestionKey != null) {
+                suggestionSlots.forEach { it.visibility = View.INVISIBLE; it.text = "" }
+                suggestionDividers.forEach { it.visibility = View.INVISIBLE }
+                lastSuggestionKey = null
+            }
+            return
+        }
 
         val macroPreview = if (prefs.macroEnabled && prefix.isNotEmpty()) {
             macroEngine.lookupPreview(prefix)
@@ -759,45 +843,58 @@ class VietKeyboardService : InputMethodService() {
             else -> emptyList()
         }
 
-        suggestions.forEachIndexed { index, word ->
-            if (index > 0) {
-                val divider = View(this).apply {
-                    layoutParams = LinearLayout.LayoutParams(2, 42)
-                    setBackgroundColor(getColor(R.color.strip_divider))
-                }
-                bar.addView(divider)
-            }
-            val isPrimaryCenter = (index == 1 && prefix.isNotEmpty()) || (macroPreview != null && word == macroPreview)
-            val tv = TextView(this).apply {
-                text = word
-                gravity = Gravity.CENTER
-                maxLines = 1
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
-                setTextColor(
+        val key = prefix + "\u0001" + prevCommittedWord2 + "\u0001" + prevCommittedWord1 + "\u0001" + suggestions.joinToString("\u0002")
+        if (key == lastSuggestionKey) return
+        lastSuggestionKey = key
+
+        for (i in 0 until 3) {
+            val tv = suggestionSlots[i]
+            val word = suggestions.getOrNull(i)
+            if (word == null) {
+                tv.visibility = View.INVISIBLE
+                tv.text = ""
+                tv.setOnClickListener(null)
+            } else {
+                val isPrimaryCenter = (i == 1 && prefix.isNotEmpty()) || (macroPreview != null && word == macroPreview)
+                tv.text = word
+                tv.setTextColor(
                     if (isPrimaryCenter) getColor(R.color.suggestion_primary)
                     else getColor(R.color.key_text)
                 )
-                setTypeface(typeface, if (isPrimaryCenter) Typeface.BOLD else Typeface.NORMAL)
-                textSize = 15f
-                setOnClickListener {
-                    performKeyFeedback(this)
+                tv.setTypeface(null, if (isPrimaryCenter) Typeface.BOLD else Typeface.NORMAL)
+                tv.setOnClickListener {
+                    performKeyFeedback(tv)
                     acceptSuggestion(word)
                 }
+                tv.visibility = View.VISIBLE
             }
-            bar.addView(tv)
+        }
+        suggestionDividers.forEachIndexed { idx, div ->
+            val leftVisible = suggestionSlots.getOrNull(idx)?.visibility == View.VISIBLE
+            val rightVisible = suggestionSlots.getOrNull(idx + 1)?.visibility == View.VISIBLE
+            div.visibility = if (leftVisible && rightVisible) View.VISIBLE else View.INVISIBLE
         }
     }
 
     private fun acceptSuggestion(word: String) {
         val ic = currentInputConnection ?: return
-        val hadComposing = vnEngine.isComposing
-        vnEngine.reset(ic)
-        if (!hadComposing) {
+        val composing = vnEngine.composingText
+        if (composing.isNotEmpty()) {
+            // Replace composing text with suggestion
+            vnEngine.reset(ic)
+            ic.beginBatchEdit()
+            ic.deleteSurroundingText(composing.length, 0)
+            ic.commitText("$word ", 1)
+            ic.endBatchEdit()
+        } else {
+            vnEngine.reset(ic)
             val before = ic.getTextBeforeCursor(32, 0)?.toString().orEmpty()
             val prefix = before.takeLastWhile { it.isLetter() }
+            ic.beginBatchEdit()
             if (prefix.isNotEmpty()) ic.deleteSurroundingText(prefix.length, 0)
+            ic.commitText("$word ", 1)
+            ic.endBatchEdit()
         }
-        ic.commitText("$word ", 1)
         recordCommittedWord(word)
         updateAutoCapitalization()
         updateSuggestions("")

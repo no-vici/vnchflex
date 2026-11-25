@@ -6,16 +6,22 @@ import org.json.JSONObject
 
 /**
  * Persistent macro store backed by SharedPreferences, preloaded with vnchKey default macros.
+ * Caches in memory to avoid JSON parsing on hot paths.
  */
 class MacroStore(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private var cache: List<Macro>? = null
 
     fun load(): List<Macro> {
-        val raw = prefs.getString(KEY_MACROS, null) ?: return defaultMacros()
-        return runCatching { parse(raw) }.getOrElse { defaultMacros() }
+        cache?.let { return it }
+        val raw = prefs.getString(KEY_MACROS, null)
+        val loaded = if (raw == null) defaultMacros() else runCatching { parse(raw) }.getOrElse { defaultMacros() }
+        cache = loaded
+        return loaded
     }
 
     fun save(macros: List<Macro>) {
+        cache = macros.toList()
         prefs.edit().putString(KEY_MACROS, serialize(macros)).apply()
     }
 
@@ -86,7 +92,6 @@ class MacroStore(context: Context) {
     }
 
     fun defaultMacros(): List<Macro> = listOf(
-        // Địa danh Việt Nam phổ biến (chuẩn vnchKey)
         Macro("sg", "Sài Gòn"),
         Macro("hn", "Hà Nội"),
         Macro("dn", "Đồng Nai"),
@@ -97,7 +102,6 @@ class MacroStore(context: Context) {
         Macro("vt", "Vũng Tàu"),
         Macro("bd", "Bình Dương"),
         Macro("ntr", "Nha Trang"),
-        // Từ giao tiếp & đời sống
         Macro("dc", "được"),
         Macro("ko", "không"),
         Macro("vs", "với"),
@@ -107,13 +111,11 @@ class MacroStore(context: Context) {
         Macro("tn", "tin nhắn"),
         Macro("ntn", "như thế nào"),
         Macro("kb", "không biết"),
-        Macro("tn", "tin nhắn"),
         Macro("bh", "bây giờ"),
         Macro("tca", "tất cả"),
         Macro("tica", "tình cảm"),
         Macro("gd", "gia đình"),
         Macro("tvi", "Tiếng Việt"),
-        // Từ công việc & văn phòng
         Macro("cty", "công ty"),
         Macro("sđt", "số điện thoại"),
         Macro("stk", "số tài khoản"),
@@ -128,8 +130,6 @@ class MacroStore(context: Context) {
         Macro("pt", "phát triển"),
         Macro("nv", "nhân viên"),
         Macro("ql", "quản lý"),
-        // Biến động mẫu
-        // Macro("addr", "123 Đường Tự Do, Q1"),
         Macro("email", "name@gmail.com"),
         Macro("shrug", "¯\\_(ツ)_/¯"),
     )

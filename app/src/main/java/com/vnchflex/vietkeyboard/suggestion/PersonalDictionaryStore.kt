@@ -1,6 +1,8 @@
 package com.vnchflex.vietkeyboard.suggestion
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -12,13 +14,26 @@ data class PersonalWord(
 
 /**
  * Gboard-style Personal Dictionary & Learned N-gram (Unigram / Bigram / Trigram) store.
+ * Caches all data in memory to avoid disk/JSON parse on every keystroke.
  */
 class PersonalDictionaryStore(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val handler = Handler(Looper.getMainLooper())
+
+    private var personalWordsCache: List<PersonalWord>? = null
+    private var learnedWordsCache: MutableSet<String>? = null
+    private var learnedBigramsCache: MutableMap<String, MutableMap<String, Int>>? = null
+    private var learnedTrigramsCache: MutableMap<String, MutableMap<String, Int>>? = null
+    private var ngramSavePending = false
+    private val ngramSaveRunnable = Runnable {
+        ngramSavePending = false
+        flushNgrams()
+    }
 
     fun loadPersonalWords(): List<PersonalWord> {
-        val raw = prefs.getString(KEY_PERSONAL_WORDS, null) ?: return defaultPersonalWords()
-        return runCatching {
+        personalWordsCache?.let { return it }
+        val raw = prefs.getString(KEY_PERSONAL_WORDS, null)
+        val loaded = if (raw == null) defaultPersonalWords() else runCatching {
             val arr = JSONArray(raw)
             List(arr.length()) { i ->
                 val o = arr.getJSONObject(i)
@@ -29,9 +44,12 @@ class PersonalDictionaryStore(context: Context) {
                 )
             }
         }.getOrElse { defaultPersonalWords() }
+        personalWordsCache = loaded
+        return loaded
     }
 
     fun savePersonalWords(words: List<PersonalWord>) {
+        personalWordsCache = words.toList()
         val arr = JSONArray()
         words.forEach { w ->
             arr.put(JSONObject().apply {
@@ -58,37 +76,58 @@ class PersonalDictionaryStore(context: Context) {
     }
 
     fun loadLearnedWords(): Set<String> {
-        return prefs.getStringSet(KEY_LEARNED_WORDS, emptySet())?.toSet() ?: emptySet()
+        learnedWordsCache?.let { return it }
+        val loaded = prefs.getStringSet(KEY_LEARNED_WORDS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        learnedWordsCache = loaded
+        return loaded
     }
 
     fun addLearnedWord(word: String) {
         val w = word.trim().lowercase()
         if (w.length < 2) return
-        val current = loadLearnedWords().toMutableSet()
-        current.add(w)
-        prefs.edit().putStringSet(KEY_LEARNED_WORDS, current).apply()
+        val current = learnedWordsCache ?: loadLearnedWords().toMutableSet().also { learnedWordsCache = it }
+        if (current.add(w)) {
+            prefs.edit().putStringSet(KEY_LEARNED_WORDS, HashSet(current)).apply()
+        }
     }
 
     fun loadLearnedBigrams(): Map<String, Map<String, Int>> {
-        val raw = prefs.getString(KEY_LEARNED_BIGRAMS, null) ?: return emptyMap()
-        return parseNgramJson(raw)
+        learnedBigramsCache?.let { return it }
+        val raw = prefs.getString(KEY_LEARNED_BIGRAMS, null)
+        val loaded = if (raw == null) mutableMapOf() else parseNgramJson(raw)
+        learnedBigramsCache = loaded
+        return loaded
     }
 
     fun saveLearnedBigrams(bigrams: Map<String, Map<String, Int>>) {
-        prefs.edit().putString(KEY_LEARNED_BIGRAMS, serializeNgramJson(bigrams)).apply()
+        if (learnedBigramsCache !== bigrams) {
+            learnedBigramsCache = bigrams.mapValues { it.value.toMutableMap() }.toMutableMap()
+        }
+        scheduleNgramSave()
     }
 
     fun loadLearnedTrigrams(): Map<String, Map<String, Int>> {
-        val raw = prefs.getString(KEY_LEARNED_TRIGRAMS, null) ?: return emptyMap()
-        return parseNgramJson(raw)
+        learnedTrigramsCache?.let { return it }
+        val raw = prefs.getString(KEY_LEARNED_TRIGRAMS, null)
+        val loaded = if (raw == null) mutableMapOf() else parseNgramJson(raw)
+        learnedTrigramsCache = loaded
+        return loaded
     }
 
     fun saveLearnedTrigrams(trigrams: Map<String, Map<String, Int>>) {
-        prefs.edit().putString(KEY_LEARNED_TRIGRAMS, serializeNgramJson(trigrams)).apply()
+        if (learnedTrigramsCache !== trigrams) {
+            learnedTrigramsCache = trigrams.mapValues { it.value.toMutableMap() }.toMutableMap()
+        }
+        scheduleNgramSave()
     }
 
     /** Gboard: Delete learned words & n-gram history (Xóa các từ và ngữ cảnh đã học) */
     fun clearLearnedWords() {
+        handler.removeCallbacks(ngramSaveRunnable)
+        ngramSavePending = false
+        learnedWordsCache = mutableSetOf()
+        learnedBigramsCache = mutableMapOf()
+        learnedTrigramsCache = mutableMapOf()
         prefs.edit()
             .remove(KEY_LEARNED_WORDS)
             .remove(KEY_LEARNED_BIGRAMS)
@@ -96,9 +135,22 @@ class PersonalDictionaryStore(context: Context) {
             .apply()
     }
 
-    private fun parseNgramJson(raw: String): Map<String, Map<String, Int>> = runCatching {
+    private fun scheduleNgramSave() {
+        if (ngramSavePending) return
+        ngramSavePending = true
+        handler.postDelayed(ngramSaveRunnable, 1500L)
+    }
+
+    fun flushNgrams() {
+        handler.removeCallbacks(ngramSaveRunnable)
+        ngramSavePending = false
+        learnedBigramsCache?.let { prefs.edit().putString(KEY_LEARNED_BIGRAMS, serializeNgramJson(it)).apply() }
+        learnedTrigramsCache?.let { prefs.edit().putString(KEY_LEARNED_TRIGRAMS, serializeNgramJson(it)).apply() }
+    }
+
+    private fun parseNgramJson(raw: String): MutableMap<String, MutableMap<String, Int>> = runCatching {
         val root = JSONObject(raw)
-        val out = mutableMapOf<String, Map<String, Int>>()
+        val out = mutableMapOf<String, MutableMap<String, Int>>()
         val keys = root.keys()
         while (keys.hasNext()) {
             val k = keys.next()
@@ -112,7 +164,7 @@ class PersonalDictionaryStore(context: Context) {
             if (childMap.isNotEmpty()) out[k] = childMap
         }
         out
-    }.getOrDefault(emptyMap())
+    }.getOrDefault(mutableMapOf())
 
     private fun serializeNgramJson(data: Map<String, Map<String, Int>>): String {
         val root = JSONObject()

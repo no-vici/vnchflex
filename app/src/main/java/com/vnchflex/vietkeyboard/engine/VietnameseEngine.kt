@@ -61,7 +61,7 @@ class VietnameseEngine {
             if (updated.isEmpty()) {
                 rawChars.clear()
                 renderedOutput = ""
-                if (prevLen > 0) ic.deleteSurroundingText(prevLen, 0)
+                replaceComposingDirect(ic, prevLen, "")
             } else {
                 renderedOutput = updated
                 rawChars.clear()
@@ -78,11 +78,15 @@ class VietnameseEngine {
 
     fun commit(ic: InputConnection) {
         if (renderedOutput.isEmpty() && rawChars.isEmpty()) return
+        ic.finishComposingText()
         rawChars.clear()
         renderedOutput = ""
     }
 
     fun reset(ic: InputConnection? = null) {
+        if (ic != null && (renderedOutput.isNotEmpty() || rawChars.isNotEmpty())) {
+            ic.finishComposingText()
+        }
         rawChars.clear()
         renderedOutput = ""
     }
@@ -127,17 +131,16 @@ class VietnameseEngine {
     }
 
     private fun replaceComposingDirect(ic: InputConnection, prevLen: Int, newText: String) {
-        ic.beginBatchEdit()
-        try {
+        if (newText.isEmpty()) {
             if (prevLen > 0) {
-                ic.deleteSurroundingText(prevLen, 0)
+                ic.beginBatchEdit()
+                ic.setComposingText("", 1)
+                ic.finishComposingText()
+                ic.endBatchEdit()
             }
-            if (newText.isNotEmpty()) {
-                ic.commitText(newText, 1)
-            }
-        } finally {
-            ic.endBatchEdit()
+            return
         }
+        ic.setComposingText(newText, 1)
     }
 
     // ==================== TELEX BỎ DẤU TỰ DO & PHƯƠNG NGỮ NAM BỘ (PHONG CÁCH VNCHKEY) ====================

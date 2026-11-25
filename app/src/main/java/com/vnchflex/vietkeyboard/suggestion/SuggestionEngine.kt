@@ -295,6 +295,10 @@ class SuggestionEngine(context: Context? = null) {
         dictStore?.clearLearnedWords()
     }
 
+    fun flushPendingSaves() {
+        dictStore?.flushNgrams()
+    }
+
     private fun getContextualWeights(prevWord2: String, prevWord1: String): Map<String, Int> {
         val weights = mutableMapOf<String, Int>()
         val p1 = prevWord1.trim().lowercase()
