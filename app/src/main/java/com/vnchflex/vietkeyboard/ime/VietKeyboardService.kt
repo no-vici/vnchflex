@@ -211,7 +211,7 @@ class VietKeyboardService : InputMethodService() {
             ic.commitText(newCommitted, 1)
             ic.endBatchEdit()
             lastGlideCommittedLength = newCommitted.length
-            prevCommittedWord1 = word
+            recordCommittedWord(word)
             updateAutoCapitalization()
             updateSuggestions("")
             return

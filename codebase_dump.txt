@@ -2255,7 +2255,7 @@ class VietKeyboardService : InputMethodService() {
             ic.commitText(newCommitted, 1)
             ic.endBatchEdit()
             lastGlideCommittedLength = newCommitted.length
-            prevCommittedWord1 = word
+            recordCommittedWord(word)
             updateAutoCapitalization()
             updateSuggestions("")
             return
@@ -4959,325 +4959,380 @@ class SuggestionEngine(context: Context? = null) {
 
         // Bộ từ vựng tiếng Việt phổ thông mở rộng (~1.100 từ đơn & âm tiết thông dụng cho Glide Typing & Gợi ý từ)
         val commonVietnameseWords = """
-            ai an anh áo âm ấm ấn ẩn ấp âu ấy ba bà bá bả bã bạ bác bạc bách bài באי bán bạn bàn bảng
-            bánh bao báo bảo bão bạo bay bảy bắc bắt bận bằng bắp bắt bầu bảy bé bẻ bẽ bẹ bên bến bệnh
-            bi bì bí bỉ bị bia bịa biến biển biết biệt biểu binh bình bính bò bỏ bó bọ bói bọc bóc bọn
-            bóng bỏng bỗng bộ bốc bôi bốn bộn bông bồng bỗng bớt bơi bởi bơm bỡn bợn buồn buôn buông
-            buổi buộc bước bưởi bướm bưu ca cà cá cả cạ các cạc cách cai cái cải cãi cạm cam cảm cám
-            cạn can cần cân cấn cẩn cận căng cắt cằm cắn cặn căn cặp cắt câu cầu cấu cậu cây cầy cậy
-            cha chà chá chả chạ chác chạc chai chài trái chải chạy cháy chày chắc chăm chằm chắn chặn
-            chăng chẳng chặng chân trần chần chấn chẩn trận chập chất châu chầu chậu chê chế chệ chết
-            chi chì chí chỉ chị chia chìa chĩa chiếc chiêm chiếm chiến chiều chiếu chim chìm chín chỉnh
-            chính chịu cho trò chó chỏ chọ chói chọn chốn chồng chổng chống chớp chờ chở chợ chơi chới
-            chơi chốn chôn chỗ chốc chồi chối chổi trộn trông trống chờn chớt chua chùa chúa chủa chung
-            chùng chúng chủng chuối chuỗi chuồn chuông chuộng chuột chụp chút chuyên chuyền chuyển chuyện
-            chữ chữa chưa chừa chứa chửa chương trường chưởng có cò cỏ cọ coi cõi cọc con còn cỏn cọn
-            cong còng cóng cổng cộng cố cộ cốc cộc côi cối cội cốm cồn côn cồn cống công cồng cổng cộng
-            cốt cột cơ cờ cớ cỡ cợ cơn cợn cởi cưới cười cưỡi cướp cước cược cứu cựu da dà dá dả dạ
-            dài dải dãi dại dám dạm dan dàn dán dạn dang dàng dáng dạng danh dành dánh dạnh dao dào dáo
-            dạo dạy dãy dày dầy dây dậy dẫn dận dâng dập dâu dầu dấu dậu dê dề dế dễ dệ dệt di dì dí
-            dỉ dị dĩa dịch diễn diện diều diệu dinh dình dính dịnh do dò dó dỏ dọ dọa dọn dòng dóng
-            dọng dỗ dốc dồi dối dội dồn dông giống dốt dột dơ dờ dớ dở dợ đời đới đợi đơm đờn đợt du
-            dù dú dủ dụ dua dùa dúa dũa dùng dũng dụng duỗi đuổi đuốiAr đuôi đút duy duyên duyệt dư
-            dừ dứ dữ dự dưa dừa dứa dựa dương dường dướngượng dứt đa đà đá đả đã đạ đạc đai đài đái
-            đải đãi đại đàm đảm đám đạm đan đàn đán đạn đang đàng đáng đãng đạng đanh đành đánh đạo
-            đạp đạt đau đàu đáu đảu đãu đạu đắc đằm đắm đặm đăn đằn đắn đặn đăng đằng đắng đẳng đặng
-            đắp đặt đắt đầu đấu đậu đây đầy đấy đậy đâm đầm đấm đậm đân đần đấn đận đấp đập đất đâu
-            đê đề đế để đễ đệ đêm đềm đếm đệm đên đền đến đện đênh đềnh đết đi đì đí đỉ đĩ đị đia đìa
-            đĩa địa đích địch điếc điềm điểm điếm điệm điên điền điển điện điêng điềng điếng điệp điều
-            điểu điệu đinh đình đính đỉnh định đo đò đó đỏ đõ đọ đoa đoà đoá đoả đoã đoạ đoan đoàn đoán
-            đoản đoạn đoạt đọc đóc đỏi đói đọi đom đóm đòm đon đòn đón đọn đong đòng đóng đỏng đọng
-            đô đồ đố đổ đỗ độ đốc độc đôi đồi đối đổi đỗi đội đôm đồm đốm độm đôn đồn đốn độn đông
-            đồng đống đổng động đốt đột đơ đờ đớ đỡ đợ đơi đời đới đởi đỡi đợi đơm đờm đớm đợm đơn
-            đờn đớn đởn đợn đớp đợt đu đù đú đủ đũ đụ đua đùa đúa đủa đũa đụa đúc đục đùi đúi đủi
-            đũi đụi đùm đúm đụm đun đùn đún đụn đung đùng đúng đủng đụng đuốc đuôi đuồi đuối đuổi
-            đuỗi đuội đút đụt đưa đừa đứa đửa đữa đựa đức đựcươi đười đuối đươi đượm đương đường
-            đướng đưởng đưỡng đượng đứt đựt e è é ẻ ẽ ẹ em èm ém ẻm ẽm ẹm en èn én ẻn ẽn ẹn eng èng
-            éng ẻng ẽng ẹng eo èo éo ẻo ẽo ẹo ép ẹp êt ệt êm ềm ếm ểm ễm ệm ên ền ến ển ễn ện ênh
-            ềnh ếnh ểnh ễnh ệnh ếp ệp ết ệtêu ều ếu ểu ễu ệu ga gà gá gả gã gạ gác gạc gạch gai gài
-            gái gải gãi gại gan gàn gán gản gãn gạn gang gàng gáng gảng gãng gạng ganh gành gánh gảnh
-            gãnh gạnh gao gào gáo gảo gão gạo gay gày gáy gảy gãy gạy gắc gặc găm gằm gắm gẳm gẵm gặm
-            găn gằn gắn gẳn gẵn gặn găng gằng gắng gẳng gẵng gặng gặp gắp gắt gặt gâu gầu gấu gẩu gẫu
-            gậu gây gầy gấy gẩy gẫy gậy gâm gầm gấm gẩm gẫm gậm gần gắn gẩn gẫn gận gấp gập gấc gật
-            ghê nghề ghế ghể ghễ ghệ ghềnh ghép ghét ghi ghì ghí ghỉ ghĩ ghị ghim ghìm ghép gia già
-            giá giả giã giạ giác giạc giặc giai giài giái giải giãi giại giam giàm giám giảm giãm giạm
+            ai an anh áo âm ấm ấn ẩn ấp âu ấy ba bà bá bả bã
+            bạ bác bạc bách bài bán bạn bàn bảng bánh bao báo bảo bão bạo bay
+            bảy bắc bắt bận bằng bắp bầu bé bẻ bẽ bẹ bên bến bệnh bi bì
+            bí bỉ bị bia bịa biến biển biết biệt biểu binh bình bính bò bỏ bó
+            bọ bói bọc bóc bọn bóng bỏng bỗng bộ bốc bôi bốn bộn bông bồng bớt
+            bơi bởi bơm bỡn bợn buồn buôn buông buổi buộc bước bưởi bướm bưu ca cà
+            cá cả cạ các cạc cách cai cái cải cãi cạm cam cảm cám cạn can
+            cần cân cấn cẩn cận căng cắt cằm cắn cặn căn cặp câu cầu cấu cậu
+            cây cầy cậy cha chà chá chả chạ chác chạc chai chài trái chải chạy cháy
+            chày chắc chăm chằm chắn chặn chăng chẳng chặng chân trần chần chấn chẩn trận chập
+            chất châu chầu chậu chê chế chệ chết chi chì chí chỉ chị chia chìa chĩa
+            chiếc chiêm chiếm chiến chiều chiếu chim chìm chín chỉnh chính chịu cho trò chó chỏ
+            chọ chói chọn chốn chồng chổng chống chớp chờ chở chợ chơi chới chôn chỗ chốc
+            chồi chối chổi trộn trông trống chờn chớt chua chùa chúa chủa chung chùng chúng chủng
+            chuối chuỗi chuồn chuông chuộng chuột chụp chút chuyên chuyền chuyển chuyện chữ chữa chưa chừa
+            chứa chửa chương trường chưởng có cò cỏ cọ coi cõi cọc con còn cỏn cọn
+            cong còng cóng cổng cộng cố cộ cốc cộc côi cối cội cốm cồn côn cống
+            công cồng cốt cột cơ cờ cớ cỡ cợ cơn cợn cởi cưới cười cưỡi cướp
+            cước cược cứu cựu da dà dá dả dạ dài dải dãi dại dám dạm dan
+            dàn dán dạn dang dàng dáng dạng danh dành dánh dạnh dao dào dáo dạo dạy
+            dãy dày dầy dây dậy dẫn dận dâng dập dâu dầu dấu dậu dê dề dế
+            dễ dệ dệt di dì dí dỉ dị dĩa dịch diễn diện diều diệu dinh dình
+            dính dịnh do dò dó dỏ dọ dọa dọn dòng dóng dọng dỗ dốc dồi dối
+            dội dồn dông giống dốt dột dơ dờ dớ dở dợ đời đới đợi đơm đờn
+            đợt du dù dú dủ dụ dua dùa dúa dũa dùng dũng dụng duỗi đuổi đuốiar
+            đuôi đút duy duyên duyệt dư dừ dứ dữ dự dưa dừa dứa dựa dương dường
+            dứt đa đà đá đả đã đạ đạc đai đài đái đải đãi đại đàm đảm
+            đám đạm đan đàn đán đạn đang đàng đáng đãng đạng đanh đành đánh đạo đạp
+            đạt đau đàu đáu đảu đãu đạu đắc đằm đắm đặm đăn đằn đắn đặn đăng
+            đằng đắng đẳng đặng đắp đặt đắt đầu đấu đậu đây đầy đấy đậy đâm đầm
+            đấm đậm đân đần đấn đận đấp đập đất đâu đê đề đế để đễ đệ
+            đêm đềm đếm đệm đên đền đến đện đênh đềnh đết đi đì đí đỉ đĩ
+            đị đia đìa đĩa địa đích địch điếc điềm điểm điếm điệm điên điền điển điện
+            điêng điềng điếng điệp điều điểu điệu đinh đình đính đỉnh định đo đò đó đỏ
+            đõ đọ đoa đoà đoá đoả đoã đoạ đoan đoàn đoán đoản đoạn đoạt đọc đóc
+            đỏi đói đọi đom đóm đòm đon đòn đón đọn đong đòng đóng đỏng đọng đô
+            đồ đố đổ đỗ độ đốc độc đôi đồi đối đổi đỗi đội đôm đồm đốm
+            độm đôn đồn đốn độn đông đồng đống đổng động đốt đột đơ đờ đớ đỡ
+            đợ đơi đởi đỡi đờm đớm đợm đơn đớn đởn đợn đớp đu đù đú đủ
+            đũ đụ đua đùa đúa đủa đũa đụa đúc đục đùi đúi đủi đũi đụi đùm
+            đúm đụm đun đùn đún đụn đung đùng đúng đủng đụng đuốc đuồi đuối đuỗi đuội
+            đụt đưa đừa đứa đửa đữa đựa đức đựcươi đười đươi đượm đương đường đướng đưởng
+            đưỡng đượng đứt đựt em èm ém ẻm ẽm ẹm en èn én ẻn ẽn ẹn
+            eng èng éng ẻng ẽng ẹng eo èo éo ẻo ẽo ẹo ép ẹp êt ệt
+            êm ềm ếm ểm ễm ệm ên ền ến ển ễn ện ênh ềnh ếnh ểnh
+            ễnh ệnh ếp ệp ết ệtêu ều ếu ểu ễu ệu ga gà gá gả gã
+            gạ gác gạc gạch gai gài gái gải gãi gại gan gàn gán gản gãn gạn
+            gang gàng gáng gảng gãng gạng ganh gành gánh gảnh gãnh gạnh gao gào gáo gảo
+            gão gạo gay gày gáy gảy gãy gạy gắc gặc găm gằm gắm gẳm gẵm gặm
+            găn gằn gắn gẳn gẵn gặn găng gằng gắng gẳng gẵng gặng gặp gắp gắt gặt
+            gâu gầu gấu gẩu gẫu gậu gây gầy gấy gẩy gẫy gậy gâm gầm gấm gẩm
+            gẫm gậm gần gẩn gẫn gận gấp gập gấc gật ghê nghề ghế ghể ghễ ghệ
+            ghềnh ghép ghét ghi ghì ghí ghỉ ghĩ ghị ghim ghìm gia già giá giả giã
+            giạ giác giạc giặc giai giài giái giải giãi giại giam giàm giám giảm giãm giạm
             gian giàn gián giản giãn giạn giang giàng giáng giảng giãng giạng gianh giành giánh mảnh
-            giao giào giáo giảo gião giạo giặc giăm giằm giắm giẳm giẵm giặm giăng giằng giắng giẳng
-            giẵng giặng giáp giặt giàu giáu giảu giãu giạu giày giáy giảu giãy giạy giâm giầm giấm
-            giẩm giẫm giậm giân dần giấn giản giẫn giận giấp giập giấc giật giâu giầu giấu giẩu giẫu
-            giậu giây giầy giấy giẩy giẫy giậy giêng giềng giếng giết giễu giò gió giỏ rõ giọ gióc
-            giọc giỏi giói giọi giòn gióng giỏng giọng giọt giờ giới giỏi giữ giữa giương giường
-            giướng giưởng giưỡng giượng giựt go gò gó gỏ gõ gọ góc gọc gọi gom gòm góm gỏm gõm gọm
-            gon gòn gón gỏn gõn gọn gong gòng góng gỏng gõng gọng gô gồ cố gổ gỗ gộ gốc gộc gôi gồi
-            gối gổi gỗi gội gồm gốm gộm gôn gồn gốn gổn gỗn gộn gông gồng cống gổng gỗng gộng gốt gột
-            gơ gờ gớ gở gỡ gợ gơi gời gới gởi gỡ gợi gồm gớm gợm gơn gờn gớn gởn gỡn gợn góp gộp gót
-            gọt gu gù gú gủ gũ gụ gục gùi gúi gủi gũi gụi gùm gúm gụm gùn gún gụn gùng gúng gủng gũng
-            gụng gút gụt gương gường gướng gưởng gưỡng gượng gườm gượm gửi gởi ha hà há hả hã hạ hác
-            hạc hạch hai hài hái hải hãi hại ham hàm hám hảm hãm hạm han hàn hán hản hãn hạn hang
-            hàng háng hảng hãng hạng hanh hành hánh hảnh hãnh hạnh hao hào háo hảo hão hạo hay hày
-            háy hảy hãy nhạy hắc hặc hăm hằm hắm hẳm hẵm hặm hănằn hắn hẳn hẵn hặn hăng hằng hắng
-            hẳng hẵng hặng hắp hặp hắt hặt hâu hầu hấu hẩu hẫu hậu hây hầy hấy hẩy hẫy hậy hâm hầm
-            hấm hẩm hẫm hậm hân hần hấn ẩn hẫn hận hấp hập hấc hật he hè hé hẻ hẽ hẹ hem hèm hém hẻm
-            hẽm hẹm hen hèn hén hẻn hẽn hẹn heng hèng héng hẻng hẽng hẹng heo hèo héo hẻo hẽo hẹo
-            hép hẹp hêt hệt hê hề hế hểễ hệ hêm hềm hếm hểm hễm hệm hên hền hến hển hễn hện hênh hềnh
-            hếnh hểnh hễnh hệnh hếp hệp hết hệt hêu hềnh hếu hểu hễu hệ hi hì hí hỉ hĩ hị hia hìa hía
-            hỉa hĩa hịa hích hịch hiếm hiểm hiềm hiện hiền hiển hiến hiêng hiềng hiếng hiệp hiểu hiệu
-            hinh hình hính hỉnh hĩnh hịnh ho hò hó hỏ hõ họ hoa hoà hoá hoả hoã hoạ hoác hoặc hoài
-            hoải hoại hoan hoàn hoán hoản hoãn hoạn hoang hoàng hoáng hoảng hoãng hoạng hoành hoánh
-            hoảnh hoãnh hoạnh hoạt hoắt hoặc học hóc hỏi hói họi hom hòm hóm hỏm hõm họp hon hòn hón
-            hỏn hõn họn hong hòng hóng hỏng hõng họng hô hồ hố hổ hỗ hộ hốc hộc hôi hồi hối hỏi hỗ
-            hội hôm gồm hốm hổm hỗm hộm hôn hồn hốn hổn hỗn độn hông hồng hống hỏng hỗng hộng hốt hột
-            hơ hờ hớ hở hỡ hợ hơi hời hới hởi hỡi hợi hơm hờm hớm hởm hỡm hợp hơn hờn hớn hởn hỡn hợn
-            hớp hợp hớt hợt hu hù hú hủ hũ hụ hua hùa hứa hủa hũa hụa húc hục hui hùi húi hủi hũi hụi
-            hum hùm húm hủm hũm hụm hun hùn hún hủn hũn hụn hung hùng húng hủng hũng hụng huơ huờ
-            huớ huở huỡ huợ húp hụp hút hụt huy huỳ huý huỷ huỹ huỵ huých huỵch huyên huyền khuyến
-            huyển huyễn huyện huynh huỳnh huýnh huỷnh huỹnh huỵnh huyết huyệt hư hừứ hử hữ hự hưa
-            hừa hứa hửa hữa hựa hức hực hươi hười hưới hưởi hưỡi hượi hươm hườm hướm hưởm hưỡm hượm
-            hươn hườn hướn hưởn hưỡn hượn hương hường hướng hưởng hưỡng hượng hươu hườu hướu hưởu
-            hưỡu hượu hứt hựt hy hỳ hý hỷ hỹ hỵ ích ịch im ìm ím ỉm ĩm ịm in ìn ín ỉn ĩn ịn inh ình
-            ính ỉnh ĩnh ịnh ít ịt iu ìu íu ỉu ĩu ịu khả khách khám khóc khỏe khỏi khói không khu
-            khác khát khâu khăn khắp khắt khe khẽ khen khéo khép khét khi khỉ khí khía khích khiến
-            khiêng khiếp khiếu khinh khó khoá khoác khoai khoái khoan khoản khoảng khoanh khoẻ khoe
-            khoe khoét khói khom khóm khôn khốn không khổng khô khổ khố khối khôi khơi khớp khu khù
-            khú khủ khũ khụ khua khuân khuất khúc khuếch khung khủng khuất khuyên khuyết khuynh khuya
-            khử khứ khứa khước khướt khứu kia kìa kía kỉa kĩa kịa kịch kiếm kiểm kiềm kiện kiền kiến
-            kiêng kiềng kiếng kiếp kịp kêu kều kéo kẻo kẹo kèm kém kẽm kèn kén kẻn kẽn kẹn keo kèo
-            kéo kẻo kẽo kẹo kép kẹp kết kệt kê kề kế kể kễ kệ kênh kềnh kếnh kểnh kễnh kệnh kêu kều
-            kếu kiểu kễu kệu khác khách khạc khai khái khải khãi khại kham khàm khám khảm khãm khạm
-            khan khàn khán khản khãn khạn khang khàng kháng khẳng khãng khạng khanh khành khánh khảnh
-            khãnh khạnh khao khào kháo khảo khão khạo khay khày kháy khảy khãy khạy khắc khặcăm khằm
-            khắm khẳm khẵm khặm khăn khằn khắn khẳn khẵn khặn khăng khằng khắng khẳng khẵng khặng
-            khắp khặp khắt khặt khâu khầu khấu khẩu khẫu khậu khây khầy khấy khảy khẫy khậy khâm khầm
-            khấm khẩm khẫm khậm khân khần khấn khẩn khẫn khận khắp khậpấc khật khiêm khiếm khiểm khiễm
-            kiệm kiên kiền kiến kiển kiễn kiện kiêng kiềng kiếng kiểng kiễng kiệu kim kìm kím kỉm kĩm
-            kịm kin kìn kín kỉn kĩn kịn kinh kình kính kỉnh kĩnh kịnh kíp kịp kít kịt kìu kíu kỉu kĩu
-            kịu kỹ kỷ kỳ ký kỵ la là lá lả lã lạ lác lạc lách lai lài lái lải lãi lại lam làm lám lảm
-            lãm lạm lan làn lán lản lãn lạn lang làng láng lảng lãng lạng lanh lành lánh lảnh lãnh
-            lạnh lao lào láo lảo lão lạo lay lày láy lảy lãy lạy lắc lặc lăm lằm lắm lẳm lẵm lặm lăn
-            lằn lắn lẳn lẵn lặn lăng lằng lắng lẳng lẵng lặng lắp lặp lắt lặt lâu lầu lấu lẩu lẫu lậu
-            lây lầy lấy lẩy lẫy lậy lâm lầm lấm lẩm lẫm lậm lân lần lấn lẩn lẫn lận lấp lập lấc lật
-            lê lề lế lể lễ lệ lêm lềm lếm lểm lễm lệm lên lền lến lển lễnh lệnh lênh lềnh lếnh lểnh
-            lễnh lệnh lếp lệp lết lệt lêu lều lếu lểu lễu lệu li lì lí lỉ lĩ lị lia lìa lía lỉa lĩa
-            lịa lích lịch liêm liềm liếm liểm liễm liệm liên liền liến liển liễn liện liêng liềng
-            liếng liểng liễng liệng liếp liệp liết liệt liêu liều liếu liểu liễu liệu lim lìm lím
-            lỉm lĩm lịm lin lìn lín lỉn lĩn lịn linh lình lính lỉnh lĩnh lịnh líp dịp lít lịt liu lìu
-            líu lỉu lĩu lịu lo lò ló lỏ lõ lọ loa loà loá loả loã loạ loạc loài loái loải loãi loại
-            loan loàn loán loản loãn loạn loang loàng loáng loảng loãng loạng loanh loành loánh loảnh
-            loãnh loạnh loát loạt loắt loặt lọc lóc lỏi lói lọi lom lòm lóm lỏm lõm lọm lon lòn lón
-            lỏn lõn lọn long lòng lóng lỏng lõng lọng lô lồ lố lổ lỗ lộ lốc lộc lôi lồi lối lổi lỗi
-            lội lôm lồm lốm lổm lỗm lộm lôn lồn lốn lổn lỗn lộn lông lồng lống lổng lỗng lộng lốt lột
-            lơ lờ lớ lở lỡ lợ lơi lời lới lởi lỡi lợi lơm lờm lớm lởm lỡm lợm lơn lờn lớn lởn lỡn lợn
-            lớp lợp lớt lợt lu lù lú lủ lũ lụ lua lùa lúa lủa lũa lụa lúc lục lui lùi lúi lủi lũi lụi
-            lum lùm lúm lủm lũm lụm lun lùn lún lủn lũn lụn lung lùng lúng lủng lũng lụng luộc luôi
-            luồi luối luổi luỗi luội lúp lụp lút lụt luy luỳ luý luỷ luỹ luỵ luyên luyền luyến luỷen
-            luyễn luyện luynh luỳnh luýnh luỷnh luỹnh luỵnh lư lừ lứ lử lữ lự lưa lừa lứa lửa lữa lựa
-            lức lực lươi lười lưới lưởi lưỡi lượi lươm lườm lướm lưởm lưỡm lượm lươn lườn lướn lưởn
-            lưỡn lượn lương lường nướng lưởng lưỡng lượng lướt lượt lưu lừu lứu lửu lữu lựu lứt lựt
-            ly lỳ lý lỷ lỹ lỵ ma mà má mả mã mạ mác mạc mạch mai mài mái mải mãi mại mam màm mám mảm
-            mãm mạm man màn mán mản mãn mạn mang màng máng mảng mãng mạng manh mành mánh mảnh mãnh
-            mạnh mao mào máo mảo mão mạo may mày máy mảy mãy mạy mắc mặc măm mằm mắm mẳm mẵm mặm măn
-            mằn mắn mẳn mẵn mặn măng mằng mắng mẳng mẵng mặng mắc mặt mắt mặt mâu mầu mấu mẩu mẫu mậu
-            mây mầy mấy mẩy mẫy mậy mâm mầm nấm mẩm mẫm mậm mân mần mấn mẩn mẫn mận mấp mậpấc mật mê
-            mề mế mể mễ mệ mêm mềm mếm mểm mễm mệm mên mền mến mển mễn mện mênh mềnh mếnh mểnh mễnh
-            mệnh mếp mệp mết mệt mêu mều mếu mểu mễu mệu mi mì mí mỉ mĩ mị mia mìa mía mỉa mĩa mịa
-            mích mịch miên miền miến miễn miệng miếng miết miệt miêu miều miếu miểu miễu miệu mim mìm
-            mím mỉm mĩm mịm min mìn mín mỉn mĩn mịn minh mình mính mỉnh mĩnh mịnh míp mịp mít mịt miu
-            mìu míu mỉu mĩu mịu mo mò mó mỏ mõ mọ moa moà moá moả moã moạ móc mọc mỏi mói mọi mom mòm
-            móm mỏm mõm mọm mon mòn món mỏn mõn mọn mong mòng móng mỏng mõng mọng mô mồ mố mổ mỗ mộ
-            mốc mộc môi mồi mối mỏi mỗi mội môm mồm mốm mổm mỗm mộm môn mồn muốn mổn mỗn một mông
-            mồng mống mỏng mỗng mộng mốt một mơ mờ mớ mở mỡ nợ mơi mời mới mở mỡ mọi mơm mờm mớm mởm
-            mỡm mợm mơn mờn mớn mởn mỡn mợn mớp mợp mớt mượt mu mù mú mủ mũ mụ mua mùa múa mủa mũa
-            mụa múc mục mui mùi múi mủi mũi mụi mum mùm múm mủm mũm mụm mun mùn mún mủn mũn mụn mung
-            mùng múng mủng mũng mụng muôi muồi muối muổi muỗi muội muôn muồn muốn muổn muỗn muộn muỗng
-            múp mụp mút mụt mưa mừa mứa mửa mữa mựa mức mực mươi mười mưới mưởi mưỡi mượi mươn mườn
-            mướn mưởn mưỡn mượn mương mường nướng mưởng mưỡng mượng mướt mượt mưu mừu mứu mửu mữu mựu
-            mứt mựt my mỳ mỹ mỷ mỹ mỵ na nà ná nả nã nạ nác nạc nách nai nài nái nải nãi nại nam nàm
-            nám nảm nãm nạm nan nàn nán nản nãn nạn nang nàng náng nảng nãng nạng nanh nành nánh nảnh
-            nãnh nạnh nao nào náo nảo não nạo nay này náy nảy nãy nạy nắc nặc năm nằm nắm nẳm nẵm nặm
-            năn nằn nắn nẳn nẵn nặn năng nằng nắng nẳng nẵng nặng nắp nặp nắt nặt nâu nầu nấu nẩu nẫu
-            nậu nây nầy nấy nẩy nẫy nậy nấmầm nấm nẩm nẫm nậm nângần nấn nẩn nẫn nận nấp nập nấc nật
-            nê nề nế nể nễ nệ nêm nềm nếm nểm nễm nệm nên nền nến nển nễn nện nênh nềnh nếnh nểnh
-            nễnh nệnh nếp nệp nết nệt nêu nều nếu nểu nễu nệu ni nì ní nỉ nĩ nị nia nìa nía nỉa nĩa
-            nịa ních nịch niêm niềm niếm niểm niễm niệm niên niền niến niển niễn niện niêng niềng
-            niếng niểng niễng niệng niết niệt niêu niều niếu niểu niễu niệu nim nìm ním nỉm nĩm nịm
-            nin nìn nín nỉn nĩn nịn ninh nình nính nỉnh nĩnh nịnh níp nịp nít nịt niu nìu níu nỉu nĩu
-            nịu no nò nó nỏ nõ nọ noa noà noá noả noã noạ noãn nọc nóc nỏi nói nọi nom nòm nóm nỏm
-            nõm nọm non nòn nón nỏn nõn nọn nong nòng nóng nỏng nõng nọng nô nồ nố nổ nỗ nộ nốc nộp
-            nôi nồi nối nổi nỗi nội nôm nồm nốm nổm nỗm nộm nôn nồn nốn nổn nỗn nộn nông nồng nống
-            nổng nỗng nộng nốt nột nơ nờ nớ nở nỡ nợ nơi nời nới nởi nỡi nợi nơm nờm nớm nởm nỡm nợm
-            nơn nờn nớn nởn nỡn nợn nớp nộp nớt nợt nu nù nú nủ nũ nụ nua nùa núa nủa nũa nụa núc nục
-            nui nùi núi nủi nũi nụi num nùm núm nủm nũm nụm nun nùn nún nủn nũn nụn nung nùng núng
-            nủng nũng nụng nuôi nuồi nuối nuổi nuỗi nuội nuốt nuột núp nụp nút nụt nưa nừa nứa nửa
-            nữa nựa nức nực nươi nười nưới nưởi nưỡi nượi nươm nườm nướm nưởm nưỡm nượm nươn nườn
-            nướn nưởn nưỡn nượn nương nường nướng nưởng nưỡng nượng nước nược nướt nượt nứt nựt nữ
-            nha nhà nhá nhả nhã nhạ nhác nhạc nhách nhai nhài nhái nhải nhãi nhại nham nhàm nhám nhảm
-            nhãm nhạm nhan nhàn nhán nhản nhãn nhạn nhang nhàng nháng nhảng nhãng nhạng nhanh nhành
-            nhánh nhảnh nhãnh nhạnh nhao nhào nháo nhảo nhão nhạo nhay nhày nháy nhảy nhãy nhạy nhắc
-            nhặc nhăm nhằm nhắm nhẳm nhẵm nhặm nhăn nhằn nhắn nhẳn nhẵn nhặn nhăng nhằng nhắng nhẳng
-            nhẵng nhặng nhắp nhặp nhắt nhặt nhau nhàu nháu nhảu nhãu nhạu nhây nhầy nhấy nhảy nhẫy
-            nhậy nhâm nhầm nhấm nhẩm nhẫm nhậm nhân nhần nhấn nhẩn nhẫn nhận nhấp nhập nhấc nhật nhê
-            nhề nhế nhể nhễ nhệ nhêm nhềm nhếm nhểm nhễm nhiệm nhên nhền nhến nhển nhễn nhện nhênh
-            nhềnh nhếnh nhểnh nhễnh nhệnh nhếp nhệp nhết nhiệt nhêu nhều nhếu nhểu nhễu nhệu nhi nhì
-            nhí nhỉ nhĩ nhị nhia nhìa nhía nhỉa nhĩa nhịa nhích nhịch nhiếc nhiềm nhiễm nhiên nhiền
-            nhiến nhiển nhiễn nhiện nhiếp nhiệp nhiết nhiệt nhiêu nhiều nhiếu nhiểu nhiễu nhiệu nhim
-            nhìm nhím nhỉm nhĩm nhịm nhin nhìn nhín nhỉn nhĩn nhịn nhinh nhình nhính nhỉnh nhĩnh
-            nhịnh nhíp nhịp nhít nhịt nhiu nhìu nhíu nhỉu nhĩu nhịu nho nhò nhó nhỏ nhõ nhọ nhoa nhoà
-            nhoá nhoả nhoã nhoạ nhoài nhoải nhoại nhoáng nhoạng nhóc nhọc nhói nhỏi nhọi nhom nhòm
-            nhóm nhỏm nhõm nhọm nhon nhòn nhón nhỏn nhõn nhọn nhong nhòng nhóng nhỏng nhõng nhọng nhô
-            nhồ nhố nhổ nhỗ nhộ nhốc nhộc nhôi nhồi nhối nhổi nhỗi nhội nhôm nhồm nhốm nhổm nhỗm nhộm
-            nhôn nhồn nhốn nhổn nhỗn nhộn nhông nhồng nhống nhổng nhỗng nhộng nhốt nhột nhơ nhờ nhớ
-            nhở nhỡ nhợ nhơi nhời nhớ nhởi nhỡi nhợi nhơm nhờm nhớm nhởm nhỡm nhợm nhơn nhờn nhớn
-            nhởn nhỡn nhợn nhớp nhợp nhớt nhợt nhu nhù nhú nhủ nhũ nhụ nhua nhùa nhúa nhủa nhũa nhụa
-            nhúc nhục nhui nhùi nhúi nhủi nhũi nhụi nhum nhùm nhúm nhủm nhũm nhụm nhun nhùn nhún nhủn
-            nhũn nhụn nhung nhùng nhúng nhủng nhũng nhụng nhuốc nhuôi nhuồi nhuối nhuổi nhuỗi nhuội
-            nhuộm nhuần nhuẩn nhuẫn nhuận nhúp nhụp nhút nhụt như nhừ nhứ nhử nhữ nhự nhưa nhừa nhứa
-            nhửa nhữa nhựa nhức nhực nhươi nhười nhưới nhưởi nhưỡi nhượi nhươm nhườm nhớm nhưởm nhưỡm
-            nhượm nhươn nhườn nhớn nhưởn nhưỡn nhượn nhương nhường nhướng nhưởng nhưỡng nhượng nhước
-            nhược nhướt nhượt nhứt nhựt qua quà quá quả quã quạ quan quàn quán quản quãn quạn quang
-            quàng quáng quảng quãng quạng quanh quành quánh quảnh quãnh quạnh quay quày quáy quảy
-            quãy quạy quắc quặcăm quằm quắm quẳm quẵm quặm quăn quằn quắn quẳn quẵn quặn quăng quằng
-            quắng quẳng quẵng quặng quắp quặp quắt quặt quân quần quấn quẩn quẫn quận quất quật quê
-            quề quế quể quễ vệ quên quền quến quển quễn quyện quốc cuộc quyết quyệt quý quỳ quỹ quỷ
-            quỵ ra rà rá rả rã rạ rác rạc rạch rai rài rái rải rãi rại ram ràm rám rảm rãm rạm ran
-            ràn rán rản rãn rạn rang ràng ráng rảng rãng rạng ranh rành ránh rảnh rãnh rạnh rao rào
-            ráo rảo rão rạo ray rày ráy rảy rãy rạy rắc rặcăm rằm rắm rẳm rẵm rặm răn rằn rắn rẳn
-            rẵn rặn răng rằng rắng rẳng rẵng rặng rắp rặp rất rặt râu rầu rấu rẩu rẫu rậu rây rầy
-            rấy rẩy rẫy rậy râm rầm rấm rẩm rẫm rậm rânần rấn rẩn rẫn rận rấp rậpấc rật rê rề rế rể
-            rễ rệ rêm rềm rếm rểm rễm rệm rên rền rến rển rễn rện rênh rềnh rếnh rểnh rễnh rệnh rếp
-            rệp rết rệt rêu rều rếu rểu rễu rệu ri rì rí rỉ rĩ rị ria rìa ría rỉa rĩa rịa rích rịch
-            riêng riềng riếng riết riệt riêu riều riếu riểu riễu riệu rim rìm rím rỉm rĩm rịm rin rìn
-            rín rỉn rĩn rịn rinh rình rính rỉnh rĩnh rịnh ríp rịp rít rịt riu rìu ríu rỉu rĩu rịu ro
-            rò ró rỏ rõ rọ roa roà roá roả roã roạóc rọc rỏi rói rọi rom ròm róm rỏm rõm rọm ron ròn
-            rón rỏn rõn rọn rong ròng róng rỏng rõng rọng rô rồ rố rổ rỗ lộ rốc rộcôi rồi rối rổi rỗi
-            rội rôm rồm rốm rổm rỗm rộm rôn rồn rốn rổn rỗn rộn rông rồng rống rổng rỗng rộng rốt rột
-            rơ rờ rớ rở rỡ rợ rơi rời rới rởi rỡi rợi rơm rờm rớm rởm rỡm rợm rơn rờn rớn rởn rỡn rợn
-            rớp rợp rớt rợt ru rù rú rủ rũ rụ rua rùa rúa rủa rũa rụa rúc rục rui rùi rúi rủi rũi rụi
-            rum rùm rúm rủm rũm rụm run rùn rún rủn rũn rụn rung rùng rúng rủng rũng rụng ruốc ruôi
-            ruồi ruối ruổi ruỗi ruội ruột rúp rụp rút rụt rưaừa rứa rửa rữa rựa rức rực rươi rười
-            rưới rưởi rưỡi rượi rươm rườm rướm rưởm rưỡm rượm rươn rườn rướn rưởn rưỡn rượn rương
-            rường rướng rưởng rưỡng rượng rước rược rướt rượt rứt rựt sa sà sá sả sã sạ xác sạc sạch
-            sai sài sái sải sãi sại sam sàm sám sảm sãm sạm san sàn sán sản sẵn sạn sang sàng sáng
-            sảng sãng sạng sanh sành sánh sảnh sãnh sạnh sao sào sáo sảo são sạo say sày sáy sảy sãy
-            sạy sắc sặcăm sằm sắm sẳm sẵm sặm săn sằn sắn sẳn sẵn sặn xăng sằng sắng sẳng sẵng sặng
-            sắp sặp sắt sặt sâu sầu xấu sẩu sẫu sậu xây sầy sấy sẩy sẫy sậy xâm sầm sắm sẩm sẫm sậm
-            sân sần sấn sẩn sẵn sận sắp sậpấc sật sê sề sế sể sễ sệ sêm sềm sếm sểm sễm sệm sên sền
-            sến sển sễn sện sênh sềnh sếnh sểnh sễnh sệnh xếp sệp sết sệt sêu sều sếu sểu sễu sệu si
-            sì sí sỉ sĩ sị sia sìa sía sỉa sĩa sịa xích sịch siêu siều siếu siểu siễu siệu sim sìm
-            sím sỉm sĩm sịm sin sìn sín sỉn sĩn sịn sinh sình sính sỉnh sĩnh sịnh síp sịp sít sịt siu
-            sìu síu sỉu sĩu sịu so sò só sỏ sõ sọ soa soà soá soả soã soạ soạn soát soạtóc sọc sỏi
-            sói sọi som sòm sóm sỏm sõm sọm son sòn són sỏn sõn sọn song sòng sóng sỏng sõng sọng sô
-            sồ số sổ sỗ sộ sốc sộc sôi sồiối sổi sỗi sội hôm sồm sốm sổm sỗm sộm sôn sồn sốn sổn sỗn
-            sộn sông sồng sống sổng sỗng sộng sốt sột sơ sờ sớ sở sỡ sợ sơi sời sới sở sỡi sợi sớm
-            sờm sớm sởm sỡm sợm sơn sờn sớn sởn sỡn sợn sớp sợp sớt sợt su sù sú sủ sũ sụ sua sùa súa
-            sủa sũa sụa xúc sục sui sùi súi sủi sũi sụi sum sùm súm sủm sũm sụm sun sùn sún sủn sũn
-            sụn sung sùng súng sủng sũng sụng suốt suối suồi suối suổi suỗi suội súp sụp sút sụt suy
-            suỳ suý suỷ suỹ suỵ xuyên xuyền khuyến suỷen suyễnuyện suất Luật sư sừ sứ sử sữ sự sưa
-            sừa sứa sửa sữa sựa sức sực sươi sười sưới sưởi sưỡi sựơi sươm sườm sớm sưởm sưỡm sựơm
-            sươn sườn sớm sưởn sưỡn sựơn sương sường sướng xưởng sưỡng sựơng sước sựơc sướt sựơt sứt
-            sựt ta tà tá tả tã tạ tác tạc tách tai tài tái tải tãi tại tam tàm tám tảm tãm tạm tan
-            tàn tán tản tãn tạn tang tàng táng tảng tãng tạng tanh tành tánh tảnh tãnh tạnh tao tào
-            táo tảo tão tạo tay tày táy तảy tãy tạy tắc tặcăm tằm tắm tẳm tẵm tặm tăn tằn tắn tẳn tẵn
-            tặn tăng tằng tắng tảng tẵng tặng tắp tập tắt tặt tâu tàu tấu tẩu tẫu tậu tây tầy tấy tẩy
-            tẫy tậy tâm tầm tấm tẩm tẫmậm tân tần tấn tẩn tẫn tận tấp tậpấc tật tê tề tế tể tễ tệ têm
-            tềm tếm tểm tễm tiệm tênền tếnh tển tễn tiện tênh tềnh tếnh tểnh tễnh tệnh tếp tệp tết
-            tệt têu tều tếu tểu tễu tệu ti tì tí tỉ tĩ tị tia tìa tía tỉa tĩa tịa tích tịch tiêm tiềm
-            tiếm tiểm tiễm tiệm tiên tiền tiến tiển tiễn tiện tiếng tiềm tiếng tiểng tiễng tiện tiếp
-            tiệp tiết tiệt tiêu tiều tiếu tiểu tiễu tiệu tim tìm tím tỉm tĩm tịm tin tìm tín tỉn tĩn
-            tịn tinh tình tính tỉnh tĩnh tịnh típ tịp tít tịt tiu tìu tíu tỉu tĩu tịu to tò tó tỏ tõ
-            tọ toa toà toá toả toã toạ toạc toàn toán toản toãn toạn toang toàng toáng toảng toãng
-            toạng toát loạtóc tọc tỏi tói tọi tom tòm tóm tỏm tõm tọm ton tòn tón tỏn tõn tọn tong
-            tòng tóng tỏng tõng tọng tô tồ tố tổ tỗ tộ tốc tộc tôi tồi tối tổi tỗi tội tôm tồm tốm
-            tổm tỗm tộm tôn tồn tốn tổn tỗn độn tông tồng tống tổng tỗng rộng tốt tột tơ tờ tớ tở tỡ
-            tợ tơi tời tới tởi tỡi tợi tơm tờm tớm tởm tỡm tợm tơn tờn tớn tởn tỡn tợn tớp tợp tớt
-            tợt tu tù tú tủ tũ tụ tua chùa túa tủa tũa tụa túc tục tui tùi túi tủi tũi tụi tum tùm
-            túm tủm tũm tụm tun tùn tún tủn tũn tụn tung tùng túng tủng tũng tụng tuốc nuôi tuồi tuối
-            tuổi tuỗi tuội tuôn tuồn tuốn tuổn tuỗn tuộn túp chụp tút tụt tuy tuỳ tuý tuỷ tuỹ tuỵ
-            tuyên tuyền tuyến tuỷen tuyễn truyện tuyết tuyệt tư từ tứ tử tữ tự tưa từa tứa tửa tữa
-            tựa tức tực tươi tười tưới tưởi tưỡi tượi tươm từơm tướm tưởm tưỡm tượm tươn từơn tướn
-            tưởn tưỡn tượn tương tường tướng tưởng tưỡng tượng tước tược tướt tượt tứttựt tha thà thá
-            thả thã thạ thác thạc thách thai thài thái thải thãi thại tham thàm thám thảm thãm thạm
+            giao giào giáo giảo gião giạo giăm giằm giắm giẳm giẵm giặm giăng giằng giắng giẳng
+            giẵng giặng giáp giặt giàu giáu giảu giãu giạu giày giáy giãy giạy giâm giầm giấm
+            giẩm giẫm giậm giân dần giấn giẫn giận giấp giập giấc giật giâu giầu giấu giẩu
+            giẫu giậu giây giầy giấy giẩy giẫy giậy giêng giềng giếng giết giễu giò gió giỏ
+            rõ giọ gióc giọc giỏi giói giọi giòn gióng giỏng giọng giọt giờ giới giữ giữa
+            giương giường giướng giưởng giưỡng giượng giựt go gò gó gỏ gõ gọ góc gọc gọi
+            gom gòm góm gỏm gõm gọm gon gòn gón gỏn gõn gọn gong gòng góng gỏng
+            gõng gọng gô gồ gổ gỗ gộ gốc gộc gôi gồi gối gổi gỗi gội gồm
+            gốm gộm gôn gồn gốn gổn gỗn gộn gông gồng gổng gỗng gộng gốt gột gơ
+            gờ gớ gở gỡ gợ gơi gời gới gởi gợi gớm gợm gơn gờn gớn gởn
+            gỡn gợn góp gộp gót gọt gu gù gú gủ gũ gụ gục gùi gúi gủi
+            gũi gụi gùm gúm gụm gùn gún gụn gùng gúng gủng gũng gụng gút gụt gương
+            gường gướng gưởng gưỡng gượng gườm gượm gửi ha hà há hả hã hạ hác hạc
+            hạch hai hài hái hải hãi hại ham hàm hám hảm hãm hạm han hàn hán
+            hản hãn hạn hang hàng háng hảng hãng hạng hanh hành hánh hảnh hãnh hạnh hao
+            hào háo hảo hão hạo hay hày háy hảy hãy nhạy hắc hặc hăm hằm hắm
+            hẳm hẵm hặm hănằn hắn hẳn hẵn hặn hăng hằng hắng hẳng hẵng hặng hắp hặp
+            hắt hặt hâu hầu hấu hẩu hẫu hậu hây hầy hấy hẩy hẫy hậy hâm hầm
+            hấm hẩm hẫm hậm hân hần hấn hẫn hận hấp hập hấc hật he hè hé
+            hẻ hẽ hẹ hem hèm hém hẻm hẽm hẹm hen hèn hén hẻn hẽn hẹn heng
+            hèng héng hẻng hẽng hẹng heo hèo héo hẻo hẽo hẹo hép hẹp hêt hệt hê
+            hề hế hểễ hệ hêm hềm hếm hểm hễm hệm hên hền hến hển hễn hện
+            hênh hềnh hếnh hểnh hễnh hệnh hếp hệp hết hêu hếu hểu hễu hi hì hí
+            hỉ hĩ hị hia hìa hía hỉa hĩa hịa hích hịch hiếm hiểm hiềm hiện hiền
+            hiển hiến hiêng hiềng hiếng hiệp hiểu hiệu hinh hình hính hỉnh hĩnh hịnh ho hò
+            hó hỏ hõ họ hoa hoà hoá hoả hoã hoạ hoác hoặc hoài hoải hoại hoan
+            hoàn hoán hoản hoãn hoạn hoang hoàng hoáng hoảng hoãng hoạng hoành hoánh hoảnh hoãnh hoạnh
+            hoạt hoắt học hóc hỏi hói họi hom hòm hóm hỏm hõm họp hon hòn hón
+            hỏn hõn họn hong hòng hóng hỏng hõng họng hô hồ hố hổ hỗ hộ hốc
+            hộc hôi hồi hối hội hôm hốm hổm hỗm hộm hôn hồn hốn hổn hỗn hông
+            hồng hống hỗng hộng hốt hột hơ hờ hớ hở hỡ hợ hơi hời hới hởi
+            hỡi hợi hơm hờm hớm hởm hỡm hợp hơn hờn hớn hởn hỡn hợn hớp hớt
+            hợt hu hù hú hủ hũ hụ hua hùa hứa hủa hũa hụa húc hục hui
+            hùi húi hủi hũi hụi hum hùm húm hủm hũm hụm hun hùn hún hủn hũn
+            hụn hung hùng húng hủng hũng hụng huơ huờ huớ huở huỡ huợ húp hụp hút
+            hụt huy huỳ huý huỷ huỹ huỵ huých huỵch huyên huyền khuyến huyển huyễn huyện huynh
+            huỳnh huýnh huỷnh huỹnh huỵnh huyết huyệt hư hừứ hử hữ hự hưa hừa hửa hữa
+            hựa hức hực hươi hười hưới hưởi hưỡi hượi hươm hườm hướm hưởm hưỡm hượm hươn
+            hườn hướn hưởn hưỡn hượn hương hường hướng hưởng hưỡng hượng hươu hườu hướu hưởu hưỡu
+            hượu hứt hựt hy hỳ hý hỷ hỹ hỵ ích ịch im ìm ím ỉm ĩm
+            ịm in ìn ín ỉn ĩn ịn inh ình ính ỉnh ĩnh ịnh ít ịt iu
+            ìu íu ỉu ĩu ịu khả khách khám khóc khỏe khỏi khói không khu khác khát
+            khâu khăn khắp khắt khe khẽ khen khéo khép khét khi khỉ khí khía khích khiến
+            khiêng khiếp khiếu khinh khó khoá khoác khoai khoái khoan khoản khoảng khoanh khoẻ khoe khoét
+            khom khóm khôn khốn khổng khô khổ khố khối khôi khơi khớp khù khú khủ khũ
+            khụ khua khuân khuất khúc khuếch khung khủng khuyên khuyết khuynh khuya khử khứ khứa khước
+            khướt khứu kia kìa kía kỉa kĩa kịa kịch kiếm kiểm kiềm kiện kiền kiến kiêng
+            kiềng kiếng kiếp kịp kêu kều kéo kẻo kẹo kèm kém kẽm kèn kén kẻn kẽn
+            kẹn keo kèo kẽo kép kẹp kết kệt kê kề kế kể kễ kệ kênh kềnh
+            kếnh kểnh kễnh kệnh kếu kiểu kễu kệu khạc khai khái khải khãi khại kham khàm
+            khảm khãm khạm khan khàn khán khản khãn khạn khang khàng kháng khẳng khãng khạng khanh
+            khành khánh khảnh khãnh khạnh khao khào kháo khảo khão khạo khay khày kháy khảy khãy
+            khạy khắc khặcăm khằm khắm khẳm khẵm khặm khằn khắn khẳn khẵn khặn khăng khằng khắng
+            khẵng khặng khặp khặt khầu khấu khẩu khẫu khậu khây khầy khấy khẫy khậy khâm khầm
+            khấm khẩm khẫm khậm khân khần khấn khẩn khẫn khận khậpấc khật khiêm khiếm khiểm khiễm
+            kiệm kiên kiển kiễn kiểng kiễng kiệu kim kìm kím kỉm kĩm kịm kin kìn kín
+            kỉn kĩn kịn kinh kình kính kỉnh kĩnh kịnh kíp kít kịt kìu kíu kỉu kĩu
+            kịu kỹ kỷ kỳ ký kỵ la là lá lả lã lạ lác lạc lách lai
+            lài lái lải lãi lại lam làm lám lảm lãm lạm lan làn lán lản lãn
+            lạn lang làng láng lảng lãng lạng lanh lành lánh lảnh lãnh lạnh lao lào láo
+            lảo lão lạo lay lày láy lảy lãy lạy lắc lặc lăm lằm lắm lẳm lẵm
+            lặm lăn lằn lắn lẳn lẵn lặn lăng lằng lắng lẳng lẵng lặng lắp lặp lắt
+            lặt lâu lầu lấu lẩu lẫu lậu lây lầy lấy lẩy lẫy lậy lâm lầm lấm
+            lẩm lẫm lậm lân lần lấn lẩn lẫn lận lấp lập lấc lật lê lề lế
+            lể lễ lệ lêm lềm lếm lểm lễm lệm lên lền lến lển lễnh lệnh lênh
+            lềnh lếnh lểnh lếp lệp lết lệt lêu lều lếu lểu lễu lệu li lì lí
+            lỉ lĩ lị lia lìa lía lỉa lĩa lịa lích lịch liêm liềm liếm liểm liễm
+            liệm liên liền liến liển liễn liện liêng liềng liếng liểng liễng liệng liếp liệp liết
+            liệt liêu liều liếu liểu liễu liệu lim lìm lím lỉm lĩm lịm lin lìn lín
+            lỉn lĩn lịn linh lình lính lỉnh lĩnh lịnh líp dịp lít lịt liu lìu líu
+            lỉu lĩu lịu lo lò ló lỏ lõ lọ loa loà loá loả loã loạ loạc
+            loài loái loải loãi loại loan loàn loán loản loãn loạn loang loàng loáng loảng loãng
+            loạng loanh loành loánh loảnh loãnh loạnh loát loạt loắt loặt lọc lóc lỏi lói lọi
+            lom lòm lóm lỏm lõm lọm lon lòn lón lỏn lõn lọn long lòng lóng lỏng
+            lõng lọng lô lồ lố lổ lỗ lộ lốc lộc lôi lồi lối lổi lỗi lội
+            lôm lồm lốm lổm lỗm lộm lôn lồn lốn lổn lỗn lộn lông lồng lống lổng
+            lỗng lộng lốt lột lơ lờ lớ lở lỡ lợ lơi lời lới lởi lỡi lợi
+            lơm lờm lớm lởm lỡm lợm lơn lờn lớn lởn lỡn lợn lớp lợp lớt lợt
+            lu lù lú lủ lũ lụ lua lùa lúa lủa lũa lụa lúc lục lui lùi
+            lúi lủi lũi lụi lum lùm lúm lủm lũm lụm lun lùn lún lủn lũn lụn
+            lung lùng lúng lủng lũng lụng luộc luôi luồi luối luổi luỗi luội lúp lụp lút
+            lụt luy luỳ luý luỷ luỹ luỵ luyên luyền luyến luỷen luyễn luyện luynh luỳnh luýnh
+            luỷnh luỹnh luỵnh lư lừ lứ lử lữ lự lưa lừa lứa lửa lữa lựa lức
+            lực lươi lười lưới lưởi lưỡi lượi lươm lườm lướm lưởm lưỡm lượm lươn lườn lướn
+            lưởn lưỡn lượn lương lường nướng lưởng lưỡng lượng lướt lượt lưu lừu lứu lửu lữu
+            lựu lứt lựt ly lỳ lý lỷ lỹ lỵ ma mà má mả mã mạ mác
+            mạc mạch mai mài mái mải mãi mại mam màm mám mảm mãm mạm man màn
+            mán mản mãn mạn mang màng máng mảng mãng mạng manh mành mánh mãnh mạnh mao
+            mào máo mảo mão mạo may mày máy mảy mãy mạy mắc mặc măm mằm mắm
+            mẳm mẵm mặm măn mằn mắn mẳn mẵn mặn măng mằng mắng mẳng mẵng mặng mặt
+            mắt mâu mầu mấu mẩu mẫu mậu mây mầy mấy mẩy mẫy mậy mâm mầm nấm
+            mẩm mẫm mậm mân mần mấn mẩn mẫn mận mấp mậpấc mật mê mề mế mể
+            mễ mệ mêm mềm mếm mểm mễm mệm mên mền mến mển mễn mện mênh mềnh
+            mếnh mểnh mễnh mệnh mếp mệp mết mệt mêu mều mếu mểu mễu mệu mi mì
+            mí mỉ mĩ mị mia mìa mía mỉa mĩa mịa mích mịch miên miền miến miễn
+            miệng miếng miết miệt miêu miều miếu miểu miễu miệu mim mìm mím mỉm mĩm mịm
+            min mìn mín mỉn mĩn mịn minh mình mính mỉnh mĩnh mịnh míp mịp mít mịt
+            miu mìu míu mỉu mĩu mịu mo mò mó mỏ mõ mọ moa moà moá moả
+            moã moạ móc mọc mỏi mói mọi mom mòm móm mỏm mõm mọm mon mòn món
+            mỏn mõn mọn mong mòng móng mỏng mõng mọng mô mồ mố mổ mỗ mộ mốc
+            mộc môi mồi mối mỗi mội môm mồm mốm mổm mỗm mộm môn mồn muốn mổn
+            mỗn một mông mồng mống mỗng mộng mốt mơ mờ mớ mở mỡ nợ mơi mời
+            mới mơm mờm mớm mởm mỡm mợm mơn mờn mớn mởn mỡn mợn mớp mợp mớt
+            mượt mu mù mú mủ mũ mụ mua mùa múa mủa mũa mụa múc mục mui
+            mùi múi mủi mũi mụi mum mùm múm mủm mũm mụm mun mùn mún mủn mũn
+            mụn mung mùng múng mủng mũng mụng muôi muồi muối muổi muỗi muội muôn muồn muổn
+            muỗn muộn muỗng múp mụp mút mụt mưa mừa mứa mửa mữa mựa mức mực mươi
+            mười mưới mưởi mưỡi mượi mươn mườn mướn mưởn mưỡn mượn mương mường mưởng mưỡng mượng
+            mướt mưu mừu mứu mửu mữu mựu mứt mựt my mỳ mỹ mỷ mỵ na nà
+            ná nả nã nạ nác nạc nách nai nài nái nải nãi nại nam nàm nám
+            nảm nãm nạm nan nàn nán nản nãn nạn nang nàng náng nảng nãng nạng nanh
+            nành nánh nảnh nãnh nạnh nao nào náo nảo não nạo nay này náy nảy nãy
+            nạy nắc nặc năm nằm nắm nẳm nẵm nặm năn nằn nắn nẳn nẵn nặn năng
+            nằng nắng nẳng nẵng nặng nắp nặp nắt nặt nâu nầu nấu nẩu nẫu nậu nây
+            nầy nấy nẩy nẫy nậy nấmầm nẩm nẫm nậm nângần nấn nẩn nẫn nận nấp nập
+            nấc nật nê nề nế nể nễ nệ nêm nềm nếm nểm nễm nệm nên nền
+            nến nển nễn nện nênh nềnh nếnh nểnh nễnh nệnh nếp nệp nết nệt nêu nều
+            nếu nểu nễu nệu ni nì ní nỉ nĩ nị nia nìa nía nỉa nĩa nịa
+            ních nịch niêm niềm niếm niểm niễm niệm niên niền niến niển niễn niện niêng niềng
+            niếng niểng niễng niệng niết niệt niêu niều niếu niểu niễu niệu nim nìm ním nỉm
+            nĩm nịm nin nìn nín nỉn nĩn nịn ninh nình nính nỉnh nĩnh nịnh níp nịp
+            nít nịt niu nìu níu nỉu nĩu nịu no nò nó nỏ nõ nọ noa noà
+            noá noả noã noạ noãn nọc nóc nỏi nói nọi nom nòm nóm nỏm nõm nọm
+            non nòn nón nỏn nõn nọn nong nòng nóng nỏng nõng nọng nô nồ nố nổ
+            nỗ nộ nốc nộp nôi nồi nối nổi nỗi nội nôm nồm nốm nổm nỗm nộm
+            nôn nồn nốn nổn nỗn nộn nông nồng nống nổng nỗng nộng nốt nột nơ nờ
+            nớ nở nỡ nơi nời nới nởi nỡi nợi nơm nờm nớm nởm nỡm nợm nơn
+            nờn nớn nởn nỡn nợn nớp nớt nợt nu nù nú nủ nũ nụ nua nùa
+            núa nủa nũa nụa núc nục nui nùi núi nủi nũi nụi num nùm núm nủm
+            nũm nụm nun nùn nún nủn nũn nụn nung nùng núng nủng nũng nụng nuôi nuồi
+            nuối nuổi nuỗi nuội nuốt nuột núp nụp nút nụt nưa nừa nứa nửa nữa nựa
+            nức nực nươi nười nưới nưởi nưỡi nượi nươm nườm nướm nưởm nưỡm nượm nươn nườn
+            nướn nưởn nưỡn nượn nương nường nưởng nưỡng nượng nước nược nướt nượt nứt nựt nữ
+            nha nhà nhá nhả nhã nhạ nhác nhạc nhách nhai nhài nhái nhải nhãi nhại nham
+            nhàm nhám nhảm nhãm nhạm nhan nhàn nhán nhản nhãn nhạn nhang nhàng nháng nhảng nhãng
+            nhạng nhanh nhành nhánh nhảnh nhãnh nhạnh nhao nhào nháo nhảo nhão nhạo nhay nhày nháy
+            nhảy nhãy nhắc nhặc nhăm nhằm nhắm nhẳm nhẵm nhặm nhăn nhằn nhắn nhẳn nhẵn nhặn
+            nhăng nhằng nhắng nhẳng nhẵng nhặng nhắp nhặp nhắt nhặt nhau nhàu nháu nhảu nhãu nhạu
+            nhây nhầy nhấy nhẫy nhậy nhâm nhầm nhấm nhẩm nhẫm nhậm nhân nhần nhấn nhẩn nhẫn
+            nhận nhấp nhập nhấc nhật nhê nhề nhế nhể nhễ nhệ nhêm nhềm nhếm nhểm nhễm
+            nhiệm nhên nhền nhến nhển nhễn nhện nhênh nhềnh nhếnh nhểnh nhễnh nhệnh nhếp nhệp nhết
+            nhiệt nhêu nhều nhếu nhểu nhễu nhệu nhi nhì nhí nhỉ nhĩ nhị nhia nhìa nhía
+            nhỉa nhĩa nhịa nhích nhịch nhiếc nhiềm nhiễm nhiên nhiền nhiến nhiển nhiễn nhiện nhiếp nhiệp
+            nhiết nhiêu nhiều nhiếu nhiểu nhiễu nhiệu nhim nhìm nhím nhỉm nhĩm nhịm nhin nhìn nhín
+            nhỉn nhĩn nhịn nhinh nhình nhính nhỉnh nhĩnh nhịnh nhíp nhịp nhít nhịt nhiu nhìu nhíu
+            nhỉu nhĩu nhịu nho nhò nhó nhỏ nhõ nhọ nhoa nhoà nhoá nhoả nhoã nhoạ nhoài
+            nhoải nhoại nhoáng nhoạng nhóc nhọc nhói nhỏi nhọi nhom nhòm nhóm nhỏm nhõm nhọm nhon
+            nhòn nhón nhỏn nhõn nhọn nhong nhòng nhóng nhỏng nhõng nhọng nhô nhồ nhố nhổ nhỗ
+            nhộ nhốc nhộc nhôi nhồi nhối nhổi nhỗi nhội nhôm nhồm nhốm nhổm nhỗm nhộm nhôn
+            nhồn nhốn nhổn nhỗn nhộn nhông nhồng nhống nhổng nhỗng nhộng nhốt nhột nhơ nhờ nhớ
+            nhở nhỡ nhợ nhơi nhời nhởi nhỡi nhợi nhơm nhờm nhớm nhởm nhỡm nhợm nhơn nhờn
+            nhớn nhởn nhỡn nhợn nhớp nhợp nhớt nhợt nhu nhù nhú nhủ nhũ nhụ nhua nhùa
+            nhúa nhủa nhũa nhụa nhúc nhục nhui nhùi nhúi nhủi nhũi nhụi nhum nhùm nhúm nhủm
+            nhũm nhụm nhun nhùn nhún nhủn nhũn nhụn nhung nhùng nhúng nhủng nhũng nhụng nhuốc nhuôi
+            nhuồi nhuối nhuổi nhuỗi nhuội nhuộm nhuần nhuẩn nhuẫn nhuận nhúp nhụp nhút nhụt như nhừ
+            nhứ nhử nhữ nhự nhưa nhừa nhứa nhửa nhữa nhựa nhức nhực nhươi nhười nhưới nhưởi
+            nhưỡi nhượi nhươm nhườm nhưởm nhưỡm nhượm nhươn nhườn nhưởn nhưỡn nhượn nhương nhường nhướng nhưởng
+            nhưỡng nhượng nhước nhược nhướt nhượt nhứt nhựt qua quà quá quả quã quạ quan quàn
+            quán quản quãn quạn quang quàng quáng quảng quãng quạng quanh quành quánh quảnh quãnh quạnh
+            quay quày quáy quảy quãy quạy quắc quặcăm quằm quắm quẳm quẵm quặm quăn quằn quắn
+            quẳn quẵn quặn quăng quằng quắng quẳng quẵng quặng quắp quặp quắt quặt quân quần quấn
+            quẩn quẫn quận quất quật quê quề quế quể quễ vệ quên quền quến quển quễn
+            quyện quốc cuộc quyết quyệt quý quỳ quỹ quỷ quỵ ra rà rá rả rã rạ
+            rác rạc rạch rai rài rái rải rãi rại ram ràm rám rảm rãm rạm ran
+            ràn rán rản rãn rạn rang ràng ráng rảng rãng rạng ranh rành ránh rảnh rãnh
+            rạnh rao rào ráo rảo rão rạo ray rày ráy rảy rãy rạy rắc rặcăm rằm
+            rắm rẳm rẵm rặm răn rằn rắn rẳn rẵn rặn răng rằng rắng rẳng rẵng rặng
+            rắp rặp rất rặt râu rầu rấu rẩu rẫu rậu rây rầy rấy rẩy rẫy rậy
+            râm rầm rấm rẩm rẫm rậm rânần rấn rẩn rẫn rận rấp rậpấc rật rê rề
+            rế rể rễ rệ rêm rềm rếm rểm rễm rệm rên rền rến rển rễn rện
+            rênh rềnh rếnh rểnh rễnh rệnh rếp rệp rết rệt rêu rều rếu rểu rễu rệu
+            ri rì rí rỉ rĩ rị ria rìa ría rỉa rĩa rịa rích rịch riêng riềng
+            riếng riết riệt riêu riều riếu riểu riễu riệu rim rìm rím rỉm rĩm rịm rin
+            rìn rín rỉn rĩn rịn rinh rình rính rỉnh rĩnh rịnh ríp rịp rít rịt riu
+            rìu ríu rỉu rĩu rịu ro rò ró rỏ rọ roa roà roá roả roã roạóc
+            rọc rỏi rói rọi rom ròm róm rỏm rõm rọm ron ròn rón rỏn rõn rọn
+            rong ròng róng rỏng rõng rọng rô rồ rố rổ rỗ rốc rộcôi rồi rối rổi
+            rỗi rội rôm rồm rốm rổm rỗm rộm rôn rồn rốn rổn rỗn rộn rông rồng
+            rống rổng rỗng rộng rốt rột rơ rờ rớ rở rỡ rợ rơi rời rới rởi
+            rỡi rợi rơm rờm rớm rởm rỡm rợm rơn rờn rớn rởn rỡn rợn rớp rợp
+            rớt rợt ru rù rú rủ rũ rụ rua rùa rúa rủa rũa rụa rúc rục
+            rui rùi rúi rủi rũi rụi rum rùm rúm rủm rũm rụm run rùn rún rủn
+            rũn rụn rung rùng rúng rủng rũng rụng ruốc ruôi ruồi ruối ruổi ruỗi ruội ruột
+            rúp rụp rút rụt rưaừa rứa rửa rữa rựa rức rực rươi rười rưới rưởi rưỡi
+            rượi rươm rườm rướm rưởm rưỡm rượm rươn rườn rướn rưởn rưỡn rượn rương rường rướng
+            rưởng rưỡng rượng rước rược rướt rượt rứt rựt sa sà sá sả sã sạ xác
+            sạc sạch sai sài sái sải sãi sại sam sàm sám sảm sãm sạm san sàn
+            sán sản sẵn sạn sang sàng sáng sảng sãng sạng sanh sành sánh sảnh sãnh sạnh
+            sao sào sáo sảo são sạo say sày sáy sảy sãy sạy sắc sặcăm sằm sắm
+            sẳm sẵm sặm săn sằn sắn sẳn sặn xăng sằng sắng sẳng sẵng sặng sắp sặp
+            sắt sặt sâu sầu xấu sẩu sẫu sậu xây sầy sấy sẩy sẫy sậy xâm sầm
+            sẩm sẫm sậm sân sần sấn sẩn sận sậpấc sật sê sề sế sể sễ sệ
+            sêm sềm sếm sểm sễm sệm sên sền sến sển sễn sện sênh sềnh sếnh sểnh
+            sễnh sệnh xếp sệp sết sệt sêu sều sếu sểu sễu sệu si sì sí sỉ
+            sĩ sị sia sìa sía sỉa sĩa sịa xích sịch siêu siều siếu siểu siễu siệu
+            sim sìm sím sỉm sĩm sịm sin sìn sín sỉn sĩn sịn sinh sình sính sỉnh
+            sĩnh sịnh síp sịp sít sịt siu sìu síu sỉu sĩu sịu so sò só sỏ
+            sõ sọ soa soà soá soả soã soạ soạn soát soạtóc sọc sỏi sói sọi som
+            sòm sóm sỏm sõm sọm son sòn són sỏn sõn sọn song sòng sóng sỏng sõng
+            sọng sô sồ số sổ sỗ sộ sốc sộc sôi sồiối sổi sỗi sội sồm sốm
+            sổm sỗm sộm sôn sồn sốn sổn sỗn sộn sông sồng sống sổng sỗng sộng sốt
+            sột sơ sờ sớ sở sỡ sợ sơi sời sới sỡi sợi sớm sờm sởm sỡm
+            sợm sơn sờn sớn sởn sỡn sợn sớp sợp sớt sợt su sù sú sủ sũ
+            sụ sua sùa súa sủa sũa sụa xúc sục sui sùi súi sủi sũi sụi sum
+            sùm súm sủm sũm sụm sun sùn sún sủn sũn sụn sung sùng súng sủng sũng
+            sụng suốt suối suồi suổi suỗi suội súp sụp sút sụt suy suỳ suý suỷ suỹ
+            suỵ xuyên xuyền suỷen suất luật sư sừ sứ sử sữ sự sưa sừa sứa sửa
+            sữa sựa sức sực sươi sười sưới sưởi sưỡi sựơi sươm sườm sưởm sưỡm sựơm sươn
+            sườn sưởn sưỡn sựơn sương sường sướng xưởng sưỡng sựơng sước sựơc sướt sựơt sứt sựt
+            ta tà tá tả tã tạ tác tạc tách tai tài tái tải tãi tại tam
+            tàm tám tảm tãm tạm tan tàn tán tản tãn tạn tang tàng táng tảng tãng
+            tạng tanh tành tánh tảnh tãnh tạnh tao tào táo tảo tão tạo tay tày táy
+            tãy tạy tắc tặcăm tằm tắm tẳm tẵm tặm tăn tằn tắn tẳn tẵn tặn tăng
+            tằng tắng tẵng tặng tắp tập tắt tặt tâu tàu tấu tẩu tẫu tậu tây tầy
+            tấy tẩy tẫy tậy tâm tầm tấm tẩm tẫmậm tân tần tấn tẩn tẫn tận tấp
+            tậpấc tật tê tề tế tể tễ tệ têm tềm tếm tểm tễm tiệm tênền tếnh
+            tển tễn tiện tênh tềnh tểnh tễnh tệnh tếp tệp tết tệt têu tều tếu tểu
+            tễu tệu ti tì tí tỉ tĩ tị tia tìa tía tỉa tĩa tịa tích tịch
+            tiêm tiềm tiếm tiểm tiễm tiên tiền tiến tiển tiễn tiếng tiểng tiễng tiếp tiệp tiết
+            tiệt tiêu tiều tiếu tiểu tiễu tiệu tim tìm tím tỉm tĩm tịm tin tín tỉn
+            tĩn tịn tinh tình tính tỉnh tĩnh tịnh típ tịp tít tịt tiu tìu tíu tỉu
+            tĩu tịu to tò tó tỏ tõ tọ toa toà toá toả toã toạ toạc toàn
+            toán toản toãn toạn toang toàng toáng toảng toãng toạng toát loạtóc tọc tỏi tói tọi
+            tom tòm tóm tỏm tõm tọm ton tòn tón tỏn tõn tọn tong tòng tóng tỏng
+            tõng tọng tô tồ tố tổ tỗ tộ tốc tộc tôi tồi tối tổi tỗi tội
+            tôm tồm tốm tổm tỗm tộm tôn tồn tốn tổn tỗn tông tồng tống tổng tỗng
+            tốt tột tơ tờ tớ tở tỡ tợ tơi tời tới tởi tỡi tợi tơm tờm
+            tớm tởm tỡm tợm tơn tờn tớn tởn tỡn tợn tớp tợp tớt tợt tu tù
+            tú tủ tũ tụ tua túa tủa tũa tụa túc tục tui tùi túi tủi tũi
+            tụi tum tùm túm tủm tũm tụm tun tùn tún tủn tũn tụn tung tùng túng
+            tủng tũng tụng tuốc tuồi tuối tuổi tuỗi tuội tuôn tuồn tuốn tuổn tuỗn tuộn túp
+            tút tụt tuy tuỳ tuý tuỷ tuỹ tuỵ tuyên tuyền tuyến tuỷen tuyễn truyện tuyết tuyệt
+            tư từ tứ tử tữ tự tưa từa tứa tửa tữa tựa tức tực tươi tười
+            tưới tưởi tưỡi tượi tươm từơm tướm tưởm tưỡm tượm tươn từơn tướn tưởn tưỡn tượn
+            tương tường tướng tưởng tưỡng tượng tước tược tướt tượt tứttựt tha thà thá thả thã
+            thạ thác thạc thách thai thài thái thải thãi thại tham thàm thám thảm thãm thạm
             than thàn thán thản thãn thạn thang thàng tháng thẳng thãng thạng thanh thành thánh thảnh
-            thãnh thạnh thao thào tháo thảo thão thạo thay thày tháy thảy thãy thạy thắc thặc thăm
-            thằm thắm thẳm thẵm thặm thăn thằn thắn thẳn thẵn thặn thăng thằng thắng thẳng thẵng
-            thặng thắp thặp thắt thật thâu thầu thấu thẩu thẫu thậu thây thầy thấy thẩy thẫy thậy
-            thâm thầm thấm thẩm thẫm thậm thân thần thấn thẩn thẫn thận thấp thậpấc thật thê thề thế
-            thể thễ thệ thêm thềm thếm thểm thễm thệm thênền thếnh thển thễn thiện thênh thềnh thếnh
-            thểnh thễnh thệnh thếp thệp thết thiệt thêu thều thếu thểu thễu thệu thi thì thí thỉ thĩ
-            thị thia thìa thía thỉa thĩa thịa thích thịch thiêm thiềm thiếm thiểm thiễm thiệm thiên
-            thiền thiến thiển thiễn thiện thiêng thiềng tiếng thiểng thiễng thiện thiếp thiệp thiết
-            thiệt thiêu thiều thiếu thiểu thiễu thiệu thim thìm thím thỉm thĩm thịm thin thìn thín
-            thỉn thĩn thịn thinh thình thính thỉnh thĩnh thịnh thíp thịp thít thịt thiu thìu thíu
-            thỉu thĩu thịu tho thò thó thỏ thõ thọ thoa thoà thoá thoả thoã thoạ thoái thoải thoại
-            thoan thoàn thoáng thoản thoãn thoạn thoang thoàng thoáng thoảng thoãng thoạng thoát
-            thoạtóc thọc thỏi thói thọi thom thòm thóm thỏm thõm thọm thon thòn thón thỏn thõn thọn
-            thong thòng thóng thỏng thõng thọng thô thồ thố thổ thỗ thộ thốc thộc thôi thồi thối thổi
-            thỗi thội thơm thồm thốm thổm thỗm thộm thôn tồn thốn thổn thỗnộn thông thồng thống thổng
-            thỗng rộng thốt thột thơ thờ thớ thở thỡ thợ thơi thời thới thởi thỡi thợi thơm thờm thớm
-            thởm thỡm thợm thơn thờn thớn thởn thỡn thợn thớp thợp thớt thợt thu thù thú thủ thũ thụ
-            thua thùa thúa thủa thũa thụa thúc thục thui thùi thúi thủi thũi thụi thum thùm thúm thủm
-            thũm thụm thun thùn thún thủn thũn thụn thung thùng thúng thủng thũng thụng thuốc thuôi
-            thuồi thuối thuổi thuỗi thuội thuôn thuồn thuốn thuổn thuỗn thuận thúp chụp thút thụt
-            thuê thuề thuế thuể thuễ thuệ khuyên thuyền thuyết thiệt thư thừ thứ thử thữ thự thưa
-            thừa thứa thửa thữa tựa thức thực thươi thười thưới thưởi thưỡi thượi thươm thườm thướm
-            thưởm thưỡm thượm thươn thườn thướn thưởn thưỡn thượn thương thường thướng thưởng thưỡng
-            thượng thước thược thướt thượt thứtthựt tra trà trá trả trã trạ trác trạc trách trai trài
-            trái trải trãi trại tram tràm trám trảm trãm trạm tran tràn trán trản trãn trạn trang
-            tràng tráng trảng trãng trạng tranh trành tránh trảnh trãnh trạnh trao trào tráo trảo
-            trão trạo tray trày tráy trảu trãy trạy chắc chặcăm trầmắm trẳm trẵm trặm chănằn chắn
-            trẳn chẵnặn chăngằng trắng chẳng trẵngặng chắpặp chắcặt trâu trầu trấu trẩu trẫu trậu
-            trây trầyấy trẩy trẫy trậy trăm trầm chấm trẩm trẫmậm chân trần chấn chẩn trẫn trận chấp
-            chậpấc trật trê trề chế trẻ trễ đệ trênềnến trẻn trễnện chênhềnhếnh trẻnh trễnhệnh chếpệp
-            chếtệt trêu trều trếu trẻu trễu triệu tri trì trí chỉ trĩ trịaia chìaía tỉa trĩa trịa
-            tríchịch triền triển triệu chimìmím tỉm trĩmịm trinh trình chính chỉnh trĩnhịnhípịpítịt
-            tro trò chó trỏ trõ trọóc trọcỏi trói chọi trong tròng chóng trỏng trõng trọng trô đồố
-            trổỗộốcộcôi trồiốiổiỗiộiômồmốmổmỗmộmônồnốnổnỗnộnông trồngốngổngỗngộngốtột trơ chờớ trởỡợơi
-            trờiớiởiỡiợiơmờmớmởmỡmợmơnờnớnởnỡnợnớpợpớtợt tru trù chú chủ trũ trụaùaúaủaũaụa trúc
-            trụcuiùiúiủiũiụiumùmúmủmũmụmunùnúnủnũnụn trung trùng trúng chủng trũngụnguốcuôiùiúiủiũiụi
-            trútụt truy truỳ truý truỷ truỹ truỵ chuyên truyềnuyếnuỷenuyễn truyệnuyếtuyệt trư trừứ
-            trửữựưaừaứaửaữaựaứcựcươiườiướiưởiưỡiượiươmườmướmưởmưỡmượmươnườnướnưởnưỡnượn trương trường
-            trướng trưởng trưỡng trượng trước trượt va và vá vả vã vạ vác vạc vạch vai vài vái vải
-            vãi vại vam vàm vám vảm vãm vạm van vàn ván vản vãn vạn vang vàng váng vảng vãng vạng
-            vanh vành vánh vảnh vãnh vạnh vao vào váo vảo vão vạo vay vày váy vảy vãy vạy vắc vặcăm
-            vằm vắm vẳm vẵm vặm văn vằn vắn vẳn vẫn vặn văng vằng vắng vẳng vẵng vặng vắp vặp vắt vặt
-            vâu vầu vấu vẩu vẫu vậu vây vầy vấy vẩy vẫy vậyâm vầm vấm vẩm vẫmậm vân vần vấn vẩn vẫn
-            vận vấp vậpấc vật vê về vếểễệêmềmếmểmễmệmênềnếnểnễnệnênhềnhếnhểnhễnhệnhếpệpếtệtêuềuếuểuễuệu
-            vi vì ví vỉ vĩ vị via vìa vía vỉa vĩa vịa vích vịch viêm viềm viếm viểm viễm việm viên
-            viền viến viển viễn viện viêng viềng viếng viểng viễng việc viết việt viêu viều viếu viểu
-            viễu việu vim vìm vím vỉm vĩm vịm vin vìn vín vỉn vĩn vịn vinh vình vính vỉnh vĩnh vịnh
-            víp vịp vít vịt viu vìu víu vỉu vĩu vịu vo vò vó vỏ võ vọ voi vòi vói vỏi dõi vọi vom vòm
-            vóm vỏm võm vọm von vòn vón vỏn võn bọn vong vòng vóng vỏn võng vọng vô vồ vố vổ vỗ bộ
-            vốc vộc vôi vồiối vổi vỗi vộiôm vồm vốm vổm vỗm vộmôn vồn vốn vổn vỗn lộn vông vồngống
-            vổng vỗng rộng vốt bột vơ vờ vớ vở vỡ vợ vơi vời với vởi vỡi vợiơm vờm vớm vởm vỡm vợmơn
-            vờn vớn vởn vỡn vợnớp vợp vớt vợt vu vù vú vủ vũ vụ vua vùa vúa vủa vũa vụa vúc vực vui
-            vùi vúi vủi vũivụi vum vùm vúm vủm vũm vụm vun vùn vún vủn vũn vụn vung vùng vúng vủng
-            vũng vụng vuốt vuột vúp chụp vút vụt vừa vứa vửa vữa vừa vức vực vươi vừa vưới vưởi vưỡi
-            vượi vươm vườm vướm vưởm vưỡm vượm vươn vườn vướn vưởn vưỡn vượn vương vường vướng vưởng
-            vưỡng vượng vước vượt vứt vợt xa xà xá xả xã xạ xác xạc xách xai xài xái xải xãi xại xam
-            xàm xám xảm xãm xạm xan xàn xán xản xãn xạn xang xàng xáng xảng xãng xạng xanh xành xánh
-            xảnh xãnh xạnh xao xào xáo xảo xão xạo xay xày xáy xảy xãy xạy xắc xặcăm xằm xắm xẳm xẵm
-            xặm xăn xằn xắn xẳn sẵn xặn xăng xằng xắng xẳng xẵng xặng xắp xặpắt xặt xâu xầu xấu xẩu
-            xẫu xậu xây xầy xấy xẩy xẫy xậy xâm xầm xấm xẩm xẫmậm xânần xấn xẩn xẫn xận xấp xậpấc xật
-            xê xề xế xể xễ xệ xêmềmếmểmễmệmênềnếnểnễnệnênhềnhếnhểnhễnhệnhếpệpếtệtêuềuếuểuễuệu xi xì
-            xí xỉ xĩ xị xia xìa xía xỉa xĩa xịa xích xịch xiêm xiềm xiếm xiểm xiễm xiệm xiên xiền
-            xiến xiển xiễn xiện xiêng xiềng xiếng xiểng xiễng xiệng xiếp xiệp xiết xiệt xiêu xiều
-            xiếu xiểu xiễu xiệu xim xìm xím xỉm xĩm xịm xin xìn xín xỉn xĩn xịn xinh xình xính xỉnh
-            xĩnh xịnh xíp xịp xít xịt xiu xìu xíu xỉu xĩu xịu xo xò xó xỏ xõ xọ xoa xoà xoá xoả xoã
-            xoạ xoài xoải xoại xoan xoàn xoán xoản xoãn xoạn xoang xoàng xoáng xoảng xoãng xoạng
-            xoành xoánh xoảnh xoãnh xoạnh xoát xoạtóc xọc xỏi xói xọi xom xòm xóm xỏm xõm xọm xon xòn
-            xón xỏn xõn xọn xong xòng xóng xỏng xõng xọng xô xồ xố xổ xỗ xộ xốc xộc xôi xồiối xổi xỗi
-            xộiôm xồm xốm xổm xỗm xộmôn xồn xốn xổn xỗnộn xông xồngống xổng xỗng rộng xốtột xơ xờ xớ
-            xở xỡ xợ xơi xời xới xởi xỡi sợiơm xờm sớm xởm xỡm xợmơn xờn sớm xởn xỡn xợnớp xợp xớt
-            xợt xu xù xú xủ xũ xụ xua xùa xúa xủa xũa xụa xúc xục xui xùi xúi xủi xũi xụi xum xùm xúm
-            xủm xũm xụm xun xùn xún xủn xũn xụn xung xùng xúng xủng xũng xụng xuôi xuồi xuối xuổi
-            xuỗi xuội xuân xuần xuấn xuẩn xuẫn xuận xuất xuật xúp chụp xút xụt xuy xuỳ xuý xuỷ xuỹ
-            xuỵ xuyên xuyền khuyến xuỷen suyễnuyệnuyếtuyệt xư xừ xứ xử xữ xự xưa xừa hứa xửa xữa xựa
-            xức xực xươi xười xưới xưởi xưỡi xượi xươm xườm sớm xưởm xưỡm xượm xươn xườn sớm xưởn
-            xưỡn xượn xương xường xướng xưởng xưỡng xượng xước xược xướt xượt xứtxựt yêu yếu yểu yểm
-            yến yên yết yệt
+            thãnh thạnh thao thào tháo thảo thão thạo thay thày tháy thảy thãy thạy thắc thặc
+            thăm thằm thắm thẳm thẵm thặm thăn thằn thắn thẳn thẵn thặn thăng thằng thắng thẵng
+            thặng thắp thặp thắt thật thâu thầu thấu thẩu thẫu thậu thây thầy thấy thẩy thẫy
+            thậy thâm thầm thấm thẩm thẫm thậm thân thần thấn thẩn thẫn thận thấp thậpấc thê
+            thề thế thể thễ thệ thêm thềm thếm thểm thễm thệm thênền thếnh thển thễn thiện
+            thênh thềnh thểnh thễnh thệnh thếp thệp thết thiệt thêu thều thếu thểu thễu thệu thi
+            thì thí thỉ thĩ thị thia thìa thía thỉa thĩa thịa thích thịch thiêm thiềm thiếm
+            thiểm thiễm thiệm thiên thiền thiến thiển thiễn thiêng thiềng thiểng thiễng thiếp thiệp thiết thiêu
+            thiều thiếu thiểu thiễu thiệu thim thìm thím thỉm thĩm thịm thin thìn thín thỉn thĩn
+            thịn thinh thình thính thỉnh thĩnh thịnh thíp thịp thít thịt thiu thìu thíu thỉu thĩu
+            thịu tho thò thó thỏ thõ thọ thoa thoà thoá thoả thoã thoạ thoái thoải thoại
+            thoan thoàn thoáng thoản thoãn thoạn thoang thoàng thoảng thoãng thoạng thoát thoạtóc thọc thỏi thói
+            thọi thom thòm thóm thỏm thõm thọm thon thòn thón thỏn thõn thọn thong thòng thóng
+            thỏng thõng thọng thô thồ thố thổ thỗ thộ thốc thộc thôi thồi thối thổi thỗi
+            thội thơm thồm thốm thổm thỗm thộm thôn thốn thổn thỗnộn thông thồng thống thổng thỗng
+            thốt thột thơ thờ thớ thở thỡ thợ thơi thời thới thởi thỡi thợi thờm thớm
+            thởm thỡm thợm thơn thờn thớn thởn thỡn thợn thớp thợp thớt thợt thu thù thú
+            thủ thũ thụ thua thùa thúa thủa thũa thụa thúc thục thui thùi thúi thủi thũi
+            thụi thum thùm thúm thủm thũm thụm thun thùn thún thủn thũn thụn thung thùng thúng
+            thủng thũng thụng thuốc thuôi thuồi thuối thuổi thuỗi thuội thuôn thuồn thuốn thuổn thuỗn thuận
+            thúp thút thụt thuê thuề thuế thuể thuễ thuệ thuyền thuyết thư thừ thứ thử thữ
+            thự thưa thừa thứa thửa thữa thức thực thươi thười thưới thưởi thưỡi thượi thươm thườm
+            thướm thưởm thưỡm thượm thươn thườn thướn thưởn thưỡn thượn thương thường thướng thưởng thưỡng thượng
+            thước thược thướt thượt tra trà trá trả trã trạ trác trạc trách trai trài trải
+            trãi trại tram tràm trám trảm trãm trạm tran tràn trán trản trãn trạn trang tràng
+            tráng trảng trãng trạng tranh trành tránh trảnh trãnh trạnh trao trào tráo trảo trão trạo
+            tray trày tráy trảu trãy trạy chặcăm trầmắm trẳm trẵm trặm chănằn trẳn chẵnặn trắng chắpặp
+            chắcặt trâu trầu trấu trẩu trẫu trậu trây trầyấy trẩy trẫy trậy trăm trầm chấm trẩm
+            trẫmậm trẫn chấp chậpấc trật trê trề trẻ trễ trẻn trễnện trẻnh chếpệp chếtệt trêu trều
+            trếu trẻu trễu triệu tri trì trí trĩ trịaia chìaía trĩa trịa triền triển trĩmịm trinh
+            trình tro trỏ trõ trọóc trọcỏi trói chọi trong tròng chóng trỏng trõng trọng trô đồố
+            trơ chờớ trởỡợơi tru trù chú chủ trũ trúc trung trùng trúng trútụt truy truỳ truý
+            truỷ truỹ truỵ trư trừứ trương trướng trưởng trưỡng trượng trước trượt va và vá vả
+            vã vạ vác vạc vạch vai vài vái vải vãi vại vam vàm vám vảm vãm
+            vạm van vàn ván vản vãn vạn vang vàng váng vảng vãng vạng vanh vành vánh
+            vảnh vãnh vạnh vao vào váo vảo vão vạo vay vày váy vảy vãy vạy vắc
+            vặcăm vằm vắm vẳm vẵm vặm văn vằn vắn vẳn vẫn vặn văng vằng vắng vẳng
+            vẵng vặng vắp vặp vắt vặt vâu vầu vấu vẩu vẫu vậu vây vầy vấy vẩy
+            vẫy vậyâm vầm vấm vẩm vẫmậm vân vần vấn vẩn vận vấp vậpấc vật vê về
+            vi vì ví vỉ vĩ vị via vìa vía vỉa vĩa vịa vích vịch viêm viềm
+            viếm viểm viễm việm viên viền viến viển viễn viện viêng viềng viếng viểng viễng việc
+            viết việt viêu viều viếu viểu viễu việu vim vìm vím vỉm vĩm vịm vin vìn
+            vín vỉn vĩn vịn vinh vình vính vỉnh vĩnh vịnh víp vịp vít vịt viu vìu
+            víu vỉu vĩu vịu vo vò vó vỏ võ vọ voi vòi vói vỏi dõi vọi
+            vom vòm vóm vỏm võm vọm von vòn vón vỏn võn vong vòng vóng võng vọng
+            vô vồ vố vổ vỗ vốc vộc vôi vồiối vổi vỗi vộiôm vồm vốm vổm vỗm
+            vộmôn vồn vốn vổn vỗn vông vồngống vổng vỗng vốt bột vơ vờ vớ vở vỡ
+            vợ vơi vời với vởi vỡi vợiơm vờm vớm vởm vỡm vợmơn vờn vớn vởn vỡn
+            vợnớp vợp vớt vợt vu vù vú vủ vũ vụ vua vùa vúa vủa vũa vụa
+            vúc vực vui vùi vúi vủi vũivụi vum vùm vúm vủm vũm vụm vun vùn vún
+            vủn vũn vụn vung vùng vúng vủng vũng vụng vuốt vuột vúp vút vụt vừa vứa
+            vửa vữa vức vươi vưới vưởi vưỡi vượi vươm vườm vướm vưởm vưỡm vượm vươn vườn
+            vướn vưởn vưỡn vượn vương vường vướng vưởng vưỡng vượng vước vượt vứt xa xà xá
+            xả xã xạ xạc xách xai xài xái xải xãi xại xam xàm xám xảm xãm
+            xạm xan xàn xán xản xãn xạn xang xàng xáng xảng xãng xạng xanh xành xánh
+            xảnh xãnh xạnh xao xào xáo xảo xão xạo xay xày xáy xảy xãy xạy xắc
+            xặcăm xằm xắm xẳm xẵm xặm xăn xằn xắn xẳn xặn xằng xắng xẳng xẵng xặng
+            xắp xặpắt xặt xâu xầu xẩu xẫu xậu xầy xấy xẩy xẫy xậy xầm xấm xẩm
+            xẫmậm xânần xấn xẩn xẫn xận xấp xậpấc xật xê xề xế xể xễ xệ xi
+            xì xí xỉ xĩ xị xia xìa xía xỉa xĩa xịa xịch xiêm xiềm xiếm xiểm
+            xiễm xiệm xiên xiền xiến xiển xiễn xiện xiêng xiềng xiếng xiểng xiễng xiệng xiếp xiệp
+            xiết xiệt xiêu xiều xiếu xiểu xiễu xiệu xim xìm xím xỉm xĩm xịm xin xìn
+            xín xỉn xĩn xịn xinh xình xính xỉnh xĩnh xịnh xíp xịp xít xịt xiu xìu
+            xíu xỉu xĩu xịu xo xò xó xỏ xõ xọ xoa xoà xoá xoả xoã xoạ
+            xoài xoải xoại xoan xoàn xoán xoản xoãn xoạn xoang xoàng xoáng xoảng xoãng xoạng xoành
+            xoánh xoảnh xoãnh xoạnh xoát xoạtóc xọc xỏi xói xọi xom xòm xóm xỏm xõm xọm
+            xon xòn xón xỏn xõn xọn xong xòng xóng xỏng xõng xọng xô xồ xố xổ
+            xỗ xộ xốc xộc xôi xồiối xổi xỗi xộiôm xồm xốm xổm xỗm xộmôn xồn xốn
+            xổn xỗnộn xông xồngống xổng xỗng xốtột xơ xờ xớ xở xỡ xợ xơi xời xới
+            xởi xỡi sợiơm xờm xởm xỡm xợmơn xờn xởn xỡn xợnớp xợp xớt xợt xu xù
+            xú xủ xũ xụ xua xùa xúa xủa xũa xụa xục xui xùi xúi xủi xũi
+            xụi xum xùm xúm xủm xũm xụm xun xùn xún xủn xũn xụn xung xùng xúng
+            xủng xũng xụng xuôi xuồi xuối xuổi xuỗi xuội xuân xuần xuấn xuẩn xuẫn xuận xuất
+            xuật xúp xút xụt xuy xuỳ xuý xuỷ xuỹ xuỵ xuỷen xư xừ xứ xử xữ
+            xự xưa xừa xửa xữa xựa xức xực xươi xười xưới xưởi xưỡi xượi xươm xườm
+            xưởm xưỡm xượm xươn xườn xưởn xưỡn xượn xương xường xướng xưỡng xượng xước xược xướt
+            xượt xứtxựt yêu yếu yểu yểm yến yên yết yệt
         """.trimIndent().split(Regex("\\s+"))
+        val viSyllableRegex = Regex("^[a-záàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ]{2,7}$")
         for (w in commonVietnameseWords) {
             val clean = w.trim().lowercase()
-            if (clean.length >= 2 && !containsKey(clean)) {
+            if (clean.length in 2..7 && viSyllableRegex.matches(clean) && !containsKey(clean)) {
                 put(clean, 72)
             }
         }
