@@ -55,6 +55,7 @@ class VietKeyboardService : InputMethodService() {
     private var lastShiftClickTime = 0L
     private var lastSpaceClickTime = 0L
     private var lastBackspaceClickTime = 0L
+    private var backspaceRepeating = false
     private var prevCommittedWord2 = ""
     private var prevCommittedWord1 = ""
     private var keyPopup: PopupWindow? = null
@@ -227,20 +228,45 @@ class VietKeyboardService : InputMethodService() {
             val baseLetter = btn.text.toString().lowercase()
             letterButtons[btn] = baseLetter
             var longPressHandled = false
+            var downX = 0f
+            var downY = 0f
+            val longPressRunnable = Runnable {
+                if (!prefs.longPressForSymbols) return@Runnable
+                val alts = alternatesForLetter(baseLetter)
+                if (alts.isEmpty()) return@Runnable
+                performKeyFeedback(btn, isLongPress = true)
+                if (alts.size == 1) {
+                    dismissKeyPopup()
+                    showKeyPopup(btn, alts[0])
+                    onSecondarySymbol(alts[0])
+                    longPressHandled = true
+                } else {
+                    showAlternatesPopup(btn, alts)
+                    longPressHandled = true
+                }
+            }
 
             btn.setOnTouchListener { v, event ->
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
                         longPressHandled = false
+                        downX = event.x
+                        downY = event.y
                         if (prefs.popupOnKeypress) scheduleKeyPopup(v, btn.text.toString())
+                        popupHandler.removeCallbacks(longPressRunnable)
+                        popupHandler.postDelayed(longPressRunnable, prefs.longPressDelayMs.toLong().coerceAtLeast(150L))
                     }
                     MotionEvent.ACTION_MOVE -> {
                         if (altPopup?.isShowing == true && altAnchor === v) {
                             updateAltSelectionFromTouch(v, event)
                             return@setOnTouchListener true
                         }
+                        if (!longPressHandled && (kotlin.math.abs(event.x - downX) > 24f || kotlin.math.abs(event.y - downY) > 24f)) {
+                            popupHandler.removeCallbacks(longPressRunnable)
+                        }
                     }
                     MotionEvent.ACTION_UP -> {
+                        popupHandler.removeCallbacks(longPressRunnable)
                         if (altPopup?.isShowing == true && altAnchor === v) {
                             commitAltSelection()
                             dismissKeyPopup()
@@ -249,6 +275,7 @@ class VietKeyboardService : InputMethodService() {
                         dismissKeyPopup()
                     }
                     MotionEvent.ACTION_CANCEL -> {
+                        popupHandler.removeCallbacks(longPressRunnable)
                         dismissAltPopup()
                         dismissKeyPopup()
                     }
@@ -269,22 +296,7 @@ class VietKeyboardService : InputMethodService() {
                     refreshLetterKeyLabels()
                 }
             }
-            btn.setOnLongClickListener {
-                if (!prefs.longPressForSymbols) return@setOnLongClickListener false
-                val alts = alternatesForLetter(baseLetter)
-                if (alts.isEmpty()) return@setOnLongClickListener false
-                performKeyFeedback(btn, isLongPress = true)
-                if (alts.size == 1) {
-                    dismissKeyPopup()
-                    showKeyPopup(btn, alts[0])
-                    onSecondarySymbol(alts[0])
-                    longPressHandled = true
-                } else {
-                    showAlternatesPopup(btn, alts)
-                    longPressHandled = true
-                }
-                true
-            }
+            btn.setOnLongClickListener(null)
         }
 
         // Gboard Top Number Row: PURE DIGITS ONLY (1..0), no secondary symbol badge or popup
@@ -465,35 +477,55 @@ class VietKeyboardService : InputMethodService() {
         val view = keyboardView?.findViewById<View>(id) ?: return
         var startX = 0f
         var didSwipeDelete = false
+        var repeating = false
+        val repeatHandler = android.os.Handler(android.os.Looper.getMainLooper())
+        lateinit var repeatRunnable: Runnable
+        repeatRunnable = object : Runnable {
+            override fun run() {
+                if (didSwipeDelete) return
+                repeating = true
+                backspaceRepeating = true
+                action()
+                repeatHandler.postDelayed(this, 50L)
+            }
+        }
+
+        view.setOnClickListener(null)
+        view.setOnLongClickListener(null)
         view.setOnTouchListener { _, event ->
-            if (!prefs.enableGestureDelete) return@setOnTouchListener false
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     startX = event.x
                     didSwipeDelete = false
+                    repeating = false
+                    backspaceRepeating = false
+                    performKeyFeedback(view)
+                    action()
+                    repeatHandler.removeCallbacks(repeatRunnable)
+                    repeatHandler.postDelayed(repeatRunnable, 400L)
+                    true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (!didSwipeDelete && startX - event.x > 60f) {
+                    if (prefs.enableGestureDelete && !didSwipeDelete && startX - event.x > 60f) {
                         didSwipeDelete = true
+                        backspaceRepeating = false
+                        repeatHandler.removeCallbacks(repeatRunnable)
                         performKeyFeedback(view, isLongPress = true)
                         deleteWordBeforeCursor()
                     }
+                    true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    if (didSwipeDelete) return@setOnTouchListener true
+                    repeatHandler.removeCallbacks(repeatRunnable)
+                    if (backspaceRepeating) {
+                        backspaceRepeating = false
+                        resyncAfterBackspaceRepeat()
+                        updateAutoCapitalization()
+                        updateSuggestions(vnEngine.composingText)
+                    }
+                    true
                 }
             }
-            false
-        }
-        view.setOnClickListener {
-            performKeyFeedback(view)
-            action()
-        }
-        view.setOnLongClickListener {
-            if (didSwipeDelete) return@setOnLongClickListener true
-            // Gboard gesture/long-press delete whole word
-            performKeyFeedback(view, isLongPress = true)
-            deleteWordBeforeCursor()
             true
         }
     }
@@ -610,50 +642,79 @@ class VietKeyboardService : InputMethodService() {
         updateSuggestions("")
     }
 
+    private fun resyncAfterBackspaceRepeat() {
+        val ic = currentInputConnection ?: return
+        if (mode != Mode.LETTERS || !isVietnameseMode) {
+            vnEngine.reset()
+            return
+        }
+        if (vnEngine.isComposing) return
+        val before = ic.getTextBeforeCursor(32, 0)?.toString().orEmpty()
+        val prevWord = before.takeLastWhile { it.isLetter() }
+        if (prevWord.isNotEmpty()) {
+            vnEngine.rehydrateWord(prevWord, ic)
+        } else {
+            vnEngine.reset()
+        }
+    }
+
     private fun onBackspace() {
         val ic = currentInputConnection ?: return
         val now = System.currentTimeMillis()
 
         // 1. Double-backspace to undo last macro expansion (e.g. "Hà Nội " -> "hn ")
         val lastMacro = macroEngine.lastExpansion
-        if (lastMacro != null && now - lastBackspaceClickTime < 600L) {
-            val (orig, expanded) = lastMacro
-            val before = ic.getTextBeforeCursor(expanded.length + 2, 0)?.toString().orEmpty()
-            // After first backspace, 1 char was already deleted from `expanded`
-            val expandedAfterOneDelete = expanded.dropLast(1)
-            if (expandedAfterOneDelete.isNotEmpty() && before.endsWith(expandedAfterOneDelete)) {
-                ic.beginBatchEdit()
-                ic.deleteSurroundingText(expandedAfterOneDelete.length, 0)
-                ic.commitText(orig, 1)
-                ic.endBatchEdit()
+        if (lastMacro != null) {
+            if (now - lastBackspaceClickTime < 600L && !backspaceRepeating) {
+                val (orig, expanded) = lastMacro
+                val before = ic.getTextBeforeCursor(expanded.length + 2, 0)?.toString().orEmpty()
+                // After first backspace, 1 char was already deleted from `expanded`
+                val expandedAfterOneDelete = expanded.dropLast(1)
+                if (expandedAfterOneDelete.isNotEmpty() && before.endsWith(expandedAfterOneDelete)) {
+                    ic.beginBatchEdit()
+                    ic.deleteSurroundingText(expandedAfterOneDelete.length, 0)
+                    ic.commitText(orig, 1)
+                    ic.endBatchEdit()
+                    macroEngine.clearLastExpansion()
+                    lastBackspaceClickTime = 0L
+                    updateSuggestions("")
+                    return
+                }
+            } else if (now - lastBackspaceClickTime >= 600L) {
                 macroEngine.clearLastExpansion()
-                lastBackspaceClickTime = 0L
-                updateSuggestions("")
-                return
             }
         }
         lastBackspaceClickTime = now
 
         // 2. Normal Vietnamese composing backspace
         if (mode == Mode.LETTERS && isVietnameseMode && vnEngine.onBackspace(ic)) {
-            updateSuggestions(vnEngine.composingText)
+            if (!backspaceRepeating) updateSuggestions(vnEngine.composingText)
             return
         }
 
-        // 3. Delete 1 char, then post-commit rehydrate previous Vietnamese word if cursor lands on a letter
-        ic.deleteSurroundingText(1, 0)
-        if (mode == Mode.LETTERS && isVietnameseMode) {
-            val afterDel = ic.getTextBeforeCursor(32, 0)?.toString().orEmpty()
-            val prevWord = afterDel.takeLastWhile { it.isLetter() }
-            if (prevWord.isNotEmpty()) {
-                vnEngine.rehydrateWord(prevWord, ic)
-                updateSuggestions(vnEngine.composingText)
-                updateAutoCapitalization()
-                return
+        // 3. Delete 1 char; if we land on a word, rehydrate it as composing in one batch
+        if (!backspaceRepeating && mode == Mode.LETTERS && isVietnameseMode) {
+            val before = ic.getTextBeforeCursor(33, 0)?.toString().orEmpty()
+            if (before.isNotEmpty()) {
+                val afterDel = before.dropLast(1)
+                val prevWord = afterDel.takeLastWhile { it.isLetter() }
+                if (prevWord.isNotEmpty()) {
+                    ic.beginBatchEdit()
+                    ic.deleteSurroundingText(1 + prevWord.length, 0)
+                    ic.setComposingText(prevWord, 1)
+                    ic.endBatchEdit()
+                    vnEngine.rehydrateWord(prevWord)
+                    updateSuggestions(vnEngine.composingText)
+                    updateAutoCapitalization()
+                    return
+                }
             }
         }
-        updateAutoCapitalization()
-        updateSuggestions("")
+        ic.deleteSurroundingText(1, 0)
+        if (!backspaceRepeating) {
+            updateAutoCapitalization()
+            updateSuggestions("")
+        }
     }
 
     private fun moveCursor(delta: Int) {
@@ -696,8 +757,10 @@ class VietKeyboardService : InputMethodService() {
 
         val row = altPopupRow ?: LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setBackgroundResource(R.drawable.key_bg)
+            setBackgroundResource(R.drawable.popup_bg)
             elevation = 10f
+            val p = (4 * resources.displayMetrics.density).toInt()
+            setPadding(p, p, p, p)
             altPopupRow = this
         }
         row.removeAllViews()
@@ -946,7 +1009,7 @@ class VietKeyboardService : InputMethodService() {
      * chữ cái chính luôn nằm chính giữa phím, không bao giờ bị tụt hay bị cắt).
      */
     private fun applyLetterKeyLabel(btn: GboardKeyButton, primary: String, secondary: String?) {
-        btn.text = primary
+        if (btn.text?.toString() != primary) btn.text = primary
         btn.secondarySymbol = secondary
     }
 

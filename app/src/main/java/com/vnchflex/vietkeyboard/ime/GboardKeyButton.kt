@@ -23,6 +23,7 @@ class GboardKeyButton @JvmOverloads constructor(
 
     var secondarySymbol: String? = null
         set(value) {
+            if (field == value) return
             field = value
             invalidate()
         }
