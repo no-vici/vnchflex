@@ -68,6 +68,13 @@ class VietKeyboardService : InputMethodService() {
         if (anchor.isAttachedToWindow) showKeyPopup(anchor, pendingPopupLabel)
     }
 
+    private var altPopup: PopupWindow? = null
+    private var altPopupRow: LinearLayout? = null
+    private val altButtons = mutableListOf<TextView>()
+    private var altOptions: List<String> = emptyList()
+    private var altSelectedIndex = -1
+    private var altAnchor: View? = null
+
     private val suggestionSlots = mutableListOf<TextView>()
     private val suggestionDividers = mutableListOf<View>()
     private var lastSuggestionKey: String? = null
@@ -107,6 +114,13 @@ class VietKeyboardService : InputMethodService() {
         keyPopup?.dismiss()
         keyPopup = null
         keyPopupText = null
+        altPopup?.dismiss()
+        altPopup = null
+        altPopupRow = null
+        altButtons.clear()
+        altOptions = emptyList()
+        altSelectedIndex = -1
+        altAnchor = null
         bindKeys(view)
         initSuggestionSlots()
         applyPreferencesToView()
@@ -212,17 +226,40 @@ class VietKeyboardService : InputMethodService() {
             val btn = root.findViewById<GboardKeyButton>(id)
             val baseLetter = btn.text.toString().lowercase()
             letterButtons[btn] = baseLetter
+            var longPressHandled = false
 
             btn.setOnTouchListener { v, event ->
-                if (prefs.popupOnKeypress) {
-                    when (event.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> scheduleKeyPopup(v, btn.text.toString())
-                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> dismissKeyPopup()
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        longPressHandled = false
+                        if (prefs.popupOnKeypress) scheduleKeyPopup(v, btn.text.toString())
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        if (altPopup?.isShowing == true && altAnchor === v) {
+                            updateAltSelectionFromTouch(v, event)
+                            return@setOnTouchListener true
+                        }
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        if (altPopup?.isShowing == true && altAnchor === v) {
+                            commitAltSelection()
+                            dismissKeyPopup()
+                            return@setOnTouchListener true
+                        }
+                        dismissKeyPopup()
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
+                        dismissAltPopup()
+                        dismissKeyPopup()
                     }
                 }
                 false
             }
             btn.setOnClickListener {
+                if (longPressHandled) {
+                    longPressHandled = false
+                    return@setOnClickListener
+                }
                 dismissKeyPopup()
                 performKeyFeedback(btn)
                 val ch = if (shiftState != ShiftState.LOWER) baseLetter.uppercase()[0] else baseLetter[0]
@@ -234,11 +271,18 @@ class VietKeyboardService : InputMethodService() {
             }
             btn.setOnLongClickListener {
                 if (!prefs.longPressForSymbols) return@setOnLongClickListener false
-                val sec = secondarySymbolForLetter(baseLetter) ?: return@setOnLongClickListener false
-                dismissKeyPopup()
-                showKeyPopup(btn, sec)
+                val alts = alternatesForLetter(baseLetter)
+                if (alts.isEmpty()) return@setOnLongClickListener false
                 performKeyFeedback(btn, isLongPress = true)
-                onSecondarySymbol(sec)
+                if (alts.size == 1) {
+                    dismissKeyPopup()
+                    showKeyPopup(btn, alts[0])
+                    onSecondarySymbol(alts[0])
+                    longPressHandled = true
+                } else {
+                    showAlternatesPopup(btn, alts)
+                    longPressHandled = true
+                }
                 true
             }
         }
@@ -511,6 +555,7 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun onChar(c: Char) {
+        if (altPopup?.isShowing == true) dismissAltPopup()
         val ic = currentInputConnection ?: return
         if (mode != Mode.LETTERS) {
             commitRaw(c.toString())
@@ -557,6 +602,7 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun commitRaw(text: String) {
+        if (altPopup?.isShowing == true) dismissAltPopup()
         val ic = currentInputConnection ?: return
         vnEngine.commit(ic)
         ic.commitText(text, 1)
@@ -615,6 +661,168 @@ class VietKeyboardService : InputMethodService() {
         val keyCode = if (delta < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
         ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
         ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
+    }
+
+    private fun alternatesForLetter(base: String): List<String> {
+        val b = base.lowercase()
+        val sec = secondarySymbolForLetter(b)
+        val list = mutableListOf<String>()
+        if (sec != null) list.add(sec)
+        val extras = when (b) {
+            "a" -> listOf("á", "à", "ả", "ã", "ạ", "ă", "â")
+            "e" -> listOf("é", "è", "ẻ", "ẽ", "ẹ", "ê")
+            "i" -> listOf("í", "ì", "ỉ", "ĩ", "ị")
+            "o" -> listOf("ó", "ò", "ỏ", "õ", "ọ", "ô", "ơ")
+            "u" -> listOf("ú", "ù", "ủ", "ũ", "ụ", "ư")
+            "y" -> listOf("ý", "ỳ", "ỷ", "ỹ", "ỵ")
+            "d" -> listOf("đ")
+            "c" -> listOf("ç")
+            "n" -> listOf("ñ")
+            "s" -> listOf("ß")
+            else -> emptyList()
+        }
+        for (e in extras) {
+            val cased = if (shiftState != ShiftState.LOWER) e.uppercase() else e
+            if (cased != sec && cased.lowercase() != b) list.add(cased)
+        }
+        return list.distinct()
+    }
+
+    private fun showAlternatesPopup(anchor: View, options: List<String>) {
+        dismissKeyPopup()
+        altOptions = options
+        altSelectedIndex = 0
+        altAnchor = anchor
+
+        val row = altPopupRow ?: LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundResource(R.drawable.key_bg)
+            elevation = 10f
+            altPopupRow = this
+        }
+        row.removeAllViews()
+        altButtons.clear()
+
+        val padH = (12 * resources.displayMetrics.density).toInt()
+        val padV = (8 * resources.displayMetrics.density).toInt()
+        options.forEachIndexed { idx, opt ->
+            val tv = TextView(this).apply {
+                text = opt
+                textSize = 20f
+                gravity = Gravity.CENTER
+                minWidth = (36 * resources.displayMetrics.density).toInt()
+                setPadding(padH, padV, padH, padV)
+                setTextColor(getColor(R.color.key_text))
+            }
+            altButtons.add(tv)
+            row.addView(tv)
+        }
+        updateAltHighlight()
+
+        val popup = altPopup ?: PopupWindow(
+            row,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            false
+        ).also { altPopup = it }
+        if (popup.contentView !== row) popup.contentView = row
+        popup.isClippingEnabled = false
+
+        row.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
+        row.layout(0, 0, row.measuredWidth, row.measuredHeight)
+        val loc = IntArray(2)
+        anchor.getLocationInWindow(loc)
+        val popupW = row.measuredWidth
+        val popupH = row.measuredHeight
+        val x = (loc[0] + anchor.width / 2 - popupW / 2).coerceAtLeast(0)
+        val y = (loc[1] - popupH - 8).coerceAtLeast(0)
+        if (popup.isShowing) popup.dismiss()
+        popup.showAtLocation(anchor, Gravity.NO_GRAVITY, x, y)
+    }
+
+    private fun updateAltHighlight() {
+        altButtons.forEachIndexed { i, tv ->
+            if (i == altSelectedIndex) {
+                tv.setBackgroundColor(getColor(R.color.accent))
+                tv.setTextColor(getColor(R.color.enter_text))
+            } else {
+                tv.setBackgroundColor(Color.TRANSPARENT)
+                tv.setTextColor(getColor(R.color.key_text))
+            }
+        }
+    }
+
+    private fun updateAltSelectionFromTouch(anchor: View, event: MotionEvent): Boolean {
+        if (altPopup?.isShowing != true || altAnchor !== anchor || altButtons.isEmpty()) return false
+        val row = altPopupRow ?: return false
+        val rowLoc = IntArray(2)
+        row.getLocationOnScreen(rowLoc)
+        val touchXOnScreen = event.rawX.toInt()
+        val relativeX = touchXOnScreen - rowLoc[0]
+        var idx = altButtons.indexOfFirst { btn ->
+            val left = btn.left
+            val right = btn.right
+            relativeX in left..right
+        }
+        if (idx < 0) {
+            idx = when {
+                relativeX < 0 -> 0
+                relativeX > row.width -> altButtons.lastIndex
+                else -> altSelectedIndex
+            }
+        }
+        if (idx != altSelectedIndex) {
+            altSelectedIndex = idx
+            updateAltHighlight()
+        }
+        return true
+    }
+
+    private fun commitAltSelection(): Boolean {
+        val popup = altPopup ?: return false
+        if (!popup.isShowing) return false
+        val sel = altOptions.getOrNull(altSelectedIndex) ?: return false
+        popup.dismiss()
+        altOptions = emptyList()
+        altButtons.clear()
+        altSelectedIndex = -1
+        altAnchor = null
+        commitPopupSelection(sel)
+        return true
+    }
+
+    private fun dismissAltPopup() {
+        altPopup?.dismiss()
+        altOptions = emptyList()
+        altButtons.clear()
+        altSelectedIndex = -1
+        altAnchor = null
+    }
+
+    private fun commitPopupSelection(text: String) {
+        if (text.length == 1) {
+            val c = text[0]
+            val isPlainAsciiLetter = c in 'a'..'z' || c in 'A'..'Z'
+            if (isPlainAsciiLetter) {
+                val ch = if (shiftState != ShiftState.LOWER) c.uppercaseChar() else c.lowercaseChar()
+                onChar(ch)
+                if (shiftState == ShiftState.SHIFTED) {
+                    shiftState = ShiftState.LOWER
+                    refreshLetterKeyLabels()
+                }
+                return
+            }
+            if (c.isLetter()) {
+                val ch = if (shiftState != ShiftState.LOWER) c.uppercaseChar() else c.lowercaseChar()
+                commitRaw(ch.toString())
+                if (shiftState == ShiftState.SHIFTED) {
+                    shiftState = ShiftState.LOWER
+                    refreshLetterKeyLabels()
+                }
+                return
+            }
+        }
+        commitRaw(text)
     }
 
     private fun scheduleKeyPopup(anchor: View, label: String) {
