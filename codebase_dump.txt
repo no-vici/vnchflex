@@ -2032,9 +2032,6 @@ class VietKeyboardService : InputMethodService() {
     private var suggestionBar: LinearLayout? = null
     private var glideOverlay: GlideTypingOverlayView? = null
     private var rowNumbers: View? = null
-    private var audioManager: AudioManager? = null
-    private val suggestionSlots = mutableListOf<TextView>()
-    private val suggestionDividers = mutableListOf<View>()
     private var panelLetters: View? = null
     private var panelSymbols1: View? = null
     private var panelSymbols2: View? = null
