@@ -2002,22 +2002,42 @@ class VietKeyboardService : InputMethodService() {
 
         listOf(R.id.key_space, R.id.key_space_s1, R.id.key_space_s2).forEach { id ->
             val btn = root.findViewById<Button>(id) ?: return@forEach
-            btn.setOnTouchListener { v, event ->
-                if (prefs.popupOnKeypress) {
-                    when (event.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> showKeyPopup(v, btn.text.toString())
-                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> dismissKeyPopup()
+            var startX = 0f
+            var lastStepX = 0f
+            var didSwipe = false
+            btn.setOnTouchListener { _, event ->
+                if (!prefs.enableGestureCursorControl) return@setOnTouchListener false
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        startX = event.x
+                        lastStepX = event.x
+                        didSwipe = false
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = event.x - lastStepX
+                        val stepPx = 28f
+                        if (kotlin.math.abs(event.x - startX) > 20f) didSwipe = true
+                        if (dx > stepPx) {
+                            moveCursor(1)
+                            lastStepX = event.x
+                        } else if (dx < -stepPx) {
+                            moveCursor(-1)
+                            lastStepX = event.x
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        if (didSwipe) return@setOnTouchListener true
                     }
                 }
                 false
             }
             btn.setOnClickListener {
-                dismissKeyPopup()
                 performKeyFeedback(btn)
                 onSpacePressed()
             }
             // Gboard behavior: Long-press Spacebar opens IME picker (choose Gboard / vnchFlex)
             btn.setOnLongClickListener {
+                if (didSwipe) return@setOnLongClickListener true
                 performKeyFeedback(btn, isLongPress = true)
                 showImePicker()
                 true
@@ -2075,11 +2095,14 @@ class VietKeyboardService : InputMethodService() {
     private fun updateAutoCapitalization() {
         if (!prefs.autoCapitalization || shiftState == ShiftState.CAPS_LOCK) return
         val ic = currentInputConnection ?: return
-        val before = ic.getTextBeforeCursor(32, 0)?.toString().orEmpty()
+        val before = ic.getTextBeforeCursor(4, 0)?.toString().orEmpty()
         val trimmed = before.trimEnd()
-        val shouldCap = trimmed.isEmpty() || trimmed.endsWith(".") || trimmed.endsWith("!") || trimmed.endsWith("?") || before.endsWith("\n")
-        shiftState = if (shouldCap) ShiftState.SHIFTED else ShiftState.LOWER
-        refreshLetterKeyLabels()
+        val shouldCap = before.isEmpty() || trimmed.endsWith(".") || trimmed.endsWith("!") || trimmed.endsWith("?") || before.endsWith("\n")
+        val newShift = if (shouldCap) ShiftState.SHIFTED else ShiftState.LOWER
+        if (shiftState != newShift) {
+            shiftState = newShift
+            refreshLetterKeyLabels()
+        }
     }
 
     private fun bindClick(id: Int, action: () -> Unit) {
@@ -2446,8 +2469,6 @@ class VietKeyboardService : InputMethodService() {
         val bar = suggestionBar ?: return
         bar.removeAllViews()
         if (!prefs.showSuggestionStrip || mode != Mode.LETTERS) return
-
-        syncContextFromEditor()
 
         val macroPreview = if (prefs.macroEnabled && prefix.isNotEmpty()) {
             macroEngine.lookupPreview(prefix)
