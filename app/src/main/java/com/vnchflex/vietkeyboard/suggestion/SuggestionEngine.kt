@@ -525,6 +525,45 @@ class SuggestionEngine(context: Context? = null) {
     private val userBigrams = mutableMapOf<String, MutableMap<String, Int>>()
     private val userTrigrams = mutableMapOf<String, MutableMap<String, Int>>()
 
+    private class TrieNode {
+        val children = HashMap<Char, TrieNode>(8)
+        val words = ArrayList<String>(2)
+    }
+
+    private val strippedTrieRoot = TrieNode()
+
+    private fun insertIntoTrie(word: String) {
+        val stripped = strippedWordCache.getOrPut(word) { DiacriticUtils.strip(word).lowercase() }
+        var node = strippedTrieRoot
+        for (c in stripped) {
+            node = node.children.getOrPut(c) { TrieNode() }
+        }
+        if (!node.words.contains(word)) {
+            node.words.add(word)
+        }
+    }
+
+    private fun collectFromTrie(prefixStripped: String, limit: Int = 48): List<String> {
+        var node = strippedTrieRoot
+        for (c in prefixStripped) {
+            node = node.children[c] ?: return emptyList()
+        }
+        val out = ArrayList<String>(limit)
+        val queue = ArrayDeque<TrieNode>()
+        queue.add(node)
+        while (queue.isNotEmpty() && out.size < limit) {
+            val cur = queue.removeFirst()
+            for (w in cur.words) {
+                out.add(w)
+                if (out.size >= limit) break
+            }
+            if (out.size < limit) {
+                cur.children.values.forEach { queue.add(it) }
+            }
+        }
+        return out
+    }
+
     init {
         dictStore?.loadLearnedWords()?.forEach { w ->
             userUnigramCounts[w] = (userUnigramCounts[w] ?: 0) + 5
@@ -535,6 +574,9 @@ class SuggestionEngine(context: Context? = null) {
         dictStore?.loadLearnedTrigrams()?.forEach { (ctx, map) ->
             userTrigrams[ctx] = map.toMutableMap()
         }
+        coreUnigramWeights.keys.forEach { insertIntoTrie(it) }
+        englishUnigramWeights.keys.forEach { insertIntoTrie(it) }
+        userUnigramCounts.keys.forEach { insertIntoTrie(it) }
     }
 
     /**
@@ -590,12 +632,7 @@ class SuggestionEngine(context: Context? = null) {
         // Contextual Trigram & Bigram candidate boosts for prefix completion
         val contextualFollowers = getContextualWeights(prevWord2, prevWord1)
 
-        val allWords = LinkedHashSet<String>().apply {
-            addAll(userUnigramCounts.keys)
-            addAll(coreUnigramWeights.keys)
-            addAll(englishUnigramWeights.keys)
-        }
-
+        val allWords = collectFromTrie(strippedQuery, 48)
         val scoredCandidates = allWords
             .asSequence()
             .filter { candidate ->
