@@ -1168,7 +1168,7 @@ class VietKeyboardService : InputMethodService() {
             clipboardHistory.addFirst(current)
             while (clipboardHistory.size > 15) clipboardHistory.removeLast()
         }
-        val anchor = rootView?.findViewById<View>(R.id.btn_toolbar_clipboard) ?: return
+        val anchor = window?.window?.decorView?.findViewById<View>(R.id.btn_toolbar_clipboard) ?: return
         if (clipboardHistory.isEmpty()) return
 
         val density = resources.displayMetrics.density
