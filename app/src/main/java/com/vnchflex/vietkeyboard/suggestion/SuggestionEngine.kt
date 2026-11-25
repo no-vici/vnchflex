@@ -531,6 +531,15 @@ class SuggestionEngine(context: Context? = null) {
     }
 
     private val strippedTrieRoot = TrieNode()
+    private var trieBuilt = false
+
+    private fun ensureTrieBuilt() {
+        if (trieBuilt) return
+        trieBuilt = true
+        coreUnigramWeights.keys.forEach { insertIntoTrie(it) }
+        englishUnigramWeights.keys.forEach { insertIntoTrie(it) }
+        userUnigramCounts.keys.forEach { insertIntoTrie(it) }
+    }
 
     private fun insertIntoTrie(word: String) {
         val stripped = strippedWordCache.getOrPut(word) { DiacriticUtils.strip(word).lowercase() }
@@ -544,6 +553,7 @@ class SuggestionEngine(context: Context? = null) {
     }
 
     private fun collectFromTrie(prefixStripped: String, limit: Int = 48): List<String> {
+        ensureTrieBuilt()
         var node = strippedTrieRoot
         for (c in prefixStripped) {
             node = node.children[c] ?: return emptyList()
@@ -574,9 +584,6 @@ class SuggestionEngine(context: Context? = null) {
         dictStore?.loadLearnedTrigrams()?.forEach { (ctx, map) ->
             userTrigrams[ctx] = map.toMutableMap()
         }
-        coreUnigramWeights.keys.forEach { insertIntoTrie(it) }
-        englishUnigramWeights.keys.forEach { insertIntoTrie(it) }
-        userUnigramCounts.keys.forEach { insertIntoTrie(it) }
     }
 
     /**
