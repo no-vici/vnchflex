@@ -755,7 +755,7 @@ class SuggestionEngine(context: Context? = null) {
             home phone chat send message email name file open close save delete edit search update
             android keyboard app code test bug fix build run start stop next play game music video
             photo picture camera friend family happy sad angry tired hungry busy free today tomorrow
-            yesterday week month year hour minute secondalways never maybe really very much more
+            yesterday week month year hour minute second always never maybe really very much more
             best better bad worse big small long short high low fast slow easy hard right left
             true false help need try find keep let put mean seem feel leave call ask turn move
             live believe hold bring happen must write provide sit stand lose pay meet include

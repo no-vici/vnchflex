@@ -724,11 +724,10 @@ class VietKeyboardService : InputMethodService() {
             if (isMacroTrigger(c)) {
                 val finishedEn = enComposing.toString()
                 enComposing.clear()
-                val lookup = if (finishedEn.isNotEmpty()) finishedEn else prevCommittedWord1
                 if (finishedEn.isNotEmpty()) {
                     recordCommittedWord(finishedEn)
                 }
-                if (prefs.macroEnabled && lookup.isNotEmpty() && macroEngine.tryExpand(ic, c, beforeCursor = lookup)) {
+                if (prefs.macroEnabled && finishedEn.isNotEmpty() && macroEngine.tryExpand(ic, c, beforeCursor = finishedEn)) {
                     updateAutoCapitalization()
                     updateSuggestions("")
                     return
@@ -841,6 +840,15 @@ class VietKeyboardService : InputMethodService() {
         // 2. Normal Vietnamese composing backspace
         if (mode == Mode.LETTERS && isVietnameseMode && vnEngine.onBackspace(ic)) {
             if (!backspaceRepeating) updateSuggestions(vnEngine.composingText)
+            return
+        }
+        if (mode == Mode.LETTERS && !isVietnameseMode && enComposing.isNotEmpty()) {
+            enComposing.deleteCharAt(enComposing.length - 1)
+            ic.deleteSurroundingText(1, 0)
+            if (!backspaceRepeating) {
+                updateSuggestions(enComposing.toString())
+                updateAutoCapitalization()
+            }
             return
         }
 

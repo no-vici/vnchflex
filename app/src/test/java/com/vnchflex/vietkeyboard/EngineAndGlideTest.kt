@@ -15,7 +15,7 @@ class EngineAndGlideTest {
         assertEquals("không", engine.transformTelex("khongo".toList()))
         assertEquals("tiếng", engine.transformTelex("tieengs".toList()))
         assertEquals("việt", engine.transformTelex("vieetj".toList()))
-        engine.southernDialect = true
+        engine.southernDialectAndGenZ = true
         assertEquals("dzìa", engine.transformTelex("dziaf".toList()))
         assertEquals("dzách", engine.transformTelex("dzachs".toList()))
     }

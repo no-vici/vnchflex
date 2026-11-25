@@ -2895,11 +2895,10 @@ class VietKeyboardService : InputMethodService() {
             if (isMacroTrigger(c)) {
                 val finishedEn = enComposing.toString()
                 enComposing.clear()
-                val lookup = if (finishedEn.isNotEmpty()) finishedEn else prevCommittedWord1
                 if (finishedEn.isNotEmpty()) {
                     recordCommittedWord(finishedEn)
                 }
-                if (prefs.macroEnabled && lookup.isNotEmpty() && macroEngine.tryExpand(ic, c, beforeCursor = lookup)) {
+                if (prefs.macroEnabled && finishedEn.isNotEmpty() && macroEngine.tryExpand(ic, c, beforeCursor = finishedEn)) {
                     updateAutoCapitalization()
                     updateSuggestions("")
                     return
@@ -3012,6 +3011,15 @@ class VietKeyboardService : InputMethodService() {
         // 2. Normal Vietnamese composing backspace
         if (mode == Mode.LETTERS && isVietnameseMode && vnEngine.onBackspace(ic)) {
             if (!backspaceRepeating) updateSuggestions(vnEngine.composingText)
+            return
+        }
+        if (mode == Mode.LETTERS && !isVietnameseMode && enComposing.isNotEmpty()) {
+            enComposing.deleteCharAt(enComposing.length - 1)
+            ic.deleteSurroundingText(1, 0)
+            if (!backspaceRepeating) {
+                updateSuggestions(enComposing.toString())
+                updateAutoCapitalization()
+            }
             return
         }
 
@@ -5985,7 +5993,7 @@ class SuggestionEngine(context: Context? = null) {
             home phone chat send message email name file open close save delete edit search update
             android keyboard app code test bug fix build run start stop next play game music video
             photo picture camera friend family happy sad angry tired hungry busy free today tomorrow
-            yesterday week month year hour minute secondalways never maybe really very much more
+            yesterday week month year hour minute second always never maybe really very much more
             best better bad worse big small long short high low fast slow easy hard right left
             true false help need try find keep let put mean seem feel leave call ask turn move
             live believe hold bring happen must write provide sit stand lose pay meet include
@@ -6788,7 +6796,7 @@ class EngineAndGlideTest {
         assertEquals("không", engine.transformTelex("khongo".toList()))
         assertEquals("tiếng", engine.transformTelex("tieengs".toList()))
         assertEquals("việt", engine.transformTelex("vieetj".toList()))
-        engine.southernDialect = true
+        engine.southernDialectAndGenZ = true
         assertEquals("dzìa", engine.transformTelex("dziaf".toList()))
         assertEquals("dzách", engine.transformTelex("dzachs".toList()))
     }
