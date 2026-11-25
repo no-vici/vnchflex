@@ -94,12 +94,19 @@ class VietnameseEngine {
     /**
      * Post-commit editing (chuẩn vnchKey): nạp lại từ đã gõ trước con trỏ vào bộ đệm
      * để người dùng có thể sửa dấu hoặc xóa lùi tiếp trên từ đó.
+     * Biến từ đó thành composing span để lần gõ kế tiếp thay thế đúng, không bị dính/nhân đôi.
      */
-    fun rehydrateWord(word: String) {
+    fun rehydrateWord(word: String, ic: InputConnection? = null) {
         if (word.isEmpty()) return
         rawChars.clear()
         rawChars.addAll(rawKeysFor(word).toList())
         renderedOutput = word
+        if (ic != null) {
+            ic.beginBatchEdit()
+            ic.deleteSurroundingText(word.length, 0)
+            ic.setComposingText(word, 1)
+            ic.endBatchEdit()
+        }
     }
 
     /** Bỏ dấu tự do (kiểu vnchKey): xóa dấu trên từ đang gõ, vùng đang chọn, hoặc từ ngay trước con trỏ. */

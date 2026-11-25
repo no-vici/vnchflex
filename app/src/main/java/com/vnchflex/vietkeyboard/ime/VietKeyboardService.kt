@@ -598,7 +598,7 @@ class VietKeyboardService : InputMethodService() {
             val afterDel = ic.getTextBeforeCursor(32, 0)?.toString().orEmpty()
             val prevWord = afterDel.takeLastWhile { it.isLetter() }
             if (prevWord.isNotEmpty()) {
-                vnEngine.rehydrateWord(prevWord)
+                vnEngine.rehydrateWord(prevWord, ic)
                 updateSuggestions(vnEngine.composingText)
                 updateAutoCapitalization()
                 return
