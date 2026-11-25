@@ -53,6 +53,8 @@ class VietKeyboardService : InputMethodService() {
     private var mode = Mode.LETTERS
     private var isVietnameseMode = true
     private val enComposing = StringBuilder()
+    private val clipboardHistory = ArrayDeque<String>()
+    private var clipboardManager: ClipboardManager? = null
     private var shiftState = ShiftState.LOWER
     private var lastShiftClickTime = 0L
     private var lastSpaceClickTime = 0L
@@ -95,6 +97,20 @@ class VietKeyboardService : InputMethodService() {
         macroEngine = MacroEngine(macroStore.load())
         suggestionEngine = SuggestionEngine(this)
         syncPreferencesToEngines()
+        clipboardManager = (getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.also { cm ->
+            cm.addPrimaryClipChangedListener {
+                if (!prefs.enableClipboardHistory) return@addPrimaryClipChangedListener
+                val clip = cm.primaryClip ?: return@addPrimaryClipChangedListener
+                if (clip.itemCount > 0) {
+                    val text = clip.getItemAt(0).coerceToText(this)?.toString().orEmpty()
+                    if (text.isNotBlank()) {
+                        clipboardHistory.remove(text)
+                        clipboardHistory.addFirst(text)
+                        while (clipboardHistory.size > 15) clipboardHistory.removeLast()
+                    }
+                }
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -1145,12 +1161,54 @@ class VietKeyboardService : InputMethodService() {
 
     private fun onPasteClipboard() {
         if (!prefs.enableClipboardHistory) return
-        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
-        val clip = cm.primaryClip
-        if (clip != null && clip.itemCount > 0) {
-            val text = clip.getItemAt(0).coerceToText(this)?.toString().orEmpty()
-            if (text.isNotEmpty()) commitRaw(text)
+        val cm = clipboardManager ?: (getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.also { clipboardManager = it } ?: return
+        val current = cm.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString().orEmpty()
+        if (current.isNotBlank() && clipboardHistory.firstOrNull() != current) {
+            clipboardHistory.remove(current)
+            clipboardHistory.addFirst(current)
+            while (clipboardHistory.size > 15) clipboardHistory.removeLast()
         }
+        val anchor = rootView?.findViewById<View>(R.id.btn_toolbar_clipboard) ?: return
+        if (clipboardHistory.isEmpty()) return
+
+        val density = resources.displayMetrics.density
+        val listLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
+        }
+        var popupRef: PopupWindow? = null
+        for (item in clipboardHistory) {
+            val tv = TextView(this).apply {
+                text = item.trim()
+                maxLines = 2
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                textSize = 14f
+                setTextColor(getColor(R.color.key_text))
+                setBackgroundColor(getColor(R.color.key_bg))
+                setPadding((12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt())
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { bottomMargin = (6 * density).toInt() }
+                setOnClickListener {
+                    performKeyFeedback(this)
+                    commitRaw(item)
+                    popupRef?.dismiss()
+                }
+            }
+            listLayout.addView(tv)
+        }
+        val scroll = android.widget.ScrollView(this).apply {
+            addView(listLayout)
+            setBackgroundColor(getColor(R.color.keyboard_bg))
+            elevation = 8 * density
+        }
+        val popup = PopupWindow(scroll, (320 * density).toInt(), (220 * density).toInt(), false).apply {
+            isOutsideTouchable = true
+            isTouchable = true
+        }
+        popupRef = popup
+        popup.showAtLocation(anchor.rootView, android.view.Gravity.BOTTOM or android.view.Gravity.CENTER_HORIZONTAL, 0, (56 * density).toInt())
     }
 
     private fun openSettingsSection(section: String?) {
