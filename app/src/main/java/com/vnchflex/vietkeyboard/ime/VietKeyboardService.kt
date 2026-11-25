@@ -482,20 +482,34 @@ class VietKeyboardService : InputMethodService() {
             var startX = 0f
             var lastStepX = 0f
             var didSwipe = false
+            var didLongPress = false
+            val spaceLongPressRunnable = Runnable {
+                if (!didSwipe) {
+                    didLongPress = true
+                    performKeyFeedback(btn, isLongPress = true)
+                    showImePicker()
+                }
+            }
             btn.setOnTouchListener { _, event ->
-                if (!prefs.enableGestureCursorControl) return@setOnTouchListener false
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
                         startX = event.x
                         lastStepX = event.x
                         didSwipe = false
+                        didLongPress = false
+                        popupHandler.removeCallbacks(spaceLongPressRunnable)
+                        popupHandler.postDelayed(spaceLongPressRunnable, 900L)
                     }
                     MotionEvent.ACTION_MOVE -> {
+                        if (!prefs.enableGestureCursorControl) return@setOnTouchListener false
                         val density = resources.displayMetrics.density
                         val swipeThresholdPx = 24f * density
                         val stepPx = 14f * density
                         val dx = event.x - lastStepX
-                        if (kotlin.math.abs(event.x - startX) > swipeThresholdPx) didSwipe = true
+                        if (kotlin.math.abs(event.x - startX) > swipeThresholdPx) {
+                            didSwipe = true
+                            popupHandler.removeCallbacks(spaceLongPressRunnable)
+                        }
                         if (didSwipe) {
                             if (dx > stepPx) {
                                 moveCursor(1)
@@ -507,28 +521,20 @@ class VietKeyboardService : InputMethodService() {
                         }
                     }
                     MotionEvent.ACTION_UP -> {
-                        if (didSwipe) return@setOnTouchListener true
+                        popupHandler.removeCallbacks(spaceLongPressRunnable)
+                        if (didSwipe || didLongPress) return@setOnTouchListener true
                         performKeyFeedback(btn)
                         onSpacePressed()
                         return@setOnTouchListener true
                     }
                     MotionEvent.ACTION_CANCEL -> {
-                        if (didSwipe) return@setOnTouchListener true
+                        popupHandler.removeCallbacks(spaceLongPressRunnable)
+                        if (didSwipe || didLongPress) return@setOnTouchListener true
                     }
                 }
                 false
             }
-            btn.setOnClickListener {
-                performKeyFeedback(btn)
-                onSpacePressed()
-            }
-            // Gboard behavior: Long-press Spacebar opens IME picker (choose Gboard / vnchFlex)
-            btn.setOnLongClickListener {
-                if (didSwipe) return@setOnLongClickListener true
-                performKeyFeedback(btn, isLongPress = true)
-                showImePicker()
-                true
-            }
+            btn.setOnLongClickListener(null)
         }
         listOf(R.id.key_enter, R.id.key_enter_s1, R.id.key_enter_s2).forEach { bindClick(it, ::onEnter) }
         listOf(R.id.key_comma, R.id.key_dot).forEach { id ->
