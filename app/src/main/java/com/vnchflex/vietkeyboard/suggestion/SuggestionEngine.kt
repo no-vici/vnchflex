@@ -755,6 +755,15 @@ class SuggestionEngine(context: Context? = null) {
         }
     }
 
+    fun isKnownWord(word: String): Boolean {
+        val clean = word.trim().lowercase()
+        if (clean.isEmpty()) return false
+        return coreUnigramWeights.containsKey(clean) ||
+            englishUnigramWeights.containsKey(clean) ||
+            englishContractions.containsValue(word) ||
+            userUnigramCounts.containsKey(clean)
+    }
+
     fun getContextBoosts(prevWord2: String, prevWord1: String): Map<String, Int> =
         getContextualWeights(prevWord2, prevWord1)
 

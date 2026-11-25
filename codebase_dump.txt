@@ -1,5 +1,5 @@
 # CODEBASE DUMP: vnchflex
-# Total files: 45
+# Total files: 48
 ================================================================================
 
 ## PROJECT STRUCTURE
@@ -21,6 +21,7 @@
 - app/src/main/java/com/vnchflex/vietkeyboard/ime/GlideDecoder.kt
 - app/src/main/java/com/vnchflex/vietkeyboard/ime/GlideTypingOverlayView.kt
 - app/src/main/java/com/vnchflex/vietkeyboard/ime/VietKeyboardService.kt
+- app/src/main/java/com/vnchflex/vietkeyboard/ime/VnchSpellCheckerService.kt
 - app/src/main/java/com/vnchflex/vietkeyboard/macro/Macro.kt
 - app/src/main/java/com/vnchflex/vietkeyboard/macro/MacroEngine.kt
 - app/src/main/java/com/vnchflex/vietkeyboard/macro/MacroStore.kt
@@ -45,6 +46,8 @@
 - app/src/main/res/values/styles.xml
 - app/src/main/res/values/themes.xml
 - app/src/main/res/xml/method.xml
+- app/src/main/res/xml/spellchecker.xml
+- app/src/test/java/com/vnchflex/vietkeyboard/EngineAndGlideTest.kt
 - docs/ARCHITECTURE.md
 - docs/DEVELOPMENT_JOURNEY.md
 - gradle/wrapper/gradle-wrapper.properties
@@ -1078,6 +1081,19 @@ MIIKqAIBAzCCClIGCSqGSIb3DQEHAaCCCkMEggo/MIIKOzCCBbIGCSqGSIb3DQEHAaCCBaMEggWfMIIF
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".ime.VnchSpellCheckerService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_TEXT_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.textservice.SpellCheckerService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.textservice.scs"
+                android:resource="@xml/spellchecker" />
+        </service>
 
     </application>
 
@@ -3520,6 +3536,63 @@ class VietKeyboardService : InputMethodService() {
 }
 ===== END FILE: app/src/main/java/com/vnchflex/vietkeyboard/ime/VietKeyboardService.kt =====
 
+===== FILE: app/src/main/java/com/vnchflex/vietkeyboard/ime/VnchSpellCheckerService.kt =====
+package com.vnchflex.vietkeyboard.ime
+
+import android.service.textservice.SpellCheckerService
+import android.view.textservice.SuggestionsInfo
+import android.view.textservice.TextInfo
+import com.vnchflex.vietkeyboard.suggestion.SuggestionEngine
+
+/**
+ * Bilingual Vietnamese + English SpellCheckerService for vnchFlex.
+ * Prevents Android's default spell checker from flagging valid Vietnamese words
+ * or English loanwords/contractions as typos.
+ */
+class VnchSpellCheckerService : SpellCheckerService() {
+
+    private lateinit var suggestionEngine: SuggestionEngine
+
+    override fun onCreate() {
+        super.onCreate()
+        suggestionEngine = SuggestionEngine(this)
+    }
+
+    override fun createSession(): Session = VnchSession(suggestionEngine)
+
+    private class VnchSession(
+        private val engine: SuggestionEngine
+    ) : Session() {
+
+        override fun onCreate() {}
+
+        override fun onGetSuggestions(textInfo: TextInfo?, suggestionsLimit: Int): SuggestionsInfo {
+            val word = textInfo?.text?.trim().orEmpty()
+            if (word.length < 2 || engine.isKnownWord(word)) {
+                return SuggestionsInfo(
+                    SuggestionsInfo.RESULT_ATTR_IN_THE_DICTIONARY,
+                    emptyArray()
+                )
+            }
+            val suggestions = engine.suggest(
+                prefix = word,
+                prevWord1 = "",
+                prevWord2 = "",
+                limit = suggestionsLimit.coerceIn(1, 5),
+                includeEmoji = false
+            ).filter { !it.equals(word, ignoreCase = true) }.toTypedArray()
+
+            val attr = if (suggestions.isNotEmpty()) {
+                SuggestionsInfo.RESULT_ATTR_LOOKS_LIKE_TYPO or SuggestionsInfo.RESULT_ATTR_HAS_RECOMMENDED_SUGGESTIONS
+            } else {
+                SuggestionsInfo.RESULT_ATTR_LOOKS_LIKE_TYPO
+            }
+            return SuggestionsInfo(attr, suggestions)
+        }
+    }
+}
+===== END FILE: app/src/main/java/com/vnchflex/vietkeyboard/ime/VnchSpellCheckerService.kt =====
+
 ===== FILE: app/src/main/java/com/vnchflex/vietkeyboard/macro/Macro.kt =====
 package com.vnchflex.vietkeyboard.macro
 
@@ -5823,6 +5896,15 @@ class SuggestionEngine(context: Context? = null) {
         }
     }
 
+    fun isKnownWord(word: String): Boolean {
+        val clean = word.trim().lowercase()
+        if (clean.isEmpty()) return false
+        return coreUnigramWeights.containsKey(clean) ||
+            englishUnigramWeights.containsKey(clean) ||
+            englishContractions.containsValue(word) ||
+            userUnigramCounts.containsKey(clean)
+    }
+
     fun getContextBoosts(prevWord2: String, prevWord1: String): Map<String, Int> =
         getContextualWeights(prevWord2, prevWord1)
 
@@ -6521,6 +6603,74 @@ class SuggestionEngine(context: Context? = null) {
         android:label="@string/subtype_vi" />
 </input-method>
 ===== END FILE: app/src/main/res/xml/method.xml =====
+
+===== FILE: app/src/main/res/xml/spellchecker.xml =====
+<?xml version="1.0" encoding="utf-8"?>
+<spell-checker xmlns:android="http://schemas.android.com/apk/res/android"
+    android:label="@string/app_name">
+    <subtype
+        android:label="Tiếng Việt &amp; English"
+        android:subtypeLocale="vi_VN" />
+</spell-checker>
+===== END FILE: app/src/main/res/xml/spellchecker.xml =====
+
+===== FILE: app/src/test/java/com/vnchflex/vietkeyboard/EngineAndGlideTest.kt =====
+package com.vnchflex.vietkeyboard
+
+import com.vnchflex.vietkeyboard.engine.VietnameseEngine
+import com.vnchflex.vietkeyboard.ime.GlideDecoder
+import com.vnchflex.vietkeyboard.suggestion.SuggestionEngine
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class EngineAndGlideTest {
+
+    @Test
+    fun telexFreeDiacriticsAndSouthernDialect() {
+        val engine = VietnameseEngine()
+        assertEquals("không", engine.transformTelex("khongo".toList()))
+        assertEquals("tiếng", engine.transformTelex("tieengs".toList()))
+        assertEquals("việt", engine.transformTelex("vieetj".toList()))
+        engine.southernDialect = true
+        assertEquals("dzìa", engine.transformTelex("dziaf".toList()))
+        assertEquals("dzách", engine.transformTelex("dzachs".toList()))
+    }
+
+    @Test
+    fun bilingualSuggestionAndContractions() {
+        val suggestion = SuggestionEngine(null)
+        assertTrue(suggestion.isKnownWord("ok"))
+        assertTrue(suggestion.isKnownWord("make"))
+        assertTrue(suggestion.isKnownWord("chào"))
+
+        val dontSugs = suggestion.suggest("dont", "", "", limit = 3)
+        assertTrue("Expected don't in $dontSugs", dontSugs.contains("don't"))
+
+        val biaSugs = suggestion.suggest("bia", "", "", limit = 3, includeEmoji = true)
+        assertTrue("Expected 🍺 in $biaSugs", biaSugs.contains("🍺"))
+    }
+
+    @Test
+    fun glideDecoderAccuracyAndBenchmark() {
+        val suggestion = SuggestionEngine(null)
+        val chao = GlideDecoder.decode("chao", suggestion, "", "", limit = 3, isVietnameseMode = true)
+        assertEquals("chào", chao.firstOrNull())
+
+        val love = GlideDecoder.decode("love", suggestion, "", "", limit = 3, isVietnameseMode = false)
+        assertEquals("love", love.firstOrNull())
+
+        // Micro-benchmark (100 iterations)
+        val startNs = System.nanoTime()
+        repeat(100) {
+            GlideDecoder.decode("chao", suggestion, "xin", "", limit = 3, isVietnameseMode = true)
+        }
+        val elapsedMs = (System.nanoTime() - startNs) / 1_000_000.0
+        println("GlideDecoder 100x decode took: $elapsedMs ms (${elapsedMs * 10} us/call)")
+        assertTrue("GlideDecoder too slow: $elapsedMs ms", elapsedMs < 2000.0)
+    }
+}
+===== END FILE: app/src/test/java/com/vnchflex/vietkeyboard/EngineAndGlideTest.kt =====
 
 ===== FILE: docs/ARCHITECTURE.md =====
 # Kiến trúc & Cách hoạt động của vnchFlex (Dành cho người mới)
