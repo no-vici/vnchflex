@@ -520,6 +520,7 @@ class SuggestionEngine(context: Context? = null) {
         "sad" to "😢", "fire" to "🔥", "star" to "⭐", "music" to "🎵", "sleep" to "😴",
     )
 
+    private val strippedWordCache = HashMap<String, String>(8192)
     private val userUnigramCounts = mutableMapOf<String, Int>()
     private val userBigrams = mutableMapOf<String, MutableMap<String, Int>>()
     private val userTrigrams = mutableMapOf<String, MutableMap<String, Int>>()
@@ -596,9 +597,10 @@ class SuggestionEngine(context: Context? = null) {
         }
 
         val scoredCandidates = allWords
+            .asSequence()
             .filter { candidate ->
                 if (candidate.equals(lower, ignoreCase = true)) return@filter false
-                val candStripped = DiacriticUtils.strip(candidate)
+                val candStripped = strippedWordCache.getOrPut(candidate) { DiacriticUtils.strip(candidate) }
                 candidate.startsWith(lower) || candStripped.startsWith(strippedQuery)
             }
             .map { candidate ->

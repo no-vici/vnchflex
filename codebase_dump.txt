@@ -2952,10 +2952,7 @@ class VietKeyboardService : InputMethodService() {
                 val afterDel = before.dropLast(1)
                 val prevWord = afterDel.takeLastWhile { it.isLetter() }
                 if (prevWord.isNotEmpty()) {
-                    ic.beginBatchEdit()
-                    ic.deleteSurroundingText(1 + prevWord.length, 0)
-                    ic.setComposingText(prevWord, 1)
-                    ic.endBatchEdit()
+                    ic.deleteSurroundingText(1, 0)
                     vnEngine.rehydrateWord(prevWord)
                     updateSuggestions(vnEngine.composingText)
                     updateAutoCapitalization()
@@ -5584,6 +5581,7 @@ class SuggestionEngine(context: Context? = null) {
         "sad" to "😢", "fire" to "🔥", "star" to "⭐", "music" to "🎵", "sleep" to "😴",
     )
 
+    private val strippedWordCache = HashMap<String, String>(8192)
     private val userUnigramCounts = mutableMapOf<String, Int>()
     private val userBigrams = mutableMapOf<String, MutableMap<String, Int>>()
     private val userTrigrams = mutableMapOf<String, MutableMap<String, Int>>()
@@ -5660,9 +5658,10 @@ class SuggestionEngine(context: Context? = null) {
         }
 
         val scoredCandidates = allWords
+            .asSequence()
             .filter { candidate ->
                 if (candidate.equals(lower, ignoreCase = true)) return@filter false
-                val candStripped = DiacriticUtils.strip(candidate)
+                val candStripped = strippedWordCache.getOrPut(candidate) { DiacriticUtils.strip(candidate) }
                 candidate.startsWith(lower) || candStripped.startsWith(strippedQuery)
             }
             .map { candidate ->

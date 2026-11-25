@@ -829,10 +829,7 @@ class VietKeyboardService : InputMethodService() {
                 val afterDel = before.dropLast(1)
                 val prevWord = afterDel.takeLastWhile { it.isLetter() }
                 if (prevWord.isNotEmpty()) {
-                    ic.beginBatchEdit()
-                    ic.deleteSurroundingText(1 + prevWord.length, 0)
-                    ic.setComposingText(prevWord, 1)
-                    ic.endBatchEdit()
+                    ic.deleteSurroundingText(1, 0)
                     vnEngine.rehydrateWord(prevWord)
                     updateSuggestions(vnEngine.composingText)
                     updateAutoCapitalization()
