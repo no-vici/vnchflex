@@ -567,7 +567,7 @@ class VietnameseEngine {
 
     companion object {
         private val ENGLISH_AUTO_RESTORE_WORDS = setOf(
-            "text", "next", "flex", "fix", "box", "max", "mix", "six", "tax", "wax", "fox", "ox", "ex",
+            "text", "next", "flex", "fix", "box", "mix", "six", "tax", "wax", "fox", "ox", "ex",
             "more", "does", "life", "care", "user", "users", "test", "tests", "rest", "best", "fast",
             "last", "past", "list", "most", "post", "host", "cost", "lost", "just", "must", "rust",
             "dust", "trust", "first", "worst", "worth", "work", "works", "word", "words", "world",
