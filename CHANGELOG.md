@@ -4,7 +4,23 @@ Tất cả các thay đổi đáng chú ý của dự án **vnchFlex** đều đ
 
 ---
 
-## [Unreleased / Latest] — Glide Typing & Tối ưu từ vựng
+## [Unreleased / Latest] — Whitelist & Space Rollover (`09aea53`)
+
+### Added (Tính năng mới)
+- **Từ ngoại lệ không bỏ dấu (Whitelist)**:
+  - Thêm `englishWhitelist` trong `KeyboardPreferences` và `userWhitelist` trong `VietnameseEngine` để giữ nguyên raw text cho các từ người dùng chỉ định (vd: `telegram`, `tele`).
+  - Thêm màn hình quản lý Whitelist trong `SettingsActivity` (*Từ điển → Từ ngoại lệ không bỏ dấu*).
+
+### Fixed & Improved (Sửa lỗi & Cải thiện)
+- **Tối ưu phím Space & tốc độ gõ nhanh** (`VietKeyboardService`):
+  - **Space rollover**: Tự động chốt `Space` ngay khi ngón kế tiếp chạm phím chữ, tránh dính chữ khi gõ nhanh.
+  - **Loại bỏ IPC `getTextBeforeCursor` khi nhấn Space**: Dùng `trackCommittedChar()` nội bộ cho `doubleSpacePeriod`.
+  - **Tách luồng gợi ý & học từ**: Debounce `scheduleSuggestionsUpdate()` (25ms) và chạy `recordCommittedWord()` trên `suggestionExecutor`.
+- **Unit Test**: Thêm `testImplementation("junit:junit:4.13.2")` vào `app/build.gradle.kts`.
+
+---
+
+## Glide Typing & Tối ưu từ vựng
 
 ### Added (Tính năng mới)
 - **Glide Typing (Vuốt để gõ)** (`d93d9c2`, `29a4895`):

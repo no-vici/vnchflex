@@ -16,6 +16,7 @@
 - **Đặt dấu kiểu cũ / kiểu mới**: Tùy chọn đặt dấu thanh ở vị trí truyền thống (`hòa`, `thúy`) hoặc hiện đại (`hoà`, `thuý`).
 - **Hỗ trợ phương ngữ Nam (`dz-`)**: Hỗ trợ phụ âm kép phương ngữ Nam Bộ (`dzìa`, `dzách`, `dzô`...) chuẩn vnchKey.
 - **Sửa từ sau khi commit (Post-commit edit) & Tự động khôi phục từ tiếng Anh**: Chạm lại vào từ đã gõ hoặc bấm Backspace để tiếp tục sửa dấu; tự động trả lại từ gốc nếu phát hiện từ tiếng Anh hợp lệ.
+- **Từ ngoại lệ (Whitelist) giữ nguyên raw text**: Cho phép người dùng tự thêm/xóa các từ tiếng Anh hoặc từ đặc biệt (vd: `telegram`, `tele`, `docker`) trong *Cài đặt → Từ điển* để không bao giờ bị chuyển sang Tiếng Việt.
 - **Chuyển nhanh VN / EN**: Bấm phím chuyển ngôn ngữ để bật/tắt nhanh chế độ gõ tiếng Việt.
 
 ### 2. Glide Typing (Vuốt để gõ) gọn nhẹ
@@ -39,8 +40,10 @@
 - **Tùy biến linh hoạt**: Chế độ một tay (One-handed), điều chỉnh chiều cao bàn phím, âm thanh/rung phản hồi.
 
 ### 5. Tối ưu độ trễ (Low-Latency)
-- Loại bỏ các cuộc gọi IPC (`InputConnection`) thừa trên từng phím bấm.
-- Tái sử dụng View gợi ý và Popup thay vì tạo mới liên tục, giúp phím `Space` và `Backspace` phản hồi tức thì.
+- **Space rollover**: Tự động chốt phím `Space` ngay khi ngón tay kế tiếp chạm phím chữ, loại bỏ tình trạng dính chữ khi gõ nhanh.
+- **Loại bỏ IPC thừa**: Theo dõi ký tự đã commit nội bộ (`trackCommittedChar`) cho `doubleSpacePeriod` thay vì gọi `getTextBeforeCursor` trên mỗi lần nhấn `Space`.
+- **Tách luồng gợi ý & học từ**: Debounce cập nhật thanh gợi ý (`scheduleSuggestionsUpdate`) và đẩy `recordCommittedWord` sang background thread (`suggestionExecutor`) để phím `Space` và `Backspace` phản hồi tức thì.
+- Tái sử dụng View gợi ý và Popup thay vì tạo mới liên tục.
 
 ---
 
