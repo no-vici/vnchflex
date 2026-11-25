@@ -25,14 +25,15 @@ object GlideDecoder {
         suggestionEngine: SuggestionEngine,
         prevWord1: String,
         prevWord2: String,
-        limit: Int = 3
+        limit: Int = 3,
+        isVietnameseMode: Boolean = true
     ): List<String> {
         val raw = collapseRepeats(swipedKeys.lowercase())
         if (raw.length < 2) return emptyList()
 
         val firstChar = raw.first()
         val lastChar = raw.last()
-        val vocab = suggestionEngine.getGlideVocabulary()
+        val vocab = suggestionEngine.getGlideVocabulary(isVietnameseMode)
         val contextWeights = suggestionEngine.getContextBoosts(prevWord2, prevWord1)
 
         val scored = mutableListOf<Pair<String, Int>>()

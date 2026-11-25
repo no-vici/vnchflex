@@ -673,10 +673,52 @@ class SuggestionEngine(context: Context? = null) {
         dictStore?.clearLearnedWords()
     }
 
-    fun getGlideVocabulary(): Map<String, Int> = LinkedHashMap<String, Int>(coreUnigramWeights.size + userUnigramCounts.size).apply {
-        putAll(coreUnigramWeights)
-        userUnigramCounts.forEach { (w, count) ->
-            put(w, (get(w) ?: 65) + (count * 12).coerceAtMost(80))
+    private val englishUnigramWeights: Map<String, Int> = buildMap {
+        val commonEn = """
+            the be to of and a in that have it for not on with he as you do at this but his by from
+            they we say her she or an will my one all would there their what so up out if about who
+            get which go me when make can like time no just him know take people into year your good
+            some could them see other than then now look only come its over think also back after use
+            two how our work first well way even new want because any these give day most us love
+            hello hi hey morning night thanks thank please sorry yes ok okay nice cool great awesome
+            home phone chat send message email name file open close save delete edit search update
+            android keyboard app code test bug fix build run start stop next play game music video
+            photo picture camera friend family happy sad angry tired hungry busy free today tomorrow
+            yesterday week month year hour minute secondalways never maybe really very much more
+            best better bad worse big small long short high low fast slow easy hard right left
+            true false help need try find keep let put mean seem feel leave call ask turn move
+            live believe hold bring happen must write provide sit stand lose pay meet include
+            continue set learn change lead understand watch follow stop create speak read allow
+            add spend grow open walk win offer remember consider appear buy wait serve die send
+            expect stay fall cut reach kill remain suggest raise pass sell require report decide
+            pull
+        """.trimIndent().split(Regex("\\s+"))
+        for (w in commonEn) {
+            val clean = w.trim().lowercase()
+            if (clean.length >= 2 && !containsKey(clean)) {
+                put(clean, 85)
+            }
+        }
+        put("love", 100)
+        put("you", 100)
+        put("hello", 98)
+        put("good", 98)
+        put("the", 100)
+        put("and", 100)
+        put("that", 96)
+        put("this", 96)
+        put("with", 96)
+        put("have", 96)
+        put("thanks", 96)
+    }
+
+    fun getGlideVocabulary(isVietnameseMode: Boolean = true): Map<String, Int> {
+        val base = if (isVietnameseMode) coreUnigramWeights else englishUnigramWeights
+        return LinkedHashMap<String, Int>(base.size + userUnigramCounts.size).apply {
+            putAll(base)
+            userUnigramCounts.forEach { (w, count) ->
+                put(w, (get(w) ?: 65) + (count * 12).coerceAtMost(80))
+            }
         }
     }
 

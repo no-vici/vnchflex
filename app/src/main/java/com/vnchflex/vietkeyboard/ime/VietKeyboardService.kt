@@ -149,7 +149,8 @@ class VietKeyboardService : InputMethodService() {
                     suggestionEngine = suggestionEngine,
                     prevWord1 = prevCommittedWord1,
                     prevWord2 = prevCommittedWord2,
-                    limit = 3
+                    limit = 3,
+                    isVietnameseMode = isVietnameseMode
                 )
                 val best = candidates.firstOrNull()
                 if (best != null) {
@@ -468,15 +469,19 @@ class VietKeyboardService : InputMethodService() {
                         didSwipe = false
                     }
                     MotionEvent.ACTION_MOVE -> {
+                        val density = resources.displayMetrics.density
+                        val swipeThresholdPx = 24f * density
+                        val stepPx = 14f * density
                         val dx = event.x - lastStepX
-                        val stepPx = 28f
-                        if (kotlin.math.abs(event.x - startX) > 20f) didSwipe = true
-                        if (dx > stepPx) {
-                            moveCursor(1)
-                            lastStepX = event.x
-                        } else if (dx < -stepPx) {
-                            moveCursor(-1)
-                            lastStepX = event.x
+                        if (kotlin.math.abs(event.x - startX) > swipeThresholdPx) didSwipe = true
+                        if (didSwipe) {
+                            if (dx > stepPx) {
+                                moveCursor(1)
+                                lastStepX = event.x
+                            } else if (dx < -stepPx) {
+                                moveCursor(-1)
+                                lastStepX = event.x
+                            }
                         }
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
