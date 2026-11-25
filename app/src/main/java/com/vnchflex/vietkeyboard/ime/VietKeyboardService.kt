@@ -93,7 +93,6 @@ class VietKeyboardService : InputMethodService() {
         macroStore = MacroStore(this)
         macroEngine = MacroEngine(macroStore.load())
         suggestionEngine = SuggestionEngine(this)
-        audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         syncPreferencesToEngines()
     }
 

@@ -14,7 +14,7 @@
 ### 1. Bộ gõ Tiếng Việt linh hoạt (`VietnameseEngine`)
 - **Telex đầy đủ & Bỏ dấu tự do (kiểu vnchKey)**: Cho phép gõ dấu thanh (`s/f/r/x/j`, `z` để xóa dấu) và dấu mũ/móc (`a/e/o/w/d`) ở bất kỳ vị trí nào trong từ, không bị khóa cứng thứ tự.
 - **Đặt dấu kiểu cũ / kiểu mới**: Tùy chọn đặt dấu thanh ở vị trí truyền thống (`hòa`, `thúy`) hoặc hiện đại (`hoà`, `thuý`).
-- **Hỗ trợ phương ngữ Nam (`dz-`)**: Nhận diện và xử lý linh hoạt cách gõ `dz` -> `d` nếu bật tùy chọn.
+- **Hỗ trợ phương ngữ Nam (`dz-`)**: Hỗ trợ phụ âm kép phương ngữ Nam Bộ (`dzìa`, `dzách`, `dzô`...) chuẩn vnchKey.
 - **Sửa từ sau khi commit (Post-commit edit) & Tự động khôi phục từ tiếng Anh**: Chạm lại vào từ đã gõ hoặc bấm Backspace để tiếp tục sửa dấu; tự động trả lại từ gốc nếu phát hiện từ tiếng Anh hợp lệ.
 - **Chuyển nhanh VN / EN**: Bấm phím chuyển ngôn ngữ để bật/tắt nhanh chế độ gõ tiếng Việt.
 
