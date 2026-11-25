@@ -43,6 +43,14 @@
         <item name="android:gravity">center</item>
     </style>
 
+    <style name="OvalFuncKeyBtn" parent="FuncKeyBtn">
+        <item name="android:background">@drawable/key_oval_func_bg</item>
+    </style>
+
+    <style name="OvalIconKeyBtn" parent="OvalFuncKeyBtn">
+        <item name="android:textSize">21sp</item>
+    </style>
+
     <style name="LogoSwitchKeyBtn" parent="FuncKeyBtn">
         <item name="android:scaleType">fitCenter</item>
         <item name="android:padding">4dp</item>
@@ -51,7 +59,7 @@
     <style name="EnterKeyBtn" parent="KeyBase">
         <item name="android:background">@drawable/key_enter_bg</item>
         <item name="android:textColor">@color/enter_text</item>
-        <item name="android:textSize">18sp</item>
+        <item name="android:textSize">22sp</item>
         <item name="android:gravity">center</item>
     </style>
 

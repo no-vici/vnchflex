@@ -41,9 +41,10 @@ class VietnameseEngine {
 
     fun onChar(input: Char, ic: InputConnection): Boolean {
         if (input.isLetter()) {
+            val prevLen = renderedOutput.length
             rawChars.add(input)
             renderedOutput = transformTelex(rawChars)
-            ic.setComposingText(renderedOutput, 1)
+            replaceComposingDirect(ic, prevLen, renderedOutput)
             return true
         }
         commit(ic)
@@ -52,29 +53,29 @@ class VietnameseEngine {
 
     fun onBackspace(ic: InputConnection): Boolean {
         if (rawChars.isEmpty()) return false
+        val prevLen = renderedOutput.length
         if (renderedOutput.isNotEmpty()) {
             val updated = renderedOutput.dropLast(1)
             if (updated.isEmpty()) {
                 rawChars.clear()
                 renderedOutput = ""
-                ic.finishComposingText()
+                if (prevLen > 0) ic.deleteSurroundingText(prevLen, 0)
             } else {
                 renderedOutput = updated
                 rawChars.clear()
                 rawChars.addAll(rawKeysFor(updated).toList())
-                ic.setComposingText(renderedOutput, 1)
+                replaceComposingDirect(ic, prevLen, renderedOutput)
             }
             return true
         }
         rawChars.removeAt(rawChars.lastIndex)
         renderedOutput = if (rawChars.isEmpty()) "" else transformTelex(rawChars)
-        if (renderedOutput.isEmpty()) ic.finishComposingText() else ic.setComposingText(renderedOutput, 1)
+        replaceComposingDirect(ic, prevLen, renderedOutput)
         return true
     }
 
     fun commit(ic: InputConnection) {
         if (renderedOutput.isEmpty() && rawChars.isEmpty()) return
-        ic.commitText(renderedOutput, 1)
         rawChars.clear()
         renderedOutput = ""
     }
@@ -82,17 +83,17 @@ class VietnameseEngine {
     fun reset(ic: InputConnection? = null) {
         rawChars.clear()
         renderedOutput = ""
-        ic?.finishComposingText()
     }
 
     /** Bỏ dấu tự do (kiểu vnchKey): xóa dấu trên từ đang gõ, vùng đang chọn, hoặc từ ngay trước con trỏ. */
     fun removeDiacritics(ic: InputConnection) {
         if (rawChars.isNotEmpty()) {
+            val prevLen = renderedOutput.length
             val stripped = DiacriticUtils.strip(renderedOutput)
             rawChars.clear()
             rawChars.addAll(stripped.toList())
             renderedOutput = stripped
-            ic.setComposingText(renderedOutput, 1)
+            replaceComposingDirect(ic, prevLen, renderedOutput)
             return
         }
         val selected = ic.getSelectedText(0)?.toString()
@@ -107,6 +108,20 @@ class VietnameseEngine {
         try {
             ic.deleteSurroundingText(word.length, 0)
             ic.commitText(DiacriticUtils.strip(word), 1)
+        } finally {
+            ic.endBatchEdit()
+        }
+    }
+
+    private fun replaceComposingDirect(ic: InputConnection, prevLen: Int, newText: String) {
+        ic.beginBatchEdit()
+        try {
+            if (prevLen > 0) {
+                ic.deleteSurroundingText(prevLen, 0)
+            }
+            if (newText.isNotEmpty()) {
+                ic.commitText(newText, 1)
+            }
         } finally {
             ic.endBatchEdit()
         }

@@ -3,6 +3,8 @@
 
     <application
         android:allowBackup="true"
+        android:icon="@drawable/ic_switch_ime_logo"
+        android:roundIcon="@drawable/ic_switch_ime_logo"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.VietKeyboard">
