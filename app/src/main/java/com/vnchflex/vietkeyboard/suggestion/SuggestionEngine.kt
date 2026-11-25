@@ -576,6 +576,7 @@ class SuggestionEngine(context: Context? = null) {
         val allWords = LinkedHashSet<String>().apply {
             addAll(userUnigramCounts.keys)
             addAll(coreUnigramWeights.keys)
+            addAll(englishUnigramWeights.keys)
         }
 
         val scoredCandidates = allWords
@@ -721,9 +722,15 @@ class SuggestionEngine(context: Context? = null) {
     }
 
     fun getGlideVocabulary(isVietnameseMode: Boolean = true): Map<String, Int> {
-        val base = if (isVietnameseMode) coreUnigramWeights else englishUnigramWeights
-        return LinkedHashMap<String, Int>(base.size + userUnigramCounts.size).apply {
-            putAll(base)
+        return LinkedHashMap<String, Int>(coreUnigramWeights.size + englishUnigramWeights.size + userUnigramCounts.size).apply {
+            if (isVietnameseMode) {
+                englishUnigramWeights.forEach { (w, weight) ->
+                    put(w, (weight - 6).coerceAtLeast(60))
+                }
+                putAll(coreUnigramWeights)
+            } else {
+                putAll(englishUnigramWeights)
+            }
             userUnigramCounts.forEach { (w, count) ->
                 put(w, (get(w) ?: 65) + (count * 12).coerceAtMost(80))
             }
