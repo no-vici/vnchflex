@@ -1,5 +1,5 @@
 # CODEBASE DUMP: vnchflex
-# Total files: 39
+# Total files: 42
 ================================================================================
 
 ## PROJECT STRUCTURE
@@ -17,6 +17,8 @@
 - app/src/main/java/com/vnchflex/vietkeyboard/engine/DiacriticUtils.kt
 - app/src/main/java/com/vnchflex/vietkeyboard/engine/VietnameseEngine.kt
 - app/src/main/java/com/vnchflex/vietkeyboard/ime/GboardKeyButton.kt
+- app/src/main/java/com/vnchflex/vietkeyboard/ime/GlideDecoder.kt
+- app/src/main/java/com/vnchflex/vietkeyboard/ime/GlideTypingOverlayView.kt
 - app/src/main/java/com/vnchflex/vietkeyboard/ime/VietKeyboardService.kt
 - app/src/main/java/com/vnchflex/vietkeyboard/macro/Macro.kt
 - app/src/main/java/com/vnchflex/vietkeyboard/macro/MacroEngine.kt
@@ -34,6 +36,7 @@
 - app/src/main/res/drawable/key_enter_bg.xml
 - app/src/main/res/drawable/key_func_bg.xml
 - app/src/main/res/drawable/key_oval_func_bg.xml
+- app/src/main/res/drawable/popup_bg.xml
 - app/src/main/res/layout/activity_settings.xml
 - app/src/main/res/layout/keyboard_view.xml
 - app/src/main/res/values/colors.xml
@@ -1039,7 +1042,7 @@ import android.view.inputmethod.InputConnection
  *   + `dziaf` -> `dzìa`, `dzachs` -> `dzách`, `dzoo` -> `dzô`, `dzoj` -> `dzọ`, `dzui` -> `dzui`, `dzaayj` -> `dzậy`, `dzotj` -> `dzọt`
  *   + `zaayj` -> `zậy`, `zui` -> `zui`, `fairs` -> `fải`, `was` -> `wá`, `waayj` -> `wậy`, `jups` -> `júp`
  *   + Giữ nguyên các từ tiếng Anh có phụ âm mở rộng (`zero`, `zone`, `zip`, `zest`, `just`, `free`, `fee`, `water`, `web`)
- * - Đặt dấu đúng vị trí nguyên âm theo chuẩn chính tả mới (`òa, òe, úy`) hoặc cũ (`oà, oè, uý`).
+ * - Đặt dấu đúng vị trí nguyên âm theo kiểu mới (`oà, oè, uý`) hoặc kiểu cũ/cổ điển (`òa, òe, úy`).
  * - Lặp phím dấu / phím mũ-móc để hoàn nguyên (escape) khi gõ tiếng Anh (`canhf + f -> canhf`, `aaa -> aa`, `ww -> w`, `ddd -> dd`).
  * - Nút `Bỏ dấu` (`removeDiacritics`) hoặc phím `z` để xóa dấu tự do.
  */
@@ -1088,7 +1091,7 @@ class VietnameseEngine {
             if (updated.isEmpty()) {
                 rawChars.clear()
                 renderedOutput = ""
-                if (prevLen > 0) ic.deleteSurroundingText(prevLen, 0)
+                replaceComposingDirect(ic, prevLen, "")
             } else {
                 renderedOutput = updated
                 rawChars.clear()
@@ -1105,11 +1108,15 @@ class VietnameseEngine {
 
     fun commit(ic: InputConnection) {
         if (renderedOutput.isEmpty() && rawChars.isEmpty()) return
+        ic.finishComposingText()
         rawChars.clear()
         renderedOutput = ""
     }
 
     fun reset(ic: InputConnection? = null) {
+        if (ic != null && (renderedOutput.isNotEmpty() || rawChars.isNotEmpty())) {
+            ic.finishComposingText()
+        }
         rawChars.clear()
         renderedOutput = ""
     }
@@ -1117,12 +1124,19 @@ class VietnameseEngine {
     /**
      * Post-commit editing (chuẩn vnchKey): nạp lại từ đã gõ trước con trỏ vào bộ đệm
      * để người dùng có thể sửa dấu hoặc xóa lùi tiếp trên từ đó.
+     * Biến từ đó thành composing span để lần gõ kế tiếp thay thế đúng, không bị dính/nhân đôi.
      */
-    fun rehydrateWord(word: String) {
+    fun rehydrateWord(word: String, ic: InputConnection? = null) {
         if (word.isEmpty()) return
         rawChars.clear()
         rawChars.addAll(rawKeysFor(word).toList())
         renderedOutput = word
+        if (ic != null) {
+            ic.beginBatchEdit()
+            ic.deleteSurroundingText(word.length, 0)
+            ic.setComposingText(word, 1)
+            ic.endBatchEdit()
+        }
     }
 
     /** Bỏ dấu tự do (kiểu vnchKey): xóa dấu trên từ đang gõ, vùng đang chọn, hoặc từ ngay trước con trỏ. */
@@ -1154,17 +1168,16 @@ class VietnameseEngine {
     }
 
     private fun replaceComposingDirect(ic: InputConnection, prevLen: Int, newText: String) {
-        ic.beginBatchEdit()
-        try {
+        if (newText.isEmpty()) {
             if (prevLen > 0) {
-                ic.deleteSurroundingText(prevLen, 0)
+                ic.beginBatchEdit()
+                ic.setComposingText("", 1)
+                ic.finishComposingText()
+                ic.endBatchEdit()
             }
-            if (newText.isNotEmpty()) {
-                ic.commitText(newText, 1)
-            }
-        } finally {
-            ic.endBatchEdit()
+            return
         }
+        ic.setComposingText(newText, 1)
     }
 
     // ==================== TELEX BỎ DẤU TỰ DO & PHƯƠNG NGỮ NAM BỘ (PHONG CÁCH VNCHKEY) ====================
@@ -1699,6 +1712,7 @@ class GboardKeyButton @JvmOverloads constructor(
 
     var secondarySymbol: String? = null
         set(value) {
+            if (field == value) return
             field = value
             invalidate()
         }
@@ -1728,6 +1742,246 @@ class GboardKeyButton @JvmOverloads constructor(
     }
 }
 ===== END FILE: app/src/main/java/com/vnchflex/vietkeyboard/ime/GboardKeyButton.kt =====
+
+===== FILE: app/src/main/java/com/vnchflex/vietkeyboard/ime/GlideDecoder.kt =====
+package com.vnchflex.vietkeyboard.ime
+
+import com.vnchflex.vietkeyboard.engine.DiacriticUtils
+import com.vnchflex.vietkeyboard.suggestion.SuggestionEngine
+
+/**
+ * Lightweight Vietnamese + English Glide Typing Decoder:
+ * Matches a swiped key sequence (e.g. "xinchao" / "xnhao" -> "xin", "chào", "việt", "dzìa")
+ * against the SuggestionEngine vocabulary using start/end anchor matching + subsequence edit distance,
+ * then re-ranks candidates using the active Trigram `(prevWord2, prevWord1)` language model.
+ */
+object GlideDecoder {
+    fun decode(
+        swipedKeys: String,
+        suggestionEngine: SuggestionEngine,
+        prevWord1: String,
+        prevWord2: String,
+        limit: Int = 3
+    ): List<String> {
+        val raw = swipedKeys.lowercase()
+        if (raw.length < 2) return emptyList()
+
+        val firstChar = raw.first()
+        val lastChar = raw.last()
+        val vocab = suggestionEngine.getGlideVocabulary()
+        val contextWeights = suggestionEngine.getContextBoosts(prevWord2, prevWord1)
+
+        val scored = mutableListOf<Pair<String, Int>>()
+        for (word in vocab) {
+            val stripped = DiacriticUtils.strip(word).lowercase()
+            if (stripped.length < 2) continue
+            // Start & end key must match (or be very close) for fast, accurate pruning
+            if (stripped.first() != firstChar || stripped.last() != lastChar) continue
+
+            val subseqMatched = isSubsequence(stripped, raw)
+            val dist = levenshtein(stripped, raw)
+            if (!subseqMatched && dist > (raw.length / 2).coerceAtLeast(2)) continue
+
+            var score = 0
+            if (subseqMatched) score += 200
+            score -= dist * 25
+            score -= kotlin.math.abs(stripped.length - raw.length) * 8
+            score += (contextWeights[word] ?: 0) * 60
+            scored.add(word to score)
+        }
+
+        return scored
+            .sortedByDescending { it.second }
+            .map { it.first }
+            .distinct()
+            .take(limit)
+    }
+
+    private fun isSubsequence(target: String, source: String): Boolean {
+        var ti = 0
+        var si = 0
+        while (ti < target.length && si < source.length) {
+            if (target[ti] == source[si]) ti++
+            si++
+        }
+        return ti == target.length
+    }
+
+    private fun levenshtein(a: String, b: String): Int {
+        val m = a.length
+        val n = b.length
+        val dp = IntArray(n + 1) { it }
+        for (i in 1..m) {
+            var prev = dp[0]
+            dp[0] = i
+            for (j in 1..n) {
+                val temp = dp[j]
+                dp[j] = if (a[i - 1] == b[j - 1]) prev
+                else 1 + minOf(prev, dp[j], dp[j - 1])
+                prev = temp
+            }
+        }
+        return dp[n]
+    }
+}
+===== END FILE: app/src/main/java/com/vnchflex/vietkeyboard/ime/GlideDecoder.kt =====
+
+===== FILE: app/src/main/java/com/vnchflex/vietkeyboard/ime/GlideTypingOverlayView.kt =====
+package com.vnchflex.vietkeyboard.ime
+
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.Rect
+import android.util.AttributeSet
+import android.view.MotionEvent
+import android.widget.FrameLayout
+import kotlin.math.hypot
+
+/**
+ * Transparent overlay wrapping `panel_letters` for Gboard-style Glide Typing:
+ * - Zero overhead on normal taps: only intercepts touch when finger moves > glideThresholdPx.
+ * - Draws a smooth Gboard-blue gesture trail when `showTrail` is enabled.
+ * - Tracks the sequence of letter keys (`q..m`) traversed and notifies `onGlideComplete`.
+ */
+class GlideTypingOverlayView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) : FrameLayout(context, attrs, defStyleAttr) {
+
+    var glideEnabled: Boolean = true
+    var showTrail: Boolean = true
+    var onGlideComplete: ((swipedKeys: String) -> Unit)? = null
+
+    private val letterKeyRects = mutableListOf<Pair<Char, Rect>>()
+    private val trailPath = Path()
+    private val trailPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#CC1A73E8")
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+        strokeWidth = 10f * resources.displayMetrics.density
+    }
+
+    private val glideThresholdPx = 24f * resources.displayMetrics.density
+    private var downX = 0f
+    private var downY = 0f
+    private var isGliding = false
+    private val swipedKeys = StringBuilder()
+    private val tempRect = Rect()
+
+    init {
+        setWillNotDraw(false)
+    }
+
+    fun registerLetterKeys(keys: Map<GboardKeyButton, String>) {
+        post {
+            letterKeyRects.clear()
+            keys.forEach { (btn, letter) ->
+                if (letter.length == 1) {
+                    val r = Rect()
+                    btn.getDrawingRect(r)
+                    offsetDescendantRectToMyCoords(btn, r)
+                    letterKeyRects.add(letter[0] to r)
+                }
+            }
+        }
+    }
+
+    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+        if (!glideEnabled || letterKeyRects.isEmpty()) return false
+
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = ev.x
+                downY = ev.y
+                isGliding = false
+                swipedKeys.clear()
+                trailPath.reset()
+                // Only start tracking if touch began on a letter key
+                val startKey = findKeyAt(ev.x.toInt(), ev.y.toInt())
+                if (startKey != null) {
+                    swipedKeys.append(startKey)
+                    trailPath.moveTo(ev.x, ev.y)
+                }
+                return false
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (swipedKeys.isEmpty()) return false
+                val dist = hypot(ev.x - downX, ev.y - downY)
+                if (dist >= glideThresholdPx) {
+                    isGliding = true
+                    recordPoint(ev.x, ev.y)
+                    return true // Intercept from child button
+                }
+                return false
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                isGliding = false
+                swipedKeys.clear()
+                trailPath.reset()
+                return false
+            }
+        }
+        return false
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (!isGliding) return super.onTouchEvent(event)
+
+        when (event.actionMasked) {
+            MotionEvent.ACTION_MOVE -> {
+                recordPoint(event.x, event.y)
+                invalidate()
+            }
+            MotionEvent.ACTION_UP -> {
+                recordPoint(event.x, event.y)
+                val result = swipedKeys.toString()
+                isGliding = false
+                swipedKeys.clear()
+                trailPath.reset()
+                invalidate()
+                if (result.length >= 2) {
+                    onGlideComplete?.invoke(result)
+                }
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                isGliding = false
+                swipedKeys.clear()
+                trailPath.reset()
+                invalidate()
+            }
+        }
+        return true
+    }
+
+    override fun dispatchDraw(canvas: Canvas) {
+        super.dispatchDraw(canvas)
+        if (isGliding && showTrail && !trailPath.isEmpty) {
+            canvas.drawPath(trailPath, trailPaint)
+        }
+    }
+
+    private fun recordPoint(x: Float, y: Float) {
+        trailPath.lineTo(x, y)
+        val key = findKeyAt(x.toInt(), y.toInt())
+        if (key != null && (swipedKeys.isEmpty() || swipedKeys.last() != key)) {
+            swipedKeys.append(key)
+        }
+    }
+
+    private fun findKeyAt(x: Int, y: Int): Char? {
+        for ((ch, rect) in letterKeyRects) {
+            tempRect.set(rect)
+            if (tempRect.contains(x, y)) return ch
+        }
+        return null
+    }
+}
+===== END FILE: app/src/main/java/com/vnchflex/vietkeyboard/ime/GlideTypingOverlayView.kt =====
 
 ===== FILE: app/src/main/java/com/vnchflex/vietkeyboard/ime/VietKeyboardService.kt =====
 package com.vnchflex.vietkeyboard.ime
@@ -1776,7 +2030,11 @@ class VietKeyboardService : InputMethodService() {
     private var keyboardView: View? = null
     private var topStripContainer: View? = null
     private var suggestionBar: LinearLayout? = null
+    private var glideOverlay: GlideTypingOverlayView? = null
     private var rowNumbers: View? = null
+    private var audioManager: AudioManager? = null
+    private val suggestionSlots = mutableListOf<TextView>()
+    private val suggestionDividers = mutableListOf<View>()
     private var panelLetters: View? = null
     private var panelSymbols1: View? = null
     private var panelSymbols2: View? = null
@@ -1787,20 +2045,49 @@ class VietKeyboardService : InputMethodService() {
     private var lastShiftClickTime = 0L
     private var lastSpaceClickTime = 0L
     private var lastBackspaceClickTime = 0L
+    private var backspaceRepeating = false
     private var prevCommittedWord2 = ""
     private var prevCommittedWord1 = ""
     private var keyPopup: PopupWindow? = null
+    private var keyPopupText: TextView? = null
+    private var audioManager: AudioManager? = null
+    private val popupHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var pendingPopupAnchor: View? = null
+    private var pendingPopupLabel: String = ""
+    private val showPopupRunnable = Runnable {
+        val anchor = pendingPopupAnchor ?: return@Runnable
+        if (anchor.isAttachedToWindow) showKeyPopup(anchor, pendingPopupLabel)
+    }
 
+    private var altPopup: PopupWindow? = null
+    private var altPopupRow: LinearLayout? = null
+    private val altButtons = mutableListOf<TextView>()
+    private var altOptions: List<String> = emptyList()
+    private var altSelectedIndex = -1
+    private var altAnchor: View? = null
+
+    private val suggestionSlots = mutableListOf<TextView>()
+    private val suggestionDividers = mutableListOf<View>()
+    private var lastSuggestionKey: String? = null
+
+    private var lastAppliedPrefsKey: String? = null
     private val letterButtons = mutableMapOf<GboardKeyButton, String>()
 
     override fun onCreate() {
         super.onCreate()
         prefs = KeyboardPreferences(this)
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         vnEngine = VietnameseEngine()
         macroStore = MacroStore(this)
         macroEngine = MacroEngine(macroStore.load())
         suggestionEngine = SuggestionEngine(this)
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         syncPreferencesToEngines()
+    }
+
+    override fun onDestroy() {
+        if (::suggestionEngine.isInitialized) suggestionEngine.flushPendingSaves()
+        super.onDestroy()
     }
 
     override fun onCreateInputView(): View {
@@ -1808,14 +2095,62 @@ class VietKeyboardService : InputMethodService() {
         keyboardView = view
         topStripContainer = view.findViewById(R.id.top_strip_container)
         suggestionBar = view.findViewById(R.id.suggestion_bar)
+        glideOverlay = view.findViewById(R.id.glide_overlay)
         rowNumbers = view.findViewById(R.id.row_numbers)
         panelLetters = view.findViewById(R.id.panel_letters)
         panelSymbols1 = view.findViewById(R.id.panel_symbols1)
         panelSymbols2 = view.findViewById(R.id.panel_symbols2)
+        suggestionSlots.clear()
+        suggestionDividers.clear()
+        lastSuggestionKey = null
+        lastAppliedPrefsKey = null
+        keyPopup?.dismiss()
+        keyPopup = null
+        keyPopupText = null
+        altPopup?.dismiss()
+        altPopup = null
+        altPopupRow = null
+        altButtons.clear()
+        altOptions = emptyList()
+        altSelectedIndex = -1
+        altAnchor = null
         bindKeys(view)
+        setupGlideTyping()
+        initSuggestionSlots()
         applyPreferencesToView()
         showMode(Mode.LETTERS)
         return view
+    }
+
+    private fun setupGlideTyping() {
+        glideOverlay?.registerLetterKeys(letterButtons)
+        glideOverlay?.onGlideComplete = { swipedKeys ->
+            val ic = currentInputConnection
+            if (ic != null && mode == Mode.LETTERS) {
+                vnEngine.commit(ic)
+                val candidates = GlideDecoder.decode(
+                    swipedKeys = swipedKeys,
+                    suggestionEngine = suggestionEngine,
+                    prevWord1 = prevCommittedWord1,
+                    prevWord2 = prevCommittedWord2,
+                    limit = 3
+                )
+                val best = candidates.firstOrNull()
+                if (best != null) {
+                    val out = if (shiftState != ShiftState.LOWER) {
+                        best.replaceFirstChar { it.uppercaseChar() }
+                    } else best
+                    ic.commitText("$out ", 1)
+                    recordCommittedWord(out)
+                    if (shiftState == ShiftState.SHIFTED) {
+                        shiftState = ShiftState.LOWER
+                        refreshLetterKeyLabels()
+                    }
+                    updateAutoCapitalization()
+                    updateSuggestions("")
+                }
+            }
+        }
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
@@ -1845,6 +2180,13 @@ class VietKeyboardService : InputMethodService() {
 
     private fun applyPreferencesToView() {
         val root = keyboardView ?: return
+        val prefsKey = listOf(
+            prefs.showNumberRow, prefs.showSuggestionStrip, prefs.showLanguageSwitchKey,
+            prefs.showEmojiSwitchKey, prefs.themeMode, prefs.oneHandedMode, prefs.keyboardHeight,
+            prefs.longPressForSymbols, isVietnameseMode, shiftState.name
+        ).joinToString("|")
+        if (prefsKey == lastAppliedPrefsKey) return
+        lastAppliedPrefsKey = prefsKey
 
         // 1. Gboard Number row option: Pure numbers 1..0 only at the top row
         rowNumbers?.visibility = if (prefs.showNumberRow) View.VISIBLE else View.GONE
@@ -1892,7 +2234,10 @@ class VietKeyboardService : InputMethodService() {
             root.findViewById<View>(id)?.let { it.layoutParams = it.layoutParams.apply { height = numH } }
         }
 
-        // 7. Refresh letter labels (secondary symbols shown ONLY on letter keys)
+        // 7. Refresh letter labels & glide overlay settings
+        glideOverlay?.glideEnabled = prefs.enableGlideTyping
+        glideOverlay?.showTrail = prefs.showGestureTrail
+        glideOverlay?.registerLetterKeys(letterButtons)
         refreshLetterKeyLabels()
     }
 
@@ -1909,17 +2254,66 @@ class VietKeyboardService : InputMethodService() {
             val btn = root.findViewById<GboardKeyButton>(id)
             val baseLetter = btn.text.toString().lowercase()
             letterButtons[btn] = baseLetter
+            var longPressHandled = false
+            var downX = 0f
+            var downY = 0f
+            val longPressRunnable = Runnable {
+                if (!prefs.longPressForSymbols) return@Runnable
+                val alts = alternatesForLetter(baseLetter)
+                if (alts.isEmpty()) return@Runnable
+                performKeyFeedback(btn, isLongPress = true)
+                if (alts.size == 1) {
+                    dismissKeyPopup()
+                    showKeyPopup(btn, alts[0])
+                    onSecondarySymbol(alts[0])
+                    longPressHandled = true
+                } else {
+                    showAlternatesPopup(btn, alts)
+                    longPressHandled = true
+                }
+            }
 
             btn.setOnTouchListener { v, event ->
-                if (prefs.popupOnKeypress) {
-                    when (event.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> showKeyPopup(v, btn.text.toString())
-                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> dismissKeyPopup()
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        longPressHandled = false
+                        downX = event.x
+                        downY = event.y
+                        if (prefs.popupOnKeypress) scheduleKeyPopup(v, btn.text.toString())
+                        popupHandler.removeCallbacks(longPressRunnable)
+                        popupHandler.postDelayed(longPressRunnable, prefs.longPressDelayMs.toLong().coerceAtLeast(150L))
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        if (altPopup?.isShowing == true && altAnchor === v) {
+                            updateAltSelectionFromTouch(v, event)
+                            return@setOnTouchListener true
+                        }
+                        if (!longPressHandled && (kotlin.math.abs(event.x - downX) > 24f || kotlin.math.abs(event.y - downY) > 24f)) {
+                            popupHandler.removeCallbacks(longPressRunnable)
+                        }
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        popupHandler.removeCallbacks(longPressRunnable)
+                        if (altPopup?.isShowing == true && altAnchor === v) {
+                            commitAltSelection()
+                            dismissKeyPopup()
+                            return@setOnTouchListener true
+                        }
+                        dismissKeyPopup()
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
+                        popupHandler.removeCallbacks(longPressRunnable)
+                        dismissAltPopup()
+                        dismissKeyPopup()
                     }
                 }
                 false
             }
             btn.setOnClickListener {
+                if (longPressHandled) {
+                    longPressHandled = false
+                    return@setOnClickListener
+                }
                 dismissKeyPopup()
                 performKeyFeedback(btn)
                 val ch = if (shiftState != ShiftState.LOWER) baseLetter.uppercase()[0] else baseLetter[0]
@@ -1929,13 +2323,7 @@ class VietKeyboardService : InputMethodService() {
                     refreshLetterKeyLabels()
                 }
             }
-            btn.setOnLongClickListener {
-                if (!prefs.longPressForSymbols) return@setOnLongClickListener false
-                val sec = secondarySymbolForLetter(baseLetter) ?: return@setOnLongClickListener false
-                performKeyFeedback(btn, isLongPress = true)
-                onSecondarySymbol(sec)
-                true
-            }
+            btn.setOnLongClickListener(null)
         }
 
         // Gboard Top Number Row: PURE DIGITS ONLY (1..0), no secondary symbol badge or popup
@@ -1950,7 +2338,7 @@ class VietKeyboardService : InputMethodService() {
             btn.setOnTouchListener { v, event ->
                 if (prefs.popupOnKeypress) {
                     when (event.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> showKeyPopup(v, btn.text.toString())
+                        MotionEvent.ACTION_DOWN -> scheduleKeyPopup(v, btn.text.toString())
                         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> dismissKeyPopup()
                     }
                 }
@@ -1980,7 +2368,7 @@ class VietKeyboardService : InputMethodService() {
             btn.setOnTouchListener { v, event ->
                 if (prefs.popupOnKeypress) {
                     when (event.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> showKeyPopup(v, btn.text.toString())
+                        MotionEvent.ACTION_DOWN -> scheduleKeyPopup(v, btn.text.toString())
                         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> dismissKeyPopup()
                     }
                 }
@@ -2116,35 +2504,55 @@ class VietKeyboardService : InputMethodService() {
         val view = keyboardView?.findViewById<View>(id) ?: return
         var startX = 0f
         var didSwipeDelete = false
+        var repeating = false
+        val repeatHandler = android.os.Handler(android.os.Looper.getMainLooper())
+        lateinit var repeatRunnable: Runnable
+        repeatRunnable = object : Runnable {
+            override fun run() {
+                if (didSwipeDelete) return
+                repeating = true
+                backspaceRepeating = true
+                action()
+                repeatHandler.postDelayed(this, 50L)
+            }
+        }
+
+        view.setOnClickListener(null)
+        view.setOnLongClickListener(null)
         view.setOnTouchListener { _, event ->
-            if (!prefs.enableGestureDelete) return@setOnTouchListener false
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     startX = event.x
                     didSwipeDelete = false
+                    repeating = false
+                    backspaceRepeating = false
+                    performKeyFeedback(view)
+                    action()
+                    repeatHandler.removeCallbacks(repeatRunnable)
+                    repeatHandler.postDelayed(repeatRunnable, 400L)
+                    true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (!didSwipeDelete && startX - event.x > 60f) {
+                    if (prefs.enableGestureDelete && !didSwipeDelete && startX - event.x > 60f) {
                         didSwipeDelete = true
+                        backspaceRepeating = false
+                        repeatHandler.removeCallbacks(repeatRunnable)
                         performKeyFeedback(view, isLongPress = true)
                         deleteWordBeforeCursor()
                     }
+                    true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    if (didSwipeDelete) return@setOnTouchListener true
+                    repeatHandler.removeCallbacks(repeatRunnable)
+                    if (backspaceRepeating) {
+                        backspaceRepeating = false
+                        resyncAfterBackspaceRepeat()
+                        updateAutoCapitalization()
+                        updateSuggestions(vnEngine.composingText)
+                    }
+                    true
                 }
             }
-            false
-        }
-        view.setOnClickListener {
-            performKeyFeedback(view)
-            action()
-        }
-        view.setOnLongClickListener {
-            if (didSwipeDelete) return@setOnLongClickListener true
-            // Gboard gesture/long-press delete whole word
-            performKeyFeedback(view, isLongPress = true)
-            deleteWordBeforeCursor()
             true
         }
     }
@@ -2206,6 +2614,7 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun onChar(c: Char) {
+        if (altPopup?.isShowing == true) dismissAltPopup()
         val ic = currentInputConnection ?: return
         if (mode != Mode.LETTERS) {
             commitRaw(c.toString())
@@ -2252,11 +2661,28 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun commitRaw(text: String) {
+        if (altPopup?.isShowing == true) dismissAltPopup()
         val ic = currentInputConnection ?: return
         vnEngine.commit(ic)
         ic.commitText(text, 1)
         updateAutoCapitalization()
         updateSuggestions("")
+    }
+
+    private fun resyncAfterBackspaceRepeat() {
+        val ic = currentInputConnection ?: return
+        if (mode != Mode.LETTERS || !isVietnameseMode) {
+            vnEngine.reset()
+            return
+        }
+        if (vnEngine.isComposing) return
+        val before = ic.getTextBeforeCursor(32, 0)?.toString().orEmpty()
+        val prevWord = before.takeLastWhile { it.isLetter() }
+        if (prevWord.isNotEmpty()) {
+            vnEngine.rehydrateWord(prevWord, ic)
+        } else {
+            vnEngine.reset()
+        }
     }
 
     private fun onBackspace() {
@@ -2265,44 +2691,57 @@ class VietKeyboardService : InputMethodService() {
 
         // 1. Double-backspace to undo last macro expansion (e.g. "Hà Nội " -> "hn ")
         val lastMacro = macroEngine.lastExpansion
-        if (lastMacro != null && now - lastBackspaceClickTime < 600L) {
-            val (orig, expanded) = lastMacro
-            val before = ic.getTextBeforeCursor(expanded.length + 2, 0)?.toString().orEmpty()
-            // After first backspace, 1 char was already deleted from `expanded`
-            val expandedAfterOneDelete = expanded.dropLast(1)
-            if (expandedAfterOneDelete.isNotEmpty() && before.endsWith(expandedAfterOneDelete)) {
-                ic.beginBatchEdit()
-                ic.deleteSurroundingText(expandedAfterOneDelete.length, 0)
-                ic.commitText(orig, 1)
-                ic.endBatchEdit()
+        if (lastMacro != null) {
+            if (now - lastBackspaceClickTime < 600L && !backspaceRepeating) {
+                val (orig, expanded) = lastMacro
+                val before = ic.getTextBeforeCursor(expanded.length + 2, 0)?.toString().orEmpty()
+                // After first backspace, 1 char was already deleted from `expanded`
+                val expandedAfterOneDelete = expanded.dropLast(1)
+                if (expandedAfterOneDelete.isNotEmpty() && before.endsWith(expandedAfterOneDelete)) {
+                    ic.beginBatchEdit()
+                    ic.deleteSurroundingText(expandedAfterOneDelete.length, 0)
+                    ic.commitText(orig, 1)
+                    ic.endBatchEdit()
+                    macroEngine.clearLastExpansion()
+                    lastBackspaceClickTime = 0L
+                    updateSuggestions("")
+                    return
+                }
+            } else if (now - lastBackspaceClickTime >= 600L) {
                 macroEngine.clearLastExpansion()
-                lastBackspaceClickTime = 0L
-                updateSuggestions("")
-                return
             }
         }
         lastBackspaceClickTime = now
 
         // 2. Normal Vietnamese composing backspace
         if (mode == Mode.LETTERS && isVietnameseMode && vnEngine.onBackspace(ic)) {
-            updateSuggestions(vnEngine.composingText)
+            if (!backspaceRepeating) updateSuggestions(vnEngine.composingText)
             return
         }
 
-        // 3. Delete 1 char, then post-commit rehydrate previous Vietnamese word if cursor lands on a letter
-        ic.deleteSurroundingText(1, 0)
-        if (mode == Mode.LETTERS && isVietnameseMode) {
-            val afterDel = ic.getTextBeforeCursor(32, 0)?.toString().orEmpty()
-            val prevWord = afterDel.takeLastWhile { it.isLetter() }
-            if (prevWord.isNotEmpty()) {
-                vnEngine.rehydrateWord(prevWord)
-                updateSuggestions(vnEngine.composingText)
-                updateAutoCapitalization()
-                return
+        // 3. Delete 1 char; if we land on a word, rehydrate it as composing in one batch
+        if (!backspaceRepeating && mode == Mode.LETTERS && isVietnameseMode) {
+            val before = ic.getTextBeforeCursor(33, 0)?.toString().orEmpty()
+            if (before.isNotEmpty()) {
+                val afterDel = before.dropLast(1)
+                val prevWord = afterDel.takeLastWhile { it.isLetter() }
+                if (prevWord.isNotEmpty()) {
+                    ic.beginBatchEdit()
+                    ic.deleteSurroundingText(1 + prevWord.length, 0)
+                    ic.setComposingText(prevWord, 1)
+                    ic.endBatchEdit()
+                    vnEngine.rehydrateWord(prevWord)
+                    updateSuggestions(vnEngine.composingText)
+                    updateAutoCapitalization()
+                    return
+                }
             }
         }
-        updateAutoCapitalization()
-        updateSuggestions("")
+        ic.deleteSurroundingText(1, 0)
+        if (!backspaceRepeating) {
+            updateAutoCapitalization()
+            updateSuggestions("")
+        }
     }
 
     private fun moveCursor(delta: Int) {
@@ -2312,27 +2751,206 @@ class VietKeyboardService : InputMethodService() {
         ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
     }
 
-    private fun showKeyPopup(anchor: View, label: String) {
+    private fun alternatesForLetter(base: String): List<String> {
+        val b = base.lowercase()
+        val sec = secondarySymbolForLetter(b)
+        val list = mutableListOf<String>()
+        if (sec != null) list.add(sec)
+        val extras = when (b) {
+            "a" -> listOf("á", "à", "ả", "ã", "ạ", "ă", "â")
+            "e" -> listOf("é", "è", "ẻ", "ẽ", "ẹ", "ê")
+            "i" -> listOf("í", "ì", "ỉ", "ĩ", "ị")
+            "o" -> listOf("ó", "ò", "ỏ", "õ", "ọ", "ô", "ơ")
+            "u" -> listOf("ú", "ù", "ủ", "ũ", "ụ", "ư")
+            "y" -> listOf("ý", "ỳ", "ỷ", "ỹ", "ỵ")
+            "d" -> listOf("đ")
+            "c" -> listOf("ç")
+            "n" -> listOf("ñ")
+            "s" -> listOf("ß")
+            else -> emptyList()
+        }
+        for (e in extras) {
+            val cased = if (shiftState != ShiftState.LOWER) e.uppercase() else e
+            if (cased != sec && cased.lowercase() != b) list.add(cased)
+        }
+        return list.distinct()
+    }
+
+    private fun showAlternatesPopup(anchor: View, options: List<String>) {
         dismissKeyPopup()
-        val tv = TextView(this).apply {
-            text = label
+        altOptions = options
+        altSelectedIndex = 0
+        altAnchor = anchor
+
+        val row = altPopupRow ?: LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundResource(R.drawable.popup_bg)
+            elevation = 10f
+            val p = (4 * resources.displayMetrics.density).toInt()
+            setPadding(p, p, p, p)
+            altPopupRow = this
+        }
+        row.removeAllViews()
+        altButtons.clear()
+
+        val padH = (12 * resources.displayMetrics.density).toInt()
+        val padV = (8 * resources.displayMetrics.density).toInt()
+        options.forEachIndexed { idx, opt ->
+            val tv = TextView(this).apply {
+                text = opt
+                textSize = 20f
+                gravity = Gravity.CENTER
+                minWidth = (36 * resources.displayMetrics.density).toInt()
+                setPadding(padH, padV, padH, padV)
+                setTextColor(getColor(R.color.key_text))
+            }
+            altButtons.add(tv)
+            row.addView(tv)
+        }
+        updateAltHighlight()
+
+        val popup = altPopup ?: PopupWindow(
+            row,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            false
+        ).also { altPopup = it }
+        if (popup.contentView !== row) popup.contentView = row
+        popup.isClippingEnabled = false
+
+        row.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
+        row.layout(0, 0, row.measuredWidth, row.measuredHeight)
+        val loc = IntArray(2)
+        anchor.getLocationInWindow(loc)
+        val popupW = row.measuredWidth
+        val popupH = row.measuredHeight
+        val x = (loc[0] + anchor.width / 2 - popupW / 2).coerceAtLeast(0)
+        val y = (loc[1] - popupH - 8).coerceAtLeast(0)
+        if (popup.isShowing) popup.dismiss()
+        popup.showAtLocation(anchor, Gravity.NO_GRAVITY, x, y)
+    }
+
+    private fun updateAltHighlight() {
+        altButtons.forEachIndexed { i, tv ->
+            if (i == altSelectedIndex) {
+                tv.setBackgroundColor(getColor(R.color.accent))
+                tv.setTextColor(getColor(R.color.enter_text))
+            } else {
+                tv.setBackgroundColor(Color.TRANSPARENT)
+                tv.setTextColor(getColor(R.color.key_text))
+            }
+        }
+    }
+
+    private fun updateAltSelectionFromTouch(anchor: View, event: MotionEvent): Boolean {
+        if (altPopup?.isShowing != true || altAnchor !== anchor || altButtons.isEmpty()) return false
+        val row = altPopupRow ?: return false
+        val rowLoc = IntArray(2)
+        row.getLocationOnScreen(rowLoc)
+        val touchXOnScreen = event.rawX.toInt()
+        val relativeX = touchXOnScreen - rowLoc[0]
+        var idx = altButtons.indexOfFirst { btn ->
+            val left = btn.left
+            val right = btn.right
+            relativeX in left..right
+        }
+        if (idx < 0) {
+            idx = when {
+                relativeX < 0 -> 0
+                relativeX > row.width -> altButtons.lastIndex
+                else -> altSelectedIndex
+            }
+        }
+        if (idx != altSelectedIndex) {
+            altSelectedIndex = idx
+            updateAltHighlight()
+        }
+        return true
+    }
+
+    private fun commitAltSelection(): Boolean {
+        val popup = altPopup ?: return false
+        if (!popup.isShowing) return false
+        val sel = altOptions.getOrNull(altSelectedIndex) ?: return false
+        popup.dismiss()
+        altOptions = emptyList()
+        altButtons.clear()
+        altSelectedIndex = -1
+        altAnchor = null
+        commitPopupSelection(sel)
+        return true
+    }
+
+    private fun dismissAltPopup() {
+        altPopup?.dismiss()
+        altOptions = emptyList()
+        altButtons.clear()
+        altSelectedIndex = -1
+        altAnchor = null
+    }
+
+    private fun commitPopupSelection(text: String) {
+        if (text.length == 1) {
+            val c = text[0]
+            val isPlainAsciiLetter = c in 'a'..'z' || c in 'A'..'Z'
+            if (isPlainAsciiLetter) {
+                val ch = if (shiftState != ShiftState.LOWER) c.uppercaseChar() else c.lowercaseChar()
+                onChar(ch)
+                if (shiftState == ShiftState.SHIFTED) {
+                    shiftState = ShiftState.LOWER
+                    refreshLetterKeyLabels()
+                }
+                return
+            }
+            if (c.isLetter()) {
+                val ch = if (shiftState != ShiftState.LOWER) c.uppercaseChar() else c.lowercaseChar()
+                commitRaw(ch.toString())
+                if (shiftState == ShiftState.SHIFTED) {
+                    shiftState = ShiftState.LOWER
+                    refreshLetterKeyLabels()
+                }
+                return
+            }
+        }
+        commitRaw(text)
+    }
+
+    private fun scheduleKeyPopup(anchor: View, label: String) {
+        popupHandler.removeCallbacks(showPopupRunnable)
+        pendingPopupAnchor = anchor
+        pendingPopupLabel = label
+        popupHandler.postDelayed(showPopupRunnable, 35L)
+    }
+
+    private fun showKeyPopup(anchor: View, label: String) {
+        val tv = keyPopupText ?: TextView(this).apply {
             textSize = 26f
             gravity = Gravity.CENTER
             setTextColor(getColor(R.color.key_text))
             setBackgroundResource(R.drawable.key_bg)
             setPadding(28, 14, 28, 14)
             elevation = 8f
+            keyPopupText = this
         }
-        val popup = PopupWindow(tv, LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT, false)
+        tv.text = label
+        val popup = keyPopup ?: PopupWindow(
+            tv,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            false
+        ).also { keyPopup = it }
+        if (popup.contentView !== tv) popup.contentView = tv
         val loc = IntArray(2)
         anchor.getLocationInWindow(loc)
-        popup.showAtLocation(anchor, Gravity.NO_GRAVITY, loc[0], loc[1] - anchor.height - 16)
-        keyPopup = popup
+        val y = (loc[1] - anchor.height - 16).coerceAtLeast(0)
+        if (popup.isShowing) popup.dismiss()
+        popup.showAtLocation(anchor, Gravity.NO_GRAVITY, loc[0], y)
     }
 
     private fun dismissKeyPopup() {
-        keyPopup?.dismiss()
-        keyPopup = null
+        popupHandler.removeCallbacks(showPopupRunnable)
+        pendingPopupAnchor = null
+        keyPopup?.let { if (it.isShowing) it.dismiss() }
     }
 
     private fun deleteWordBeforeCursor() {
@@ -2407,7 +3025,7 @@ class VietKeyboardService : InputMethodService() {
             view.performHapticFeedback(flag)
         }
         if (prefs.soundOnKeypress) {
-            val am = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            val am = audioManager ?: (getSystemService(Context.AUDIO_SERVICE) as? AudioManager)?.also { audioManager = it }
             val vol = (prefs.soundVolume / 100f).coerceIn(0f, 1f)
             am?.playSoundEffect(AudioManager.FX_KEY_CLICK, vol)
         }
@@ -2418,7 +3036,7 @@ class VietKeyboardService : InputMethodService() {
      * chữ cái chính luôn nằm chính giữa phím, không bao giờ bị tụt hay bị cắt).
      */
     private fun applyLetterKeyLabel(btn: GboardKeyButton, primary: String, secondary: String?) {
-        btn.text = primary
+        if (btn.text?.toString() != primary) btn.text = primary
         btn.secondarySymbol = secondary
     }
 
@@ -2462,13 +3080,47 @@ class VietKeyboardService : InputMethodService() {
         else -> null
     }
 
+    private fun initSuggestionSlots() {
+        val bar = suggestionBar ?: return
+        if (suggestionSlots.isNotEmpty()) return
+        bar.removeAllViews()
+        for (i in 0 until 3) {
+            if (i > 0) {
+                val divider = View(this).apply {
+                    layoutParams = LinearLayout.LayoutParams(2, 42)
+                    setBackgroundColor(getColor(R.color.strip_divider))
+                    visibility = View.INVISIBLE
+                }
+                suggestionDividers.add(divider)
+                bar.addView(divider)
+            }
+            val tv = TextView(this).apply {
+                gravity = Gravity.CENTER
+                maxLines = 1
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+                textSize = 15f
+                visibility = View.INVISIBLE
+            }
+            suggestionSlots.add(tv)
+            bar.addView(tv)
+        }
+    }
+
     /**
      * Gboard 3-slot suggestion strip with Trigram Next-Word & Context-Aware Word Suggestions.
+     * Reuses fixed slots to avoid view churn on every keystroke.
      */
     private fun updateSuggestions(prefix: String) {
         val bar = suggestionBar ?: return
-        bar.removeAllViews()
-        if (!prefs.showSuggestionStrip || mode != Mode.LETTERS) return
+        if (suggestionSlots.isEmpty()) initSuggestionSlots()
+        if (!prefs.showSuggestionStrip || mode != Mode.LETTERS) {
+            if (lastSuggestionKey != null) {
+                suggestionSlots.forEach { it.visibility = View.INVISIBLE; it.text = "" }
+                suggestionDividers.forEach { it.visibility = View.INVISIBLE }
+                lastSuggestionKey = null
+            }
+            return
+        }
 
         val macroPreview = if (prefs.macroEnabled && prefix.isNotEmpty()) {
             macroEngine.lookupPreview(prefix)
@@ -2491,45 +3143,58 @@ class VietKeyboardService : InputMethodService() {
             else -> emptyList()
         }
 
-        suggestions.forEachIndexed { index, word ->
-            if (index > 0) {
-                val divider = View(this).apply {
-                    layoutParams = LinearLayout.LayoutParams(2, 42)
-                    setBackgroundColor(getColor(R.color.strip_divider))
-                }
-                bar.addView(divider)
-            }
-            val isPrimaryCenter = (index == 1 && prefix.isNotEmpty()) || (macroPreview != null && word == macroPreview)
-            val tv = TextView(this).apply {
-                text = word
-                gravity = Gravity.CENTER
-                maxLines = 1
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
-                setTextColor(
+        val key = prefix + "\u0001" + prevCommittedWord2 + "\u0001" + prevCommittedWord1 + "\u0001" + suggestions.joinToString("\u0002")
+        if (key == lastSuggestionKey) return
+        lastSuggestionKey = key
+
+        for (i in 0 until 3) {
+            val tv = suggestionSlots[i]
+            val word = suggestions.getOrNull(i)
+            if (word == null) {
+                tv.visibility = View.INVISIBLE
+                tv.text = ""
+                tv.setOnClickListener(null)
+            } else {
+                val isPrimaryCenter = (i == 1 && prefix.isNotEmpty()) || (macroPreview != null && word == macroPreview)
+                tv.text = word
+                tv.setTextColor(
                     if (isPrimaryCenter) getColor(R.color.suggestion_primary)
                     else getColor(R.color.key_text)
                 )
-                setTypeface(typeface, if (isPrimaryCenter) Typeface.BOLD else Typeface.NORMAL)
-                textSize = 15f
-                setOnClickListener {
-                    performKeyFeedback(this)
+                tv.setTypeface(null, if (isPrimaryCenter) Typeface.BOLD else Typeface.NORMAL)
+                tv.setOnClickListener {
+                    performKeyFeedback(tv)
                     acceptSuggestion(word)
                 }
+                tv.visibility = View.VISIBLE
             }
-            bar.addView(tv)
+        }
+        suggestionDividers.forEachIndexed { idx, div ->
+            val leftVisible = suggestionSlots.getOrNull(idx)?.visibility == View.VISIBLE
+            val rightVisible = suggestionSlots.getOrNull(idx + 1)?.visibility == View.VISIBLE
+            div.visibility = if (leftVisible && rightVisible) View.VISIBLE else View.INVISIBLE
         }
     }
 
     private fun acceptSuggestion(word: String) {
         val ic = currentInputConnection ?: return
-        val hadComposing = vnEngine.isComposing
-        vnEngine.reset(ic)
-        if (!hadComposing) {
+        val composing = vnEngine.composingText
+        if (composing.isNotEmpty()) {
+            // Replace composing text with suggestion
+            vnEngine.reset(ic)
+            ic.beginBatchEdit()
+            ic.deleteSurroundingText(composing.length, 0)
+            ic.commitText("$word ", 1)
+            ic.endBatchEdit()
+        } else {
+            vnEngine.reset(ic)
             val before = ic.getTextBeforeCursor(32, 0)?.toString().orEmpty()
             val prefix = before.takeLastWhile { it.isLetter() }
+            ic.beginBatchEdit()
             if (prefix.isNotEmpty()) ic.deleteSurroundingText(prefix.length, 0)
+            ic.commitText("$word ", 1)
+            ic.endBatchEdit()
         }
-        ic.commitText("$word ", 1)
         recordCommittedWord(word)
         updateAutoCapitalization()
         updateSuggestions("")
@@ -2604,10 +3269,10 @@ class MacroEngine(initialMacros: List<Macro> = emptyList()) {
         macros = newMacros
     }
 
-    fun tryExpand(ic: InputConnection, trigger: Char): Boolean {
+    fun tryExpand(ic: InputConnection, trigger: Char, beforeCursor: String? = null): Boolean {
         if (isTechnicalDelimiter(trigger) || trigger in "([{<") return false
 
-        val before = ic.getTextBeforeCursor(MAX_LOOKBACK, 0)?.toString() ?: return false
+        val before = beforeCursor ?: ic.getTextBeforeCursor(MAX_LOOKBACK, 0)?.toString() ?: return false
         val token = before.takeLastWhile { !it.isWhitespace() && !isTechnicalDelimiter(it) }
         if (token.isEmpty()) return false
 
@@ -2677,16 +3342,22 @@ import org.json.JSONObject
 
 /**
  * Persistent macro store backed by SharedPreferences, preloaded with vnchKey default macros.
+ * Caches in memory to avoid JSON parsing on hot paths.
  */
 class MacroStore(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private var cache: List<Macro>? = null
 
     fun load(): List<Macro> {
-        val raw = prefs.getString(KEY_MACROS, null) ?: return defaultMacros()
-        return runCatching { parse(raw) }.getOrElse { defaultMacros() }
+        cache?.let { return it }
+        val raw = prefs.getString(KEY_MACROS, null)
+        val loaded = if (raw == null) defaultMacros() else runCatching { parse(raw) }.getOrElse { defaultMacros() }
+        cache = loaded
+        return loaded
     }
 
     fun save(macros: List<Macro>) {
+        cache = macros.toList()
         prefs.edit().putString(KEY_MACROS, serialize(macros)).apply()
     }
 
@@ -2757,7 +3428,6 @@ class MacroStore(context: Context) {
     }
 
     fun defaultMacros(): List<Macro> = listOf(
-        // Địa danh Việt Nam phổ biến (chuẩn vnchKey)
         Macro("sg", "Sài Gòn"),
         Macro("hn", "Hà Nội"),
         Macro("dn", "Đồng Nai"),
@@ -2768,7 +3438,6 @@ class MacroStore(context: Context) {
         Macro("vt", "Vũng Tàu"),
         Macro("bd", "Bình Dương"),
         Macro("ntr", "Nha Trang"),
-        // Từ giao tiếp & đời sống
         Macro("dc", "được"),
         Macro("ko", "không"),
         Macro("vs", "với"),
@@ -2778,13 +3447,11 @@ class MacroStore(context: Context) {
         Macro("tn", "tin nhắn"),
         Macro("ntn", "như thế nào"),
         Macro("kb", "không biết"),
-        Macro("tn", "tin nhắn"),
         Macro("bh", "bây giờ"),
         Macro("tca", "tất cả"),
         Macro("tica", "tình cảm"),
         Macro("gd", "gia đình"),
         Macro("tvi", "Tiếng Việt"),
-        // Từ công việc & văn phòng
         Macro("cty", "công ty"),
         Macro("sđt", "số điện thoại"),
         Macro("stk", "số tài khoản"),
@@ -2799,8 +3466,6 @@ class MacroStore(context: Context) {
         Macro("pt", "phát triển"),
         Macro("nv", "nhân viên"),
         Macro("ql", "quản lý"),
-        // Biến động mẫu
-        // Macro("addr", "123 Đường Tự Do, Q1"),
         Macro("email", "name@gmail.com"),
         Macro("shrug", "¯\\_(ツ)_/¯"),
     )
@@ -2955,11 +3620,11 @@ class KeyboardPreferences(context: Context) {
 
     // ==================== GBOARD: GLIDE TYPING / VOICE / CLIPBOARD ====================
     var enableGlideTyping: Boolean
-        get() = prefs.getBoolean("pref_glide_typing", true)
+        get() = prefs.getBoolean("pref_glide_typing", false)
         set(v) = prefs.edit().putBoolean("pref_glide_typing", v).apply()
 
     var showGestureTrail: Boolean
-        get() = prefs.getBoolean("pref_gesture_trail", true)
+        get() = prefs.getBoolean("pref_gesture_trail", false)
         set(v) = prefs.edit().putBoolean("pref_gesture_trail", v).apply()
 
     var enableGestureDelete: Boolean
@@ -2984,7 +3649,7 @@ class KeyboardPreferences(context: Context) {
         get() = prefs.getBoolean("pref_vn_free_tone", true)
         set(v) = prefs.edit().putBoolean("pref_vn_free_tone", v).apply()
 
-    /** Chính tả chuẩn mới (òa, òe, úy) vs chuẩn cũ (oà, oè, uý) */
+    /** Kiểu đặt dấu mới (oà, oè, uý) vs kiểu cũ/cổ điển (òa, òe, úy) */
     var modernOrthography: Boolean
         get() = prefs.getBoolean("pref_vn_modern_orthography", true)
         set(v) = prefs.edit().putBoolean("pref_vn_modern_orthography", v).apply()
@@ -3237,8 +3902,8 @@ class SettingsActivity : AppCompatActivity() {
         ) { prefs.freeTonePlacement = it }
 
         addSwitchItem(
-            title = "Đặt dấu chuẩn mới (òa, òe, úy)",
-            subtitle = "Tắt để dùng quy tắc chính tả kiểu cũ (oà, oè, uý)",
+            title = "Đặt dấu kiểu mới (oà, oè, uý)",
+            subtitle = "Tắt để dùng kiểu cũ/cổ điển (òa, òe, úy)",
             checked = prefs.modernOrthography
         ) { prefs.modernOrthography = it }
 
@@ -3693,15 +4358,15 @@ class SettingsActivity : AppCompatActivity() {
         addSectionHeader("Cử chỉ Gboard")
         addSwitchItem(
             title = "Bật nhập bằng cử chỉ (Enable glide typing)",
-            subtitle = "Nhập từ bằng cách trượt qua các chữ cái",
-            checked = prefs.enableGlideTyping
-        ) { prefs.enableGlideTyping = it }
+            subtitle = "Chưa hỗ trợ trong phiên bản này (cần engine nhận dạng vuốt chữ)",
+            checked = false
+        ) { /* not implemented yet */ }
 
         addSwitchItem(
             title = "Hiển thị vệt cử chỉ (Show gesture trail)",
-            subtitle = "Hiện đường dẫn khi lướt trên bàn phím",
-            checked = prefs.showGestureTrail
-        ) { prefs.showGestureTrail = it }
+            subtitle = "Chưa hỗ trợ (đi kèm nhập bằng cử chỉ)",
+            checked = false
+        ) { /* not implemented yet */ }
 
         addSwitchItem(
             title = "Bật xóa bằng cử chỉ (Enable gesture delete)",
@@ -3915,6 +4580,8 @@ class SettingsActivity : AppCompatActivity() {
 package com.vnchflex.vietkeyboard.suggestion
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -3926,13 +4593,26 @@ data class PersonalWord(
 
 /**
  * Gboard-style Personal Dictionary & Learned N-gram (Unigram / Bigram / Trigram) store.
+ * Caches all data in memory to avoid disk/JSON parse on every keystroke.
  */
 class PersonalDictionaryStore(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val handler = Handler(Looper.getMainLooper())
+
+    private var personalWordsCache: List<PersonalWord>? = null
+    private var learnedWordsCache: MutableSet<String>? = null
+    private var learnedBigramsCache: MutableMap<String, MutableMap<String, Int>>? = null
+    private var learnedTrigramsCache: MutableMap<String, MutableMap<String, Int>>? = null
+    private var ngramSavePending = false
+    private val ngramSaveRunnable = Runnable {
+        ngramSavePending = false
+        flushNgrams()
+    }
 
     fun loadPersonalWords(): List<PersonalWord> {
-        val raw = prefs.getString(KEY_PERSONAL_WORDS, null) ?: return defaultPersonalWords()
-        return runCatching {
+        personalWordsCache?.let { return it }
+        val raw = prefs.getString(KEY_PERSONAL_WORDS, null)
+        val loaded = if (raw == null) defaultPersonalWords() else runCatching {
             val arr = JSONArray(raw)
             List(arr.length()) { i ->
                 val o = arr.getJSONObject(i)
@@ -3943,9 +4623,12 @@ class PersonalDictionaryStore(context: Context) {
                 )
             }
         }.getOrElse { defaultPersonalWords() }
+        personalWordsCache = loaded
+        return loaded
     }
 
     fun savePersonalWords(words: List<PersonalWord>) {
+        personalWordsCache = words.toList()
         val arr = JSONArray()
         words.forEach { w ->
             arr.put(JSONObject().apply {
@@ -3972,37 +4655,58 @@ class PersonalDictionaryStore(context: Context) {
     }
 
     fun loadLearnedWords(): Set<String> {
-        return prefs.getStringSet(KEY_LEARNED_WORDS, emptySet())?.toSet() ?: emptySet()
+        learnedWordsCache?.let { return it }
+        val loaded = prefs.getStringSet(KEY_LEARNED_WORDS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        learnedWordsCache = loaded
+        return loaded
     }
 
     fun addLearnedWord(word: String) {
         val w = word.trim().lowercase()
         if (w.length < 2) return
-        val current = loadLearnedWords().toMutableSet()
-        current.add(w)
-        prefs.edit().putStringSet(KEY_LEARNED_WORDS, current).apply()
+        val current = learnedWordsCache ?: loadLearnedWords().toMutableSet().also { learnedWordsCache = it }
+        if (current.add(w)) {
+            prefs.edit().putStringSet(KEY_LEARNED_WORDS, HashSet(current)).apply()
+        }
     }
 
     fun loadLearnedBigrams(): Map<String, Map<String, Int>> {
-        val raw = prefs.getString(KEY_LEARNED_BIGRAMS, null) ?: return emptyMap()
-        return parseNgramJson(raw)
+        learnedBigramsCache?.let { return it }
+        val raw = prefs.getString(KEY_LEARNED_BIGRAMS, null)
+        val loaded = if (raw == null) mutableMapOf() else parseNgramJson(raw)
+        learnedBigramsCache = loaded
+        return loaded
     }
 
     fun saveLearnedBigrams(bigrams: Map<String, Map<String, Int>>) {
-        prefs.edit().putString(KEY_LEARNED_BIGRAMS, serializeNgramJson(bigrams)).apply()
+        if (learnedBigramsCache !== bigrams) {
+            learnedBigramsCache = bigrams.mapValues { it.value.toMutableMap() }.toMutableMap()
+        }
+        scheduleNgramSave()
     }
 
     fun loadLearnedTrigrams(): Map<String, Map<String, Int>> {
-        val raw = prefs.getString(KEY_LEARNED_TRIGRAMS, null) ?: return emptyMap()
-        return parseNgramJson(raw)
+        learnedTrigramsCache?.let { return it }
+        val raw = prefs.getString(KEY_LEARNED_TRIGRAMS, null)
+        val loaded = if (raw == null) mutableMapOf() else parseNgramJson(raw)
+        learnedTrigramsCache = loaded
+        return loaded
     }
 
     fun saveLearnedTrigrams(trigrams: Map<String, Map<String, Int>>) {
-        prefs.edit().putString(KEY_LEARNED_TRIGRAMS, serializeNgramJson(trigrams)).apply()
+        if (learnedTrigramsCache !== trigrams) {
+            learnedTrigramsCache = trigrams.mapValues { it.value.toMutableMap() }.toMutableMap()
+        }
+        scheduleNgramSave()
     }
 
     /** Gboard: Delete learned words & n-gram history (Xóa các từ và ngữ cảnh đã học) */
     fun clearLearnedWords() {
+        handler.removeCallbacks(ngramSaveRunnable)
+        ngramSavePending = false
+        learnedWordsCache = mutableSetOf()
+        learnedBigramsCache = mutableMapOf()
+        learnedTrigramsCache = mutableMapOf()
         prefs.edit()
             .remove(KEY_LEARNED_WORDS)
             .remove(KEY_LEARNED_BIGRAMS)
@@ -4010,9 +4714,22 @@ class PersonalDictionaryStore(context: Context) {
             .apply()
     }
 
-    private fun parseNgramJson(raw: String): Map<String, Map<String, Int>> = runCatching {
+    private fun scheduleNgramSave() {
+        if (ngramSavePending) return
+        ngramSavePending = true
+        handler.postDelayed(ngramSaveRunnable, 1500L)
+    }
+
+    fun flushNgrams() {
+        handler.removeCallbacks(ngramSaveRunnable)
+        ngramSavePending = false
+        learnedBigramsCache?.let { prefs.edit().putString(KEY_LEARNED_BIGRAMS, serializeNgramJson(it)).apply() }
+        learnedTrigramsCache?.let { prefs.edit().putString(KEY_LEARNED_TRIGRAMS, serializeNgramJson(it)).apply() }
+    }
+
+    private fun parseNgramJson(raw: String): MutableMap<String, MutableMap<String, Int>> = runCatching {
         val root = JSONObject(raw)
-        val out = mutableMapOf<String, Map<String, Int>>()
+        val out = mutableMapOf<String, MutableMap<String, Int>>()
         val keys = root.keys()
         while (keys.hasNext()) {
             val k = keys.next()
@@ -4026,7 +4743,7 @@ class PersonalDictionaryStore(context: Context) {
             if (childMap.isNotEmpty()) out[k] = childMap
         }
         out
-    }.getOrDefault(emptyMap())
+    }.getOrDefault(mutableMapOf())
 
     private fun serializeNgramJson(data: Map<String, Map<String, Int>>): String {
         val root = JSONObject()
@@ -4357,6 +5074,18 @@ class SuggestionEngine(context: Context? = null) {
         dictStore?.clearLearnedWords()
     }
 
+    fun getGlideVocabulary(): Set<String> = LinkedHashSet<String>().apply {
+        addAll(userUnigramCounts.keys)
+        addAll(coreUnigramWeights.keys)
+    }
+
+    fun getContextBoosts(prevWord2: String, prevWord1: String): Map<String, Int> =
+        getContextualWeights(prevWord2, prevWord1)
+
+    fun flushPendingSaves() {
+        dictStore?.flushNgrams()
+    }
+
     private fun getContextualWeights(prevWord2: String, prevWord1: String): Map<String, Int> {
         val weights = mutableMapOf<String, Int>()
         val p1 = prevWord1.trim().lowercase()
@@ -4541,6 +5270,15 @@ class SuggestionEngine(context: Context? = null) {
 </layer-list>
 ===== END FILE: app/src/main/res/drawable/key_oval_func_bg.xml =====
 
+===== FILE: app/src/main/res/drawable/popup_bg.xml =====
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/key_bg" />
+    <corners android:radius="8dp" />
+    <stroke android:width="1dp" android:color="#1A000000" />
+</shape>
+===== END FILE: app/src/main/res/drawable/popup_bg.xml =====
+
 ===== FILE: app/src/main/res/layout/activity_settings.xml =====
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -4688,7 +5426,12 @@ class SuggestionEngine(context: Context? = null) {
             android:text="⚙" />
     </LinearLayout>
 
-    <!-- LETTERS PANEL (GBOARD IDENTICAL LAYOUT) -->
+    <!-- LETTERS PANEL (GBOARD IDENTICAL LAYOUT + GLIDE OVERLAY) -->
+    <com.vnchflex.vietkeyboard.ime.GlideTypingOverlayView
+        android:id="@+id/glide_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
     <LinearLayout
         android:id="@+id/panel_letters"
         android:layout_width="match_parent"
@@ -4769,6 +5512,7 @@ class SuggestionEngine(context: Context? = null) {
             <ImageButton android:id="@+id/key_enter" style="@style/EnterKeyBtn" android:layout_weight="1.5" android:src="@drawable/ic_gboard_enter" android:contentDescription="Enter" />
         </LinearLayout>
     </LinearLayout>
+    </com.vnchflex.vietkeyboard.ime.GlideTypingOverlayView>
 
     <!-- SYMBOLS PAGE 1 -->
     <LinearLayout

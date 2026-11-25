@@ -295,6 +295,14 @@ class SuggestionEngine(context: Context? = null) {
         dictStore?.clearLearnedWords()
     }
 
+    fun getGlideVocabulary(): Set<String> = LinkedHashSet<String>().apply {
+        addAll(userUnigramCounts.keys)
+        addAll(coreUnigramWeights.keys)
+    }
+
+    fun getContextBoosts(prevWord2: String, prevWord1: String): Map<String, Int> =
+        getContextualWeights(prevWord2, prevWord1)
+
     fun flushPendingSaves() {
         dictStore?.flushNgrams()
     }

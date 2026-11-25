@@ -53,7 +53,12 @@
             android:text="⚙" />
     </LinearLayout>
 
-    <!-- LETTERS PANEL (GBOARD IDENTICAL LAYOUT) -->
+    <!-- LETTERS PANEL (GBOARD IDENTICAL LAYOUT + GLIDE OVERLAY) -->
+    <com.vnchflex.vietkeyboard.ime.GlideTypingOverlayView
+        android:id="@+id/glide_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
     <LinearLayout
         android:id="@+id/panel_letters"
         android:layout_width="match_parent"
@@ -134,6 +139,7 @@
             <ImageButton android:id="@+id/key_enter" style="@style/EnterKeyBtn" android:layout_weight="1.5" android:src="@drawable/ic_gboard_enter" android:contentDescription="Enter" />
         </LinearLayout>
     </LinearLayout>
+    </com.vnchflex.vietkeyboard.ime.GlideTypingOverlayView>
 
     <!-- SYMBOLS PAGE 1 -->
     <LinearLayout

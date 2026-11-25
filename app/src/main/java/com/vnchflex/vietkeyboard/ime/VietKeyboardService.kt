@@ -44,7 +44,11 @@ class VietKeyboardService : InputMethodService() {
     private var keyboardView: View? = null
     private var topStripContainer: View? = null
     private var suggestionBar: LinearLayout? = null
+    private var glideOverlay: GlideTypingOverlayView? = null
     private var rowNumbers: View? = null
+    private var audioManager: AudioManager? = null
+    private val suggestionSlots = mutableListOf<TextView>()
+    private val suggestionDividers = mutableListOf<View>()
     private var panelLetters: View? = null
     private var panelSymbols1: View? = null
     private var panelSymbols2: View? = null
@@ -86,6 +90,7 @@ class VietKeyboardService : InputMethodService() {
     override fun onCreate() {
         super.onCreate()
         prefs = KeyboardPreferences(this)
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         vnEngine = VietnameseEngine()
         macroStore = MacroStore(this)
         macroEngine = MacroEngine(macroStore.load())
@@ -104,6 +109,7 @@ class VietKeyboardService : InputMethodService() {
         keyboardView = view
         topStripContainer = view.findViewById(R.id.top_strip_container)
         suggestionBar = view.findViewById(R.id.suggestion_bar)
+        glideOverlay = view.findViewById(R.id.glide_overlay)
         rowNumbers = view.findViewById(R.id.row_numbers)
         panelLetters = view.findViewById(R.id.panel_letters)
         panelSymbols1 = view.findViewById(R.id.panel_symbols1)
@@ -123,10 +129,42 @@ class VietKeyboardService : InputMethodService() {
         altSelectedIndex = -1
         altAnchor = null
         bindKeys(view)
+        setupGlideTyping()
         initSuggestionSlots()
         applyPreferencesToView()
         showMode(Mode.LETTERS)
         return view
+    }
+
+    private fun setupGlideTyping() {
+        glideOverlay?.registerLetterKeys(letterButtons)
+        glideOverlay?.onGlideComplete = { swipedKeys ->
+            val ic = currentInputConnection
+            if (ic != null && mode == Mode.LETTERS) {
+                vnEngine.commit(ic)
+                val candidates = GlideDecoder.decode(
+                    swipedKeys = swipedKeys,
+                    suggestionEngine = suggestionEngine,
+                    prevWord1 = prevCommittedWord1,
+                    prevWord2 = prevCommittedWord2,
+                    limit = 3
+                )
+                val best = candidates.firstOrNull()
+                if (best != null) {
+                    val out = if (shiftState != ShiftState.LOWER) {
+                        best.replaceFirstChar { it.uppercaseChar() }
+                    } else best
+                    ic.commitText("$out ", 1)
+                    recordCommittedWord(out)
+                    if (shiftState == ShiftState.SHIFTED) {
+                        shiftState = ShiftState.LOWER
+                        refreshLetterKeyLabels()
+                    }
+                    updateAutoCapitalization()
+                    updateSuggestions("")
+                }
+            }
+        }
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
@@ -210,7 +248,10 @@ class VietKeyboardService : InputMethodService() {
             root.findViewById<View>(id)?.let { it.layoutParams = it.layoutParams.apply { height = numH } }
         }
 
-        // 7. Refresh letter labels (secondary symbols shown ONLY on letter keys)
+        // 7. Refresh letter labels & glide overlay settings
+        glideOverlay?.glideEnabled = prefs.enableGlideTyping
+        glideOverlay?.showTrail = prefs.showGestureTrail
+        glideOverlay?.registerLetterKeys(letterButtons)
         refreshLetterKeyLabels()
     }
 
