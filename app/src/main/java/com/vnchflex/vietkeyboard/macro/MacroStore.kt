@@ -111,6 +111,8 @@ class MacroStore(context: Context) {
         Macro("bh", "bây giờ"),
         Macro("tca", "tất cả"),
         Macro("tica", "tình cảm"),
+        Macro("gd", "gia đình"),
+        Macro("tvi", "Tiếng Việt"),
         // Từ công việc & văn phòng
         Macro("cty", "công ty"),
         Macro("sđt", "số điện thoại"),
@@ -126,7 +128,6 @@ class MacroStore(context: Context) {
         Macro("pt", "phát triển"),
         Macro("nv", "nhân viên"),
         Macro("ql", "quản lý"),
-        Macro("gd", "gia đình"),
         // Biến động mẫu
         // Macro("addr", "123 Đường Tự Do, Q1"),
         Macro("email", "name@gmail.com"),
