@@ -79,7 +79,7 @@ class MacroEngine(initialMacros: List<Macro> = emptyList()) {
             .replace("{time}", now.toLocalTime().withNano(0).toString())
     }
 
-    private fun isTechnicalDelimiter(c: Char): Boolean = c in "/@_-#\\=$~`0123456789"
+    private fun isTechnicalDelimiter(c: Char): Boolean = c in "/@_-#\\=$~`"
 
     companion object {
         private const val MAX_LOOKBACK = 64

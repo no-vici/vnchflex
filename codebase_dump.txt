@@ -2580,6 +2580,14 @@ class VietKeyboardService : InputMethodService() {
 
         bindClick(R.id.key_shift, ::onShiftPressed)
         bindClick(R.id.key_emoji) { commitRaw("😊") }
+        root.findViewById<View>(R.id.key_emoji)?.setOnLongClickListener { emojiBtn ->
+            performKeyFeedback(emojiBtn, isLongPress = true)
+            showAltPopup(
+                emojiBtn,
+                listOf("😊", "😂", "❤️", "😍", "😭", "🙏", "👍", "🔥", "🎉", "😎", "🤔", "🥰")
+            )
+            true
+        }
 
         bindRepeat(R.id.key_backspace, ::onBackspace)
         bindRepeat(R.id.key_backspace_s1, ::onBackspace)
@@ -3540,7 +3548,7 @@ class MacroEngine(initialMacros: List<Macro> = emptyList()) {
             .replace("{time}", now.toLocalTime().withNano(0).toString())
     }
 
-    private fun isTechnicalDelimiter(c: Char): Boolean = c in "/@_-#\\=$~`0123456789"
+    private fun isTechnicalDelimiter(c: Char): Boolean = c in "/@_-#\\=$~`"
 
     companion object {
         private const val MAX_LOOKBACK = 64

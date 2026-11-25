@@ -450,6 +450,14 @@ class VietKeyboardService : InputMethodService() {
 
         bindClick(R.id.key_shift, ::onShiftPressed)
         bindClick(R.id.key_emoji) { commitRaw("😊") }
+        root.findViewById<View>(R.id.key_emoji)?.setOnLongClickListener { emojiBtn ->
+            performKeyFeedback(emojiBtn, isLongPress = true)
+            showAltPopup(
+                emojiBtn,
+                listOf("😊", "😂", "❤️", "😍", "😭", "🙏", "👍", "🔥", "🎉", "😎", "🤔", "🥰")
+            )
+            true
+        }
 
         bindRepeat(R.id.key_backspace, ::onBackspace)
         bindRepeat(R.id.key_backspace_s1, ::onBackspace)
