@@ -124,7 +124,7 @@
         </LinearLayout>
 
         <!-- Row 4: ?123 | , | Logo Switch IME | (Optional Emoji) | Spacebar | . | Enter -->
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:baselineAligned="false" android:gravity="center_vertical" android:orientation="horizontal">
             <Button android:id="@+id/key_mode_symbols" style="@style/FuncKeyBtn" android:layout_weight="1.3" android:text="\?123" />
             <Button android:id="@+id/key_comma" style="@style/FuncKeyBtn" android:layout_weight="0.9" android:text="," />
             <ImageButton android:id="@+id/key_switch_ime" style="@style/LogoSwitchKeyBtn" android:layout_weight="1.0" android:src="@drawable/ic_switch_ime_logo" android:contentDescription="@string/app_name" />
@@ -181,7 +181,7 @@
             <Button android:id="@+id/key_backspace_s1" style="@style/FuncKeyBtn" android:layout_weight="1.5" android:text="⌫" />
         </LinearLayout>
 
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:baselineAligned="false" android:gravity="center_vertical" android:orientation="horizontal">
             <Button android:id="@+id/key_mode_letters_s1" style="@style/FuncKeyBtn" android:layout_weight="1.3" android:text="ABC" />
             <Button android:id="@+id/s1_comma" style="@style/FuncKeyBtn" android:layout_weight="0.9" android:text="," />
             <ImageButton android:id="@+id/key_switch_ime_s1" style="@style/LogoSwitchKeyBtn" android:layout_weight="1.0" android:src="@drawable/ic_switch_ime_logo" android:contentDescription="@string/app_name" />
@@ -237,7 +237,7 @@
             <Button android:id="@+id/key_backspace_s2" style="@style/FuncKeyBtn" android:layout_weight="1.5" android:text="⌫" />
         </LinearLayout>
 
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:baselineAligned="false" android:gravity="center_vertical" android:orientation="horizontal">
             <Button android:id="@+id/key_mode_letters_s2" style="@style/FuncKeyBtn" android:layout_weight="1.3" android:text="ABC" />
             <Button android:id="@+id/s2_lt" style="@style/FuncKeyBtn" android:layout_weight="0.9" android:text="&lt;" />
             <ImageButton android:id="@+id/key_switch_ime_s2" style="@style/LogoSwitchKeyBtn" android:layout_weight="1.0" android:src="@drawable/ic_switch_ime_logo" android:contentDescription="@string/app_name" />
