@@ -698,9 +698,8 @@ class VietKeyboardService : InputMethodService() {
             return
         }
         if (!isVietnameseMode) {
-            if (isMacroTrigger(c)) {
-                if (prefs.macroEnabled && macroEngine.tryExpand(ic, c)) {
-                    syncContextFromEditor()
+            if (isMacroTrigger(c) && prefs.macroEnabled && prevCommittedWord1.isNotEmpty()) {
+                if (macroEngine.tryExpand(ic, c, beforeCursor = prevCommittedWord1)) {
                     updateAutoCapitalization()
                     updateSuggestions("")
                     return
@@ -716,12 +715,11 @@ class VietKeyboardService : InputMethodService() {
             vnEngine.commit(ic)
             if (finishedWord.isNotEmpty()) {
                 recordCommittedWord(finishedWord)
-            }
-            if (prefs.macroEnabled && macroEngine.tryExpand(ic, c)) {
-                syncContextFromEditor()
-                updateAutoCapitalization()
-                updateSuggestions("")
-                return
+                if (prefs.macroEnabled && macroEngine.tryExpand(ic, c, beforeCursor = finishedWord)) {
+                    updateAutoCapitalization()
+                    updateSuggestions("")
+                    return
+                }
             }
             ic.commitText(c.toString(), 1)
             updateAutoCapitalization()
