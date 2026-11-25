@@ -452,7 +452,7 @@ class VietKeyboardService : InputMethodService() {
         bindClick(R.id.key_emoji) { commitRaw("😊") }
         root.findViewById<View>(R.id.key_emoji)?.setOnLongClickListener { emojiBtn ->
             performKeyFeedback(emojiBtn, isLongPress = true)
-            showAltPopup(
+            showAlternatesPopup(
                 emojiBtn,
                 listOf("😊", "😂", "❤️", "😍", "😭", "🙏", "👍", "🔥", "🎉", "😎", "🤔", "🥰")
             )
