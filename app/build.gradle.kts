@@ -7,17 +7,35 @@ android {
     namespace = "com.antigravity.vietkeyboard"
     compileSdk = 35
 
+    val ciRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+    val computedVersionCode = if (ciRunNumber != null) 100 + ciRunNumber else 100
+
     defaultConfig {
         applicationId = "com.antigravity.vietkeyboard"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = computedVersionCode
+        versionName = "1.0.$computedVersionCode"
+    }
+
+    signingConfigs {
+        create("persistent") {
+            storeFile = file("vnchflex-signing.jks")
+            storePassword = "vnchflex123"
+            keyAlias = "vnchflex"
+            keyPassword = "vnchflex123"
+            enableV1Signing = true
+            enableV2Signing = true
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("persistent")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("persistent")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

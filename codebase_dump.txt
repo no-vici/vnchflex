@@ -1,5 +1,5 @@
 # CODEBASE DUMP: vnchflex
-# Total files: 32
+# Total files: 33
 ================================================================================
 
 ## PROJECT STRUCTURE
@@ -12,6 +12,7 @@
 - .github/workflows/build-apk.yml
 - app/build.gradle.kts
 - app/proguard-rules.pro
+- app/vnchflex-signing.jks
 - app/src/main/AndroidManifest.xml
 - app/src/main/java/com/antigravity/vietkeyboard/engine/DiacriticUtils.kt
 - app/src/main/java/com/antigravity/vietkeyboard/engine/VietnameseEngine.kt
@@ -887,17 +888,35 @@ android {
     namespace = "com.antigravity.vietkeyboard"
     compileSdk = 35
 
+    val ciRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+    val computedVersionCode = if (ciRunNumber != null) 100 + ciRunNumber else 100
+
     defaultConfig {
         applicationId = "com.antigravity.vietkeyboard"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = computedVersionCode
+        versionName = "1.0.$computedVersionCode"
+    }
+
+    signingConfigs {
+        create("persistent") {
+            storeFile = file("vnchflex-signing.jks")
+            storePassword = "vnchflex123"
+            keyAlias = "vnchflex"
+            keyPassword = "vnchflex123"
+            enableV1Signing = true
+            enableV2Signing = true
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("persistent")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("persistent")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -925,6 +944,11 @@ dependencies {
 ===== FILE: app/proguard-rules.pro =====
 # Add project specific ProGuard rules here.
 ===== END FILE: app/proguard-rules.pro =====
+
+===== FILE: app/vnchflex-signing.jks =====
+[BINARY FILE - BASE64 (2732 bytes)]
+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
+===== END FILE: app/vnchflex-signing.jks =====
 
 ===== FILE: app/src/main/AndroidManifest.xml =====
 <?xml version="1.0" encoding="utf-8"?>
