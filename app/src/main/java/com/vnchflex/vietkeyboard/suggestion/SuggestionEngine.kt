@@ -1,7 +1,7 @@
-package com.antigravity.vietkeyboard.suggestion
+package com.vnchflex.vietkeyboard.suggestion
 
 import android.content.Context
-import com.antigravity.vietkeyboard.engine.DiacriticUtils
+import com.vnchflex.vietkeyboard.engine.DiacriticUtils
 
 /**
  * Modern Vietnamese Word Suggestion & Trigram Next-Word Suggestion Engine

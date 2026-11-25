@@ -1,4 +1,4 @@
-package com.antigravity.vietkeyboard.suggestion
+package com.vnchflex.vietkeyboard.suggestion
 
 import android.content.Context
 import org.json.JSONArray

@@ -1,4 +1,4 @@
-package com.antigravity.vietkeyboard.macro
+package com.vnchflex.vietkeyboard.macro
 
 import android.view.inputmethod.InputConnection
 

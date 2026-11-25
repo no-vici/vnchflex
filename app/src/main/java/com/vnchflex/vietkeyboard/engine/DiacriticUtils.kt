@@ -1,4 +1,4 @@
-package com.antigravity.vietkeyboard.engine
+package com.vnchflex.vietkeyboard.engine
 
 import java.text.Normalizer
 

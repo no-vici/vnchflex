@@ -1,4 +1,4 @@
-package com.antigravity.vietkeyboard.ime
+package com.vnchflex.vietkeyboard.ime
 
 import android.content.ClipboardManager
 import android.content.Context
@@ -21,13 +21,13 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.antigravity.vietkeyboard.R
-import com.antigravity.vietkeyboard.engine.VietnameseEngine
-import com.antigravity.vietkeyboard.macro.MacroEngine
-import com.antigravity.vietkeyboard.macro.MacroStore
-import com.antigravity.vietkeyboard.settings.KeyboardPreferences
-import com.antigravity.vietkeyboard.settings.SettingsActivity
-import com.antigravity.vietkeyboard.suggestion.SuggestionEngine
+import com.vnchflex.vietkeyboard.R
+import com.vnchflex.vietkeyboard.engine.VietnameseEngine
+import com.vnchflex.vietkeyboard.macro.MacroEngine
+import com.vnchflex.vietkeyboard.macro.MacroStore
+import com.vnchflex.vietkeyboard.settings.KeyboardPreferences
+import com.vnchflex.vietkeyboard.settings.SettingsActivity
+import com.vnchflex.vietkeyboard.suggestion.SuggestionEngine
 
 class VietKeyboardService : InputMethodService() {
     private enum class Mode { LETTERS, SYMBOLS1, SYMBOLS2 }

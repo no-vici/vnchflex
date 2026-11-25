@@ -4,14 +4,14 @@ plugins {
 }
 
 android {
-    namespace = "com.antigravity.vietkeyboard"
+    namespace = "com.vnchflex.vietkeyboard"
     compileSdk = 35
 
     val ciRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
     val computedVersionCode = if (ciRunNumber != null) 100 + ciRunNumber else 100
 
     defaultConfig {
-        applicationId = "com.antigravity.vietkeyboard"
+        applicationId = "com.vnchflex.vietkeyboard"
         minSdk = 26
         targetSdk = 35
         versionCode = computedVersionCode

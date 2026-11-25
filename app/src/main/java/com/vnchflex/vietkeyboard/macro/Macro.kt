@@ -1,4 +1,4 @@
-package com.antigravity.vietkeyboard.macro
+package com.vnchflex.vietkeyboard.macro
 
 /** A text-expansion rule triggered by a shortcut token. */
 data class Macro(

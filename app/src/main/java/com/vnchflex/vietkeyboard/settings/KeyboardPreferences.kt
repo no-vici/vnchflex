@@ -1,4 +1,4 @@
-package com.antigravity.vietkeyboard.settings
+package com.vnchflex.vietkeyboard.settings
 
 import android.content.Context
 import android.content.SharedPreferences

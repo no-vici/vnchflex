@@ -12,7 +12,7 @@ Scaffold bàn phím Android (IME) tập trung vào 3 tính năng được yêu c
 
 ```text
 viet-keyboard/
-  app/src/main/java/com/antigravity/vietkeyboard/
+  app/src/main/java/com/vnchflex/vietkeyboard/
     ime/        # InputMethodService, wiring phím
     engine/     # Telex MVP + DiacriticUtils (bỏ dấu tự do)
     macro/      # Macro model/store/engine

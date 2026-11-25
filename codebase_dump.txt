@@ -14,16 +14,16 @@
 - app/proguard-rules.pro
 - app/vnchflex-signing.jks
 - app/src/main/AndroidManifest.xml
-- app/src/main/java/com/antigravity/vietkeyboard/engine/DiacriticUtils.kt
-- app/src/main/java/com/antigravity/vietkeyboard/engine/VietnameseEngine.kt
-- app/src/main/java/com/antigravity/vietkeyboard/ime/VietKeyboardService.kt
-- app/src/main/java/com/antigravity/vietkeyboard/macro/Macro.kt
-- app/src/main/java/com/antigravity/vietkeyboard/macro/MacroEngine.kt
-- app/src/main/java/com/antigravity/vietkeyboard/macro/MacroStore.kt
-- app/src/main/java/com/antigravity/vietkeyboard/settings/KeyboardPreferences.kt
-- app/src/main/java/com/antigravity/vietkeyboard/settings/SettingsActivity.kt
-- app/src/main/java/com/antigravity/vietkeyboard/suggestion/PersonalDictionaryStore.kt
-- app/src/main/java/com/antigravity/vietkeyboard/suggestion/SuggestionEngine.kt
+- app/src/main/java/com/vnchflex/vietkeyboard/engine/DiacriticUtils.kt
+- app/src/main/java/com/vnchflex/vietkeyboard/engine/VietnameseEngine.kt
+- app/src/main/java/com/vnchflex/vietkeyboard/ime/VietKeyboardService.kt
+- app/src/main/java/com/vnchflex/vietkeyboard/macro/Macro.kt
+- app/src/main/java/com/vnchflex/vietkeyboard/macro/MacroEngine.kt
+- app/src/main/java/com/vnchflex/vietkeyboard/macro/MacroStore.kt
+- app/src/main/java/com/vnchflex/vietkeyboard/settings/KeyboardPreferences.kt
+- app/src/main/java/com/vnchflex/vietkeyboard/settings/SettingsActivity.kt
+- app/src/main/java/com/vnchflex/vietkeyboard/suggestion/PersonalDictionaryStore.kt
+- app/src/main/java/com/vnchflex/vietkeyboard/suggestion/SuggestionEngine.kt
 - app/src/main/res/drawable/ic_switch_ime_logo.png
 - app/src/main/res/drawable/key_bg.xml
 - app/src/main/res/drawable/key_enter_bg.xml
@@ -744,7 +744,7 @@ Scaffold bàn phím Android (IME) tập trung vào 3 tính năng được yêu c
 
 ```text
 viet-keyboard/
-  app/src/main/java/com/antigravity/vietkeyboard/
+  app/src/main/java/com/vnchflex/vietkeyboard/
     ime/        # InputMethodService, wiring phím
     engine/     # Telex MVP + DiacriticUtils (bỏ dấu tự do)
     macro/      # Macro model/store/engine
@@ -885,14 +885,14 @@ plugins {
 }
 
 android {
-    namespace = "com.antigravity.vietkeyboard"
+    namespace = "com.vnchflex.vietkeyboard"
     compileSdk = 35
 
     val ciRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
     val computedVersionCode = if (ciRunNumber != null) 100 + ciRunNumber else 100
 
     defaultConfig {
-        applicationId = "com.antigravity.vietkeyboard"
+        applicationId = "com.vnchflex.vietkeyboard"
         minSdk = 26
         targetSdk = 35
         versionCode = computedVersionCode
@@ -988,8 +988,8 @@ MIIKqAIBAzCCClIGCSqGSIb3DQEHAaCCCkMEggo/MIIKOzCCBbIGCSqGSIb3DQEHAaCCBaMEggWfMIIF
 </manifest>
 ===== END FILE: app/src/main/AndroidManifest.xml =====
 
-===== FILE: app/src/main/java/com/antigravity/vietkeyboard/engine/DiacriticUtils.kt =====
-package com.antigravity.vietkeyboard.engine
+===== FILE: app/src/main/java/com/vnchflex/vietkeyboard/engine/DiacriticUtils.kt =====
+package com.vnchflex.vietkeyboard.engine
 
 import java.text.Normalizer
 
@@ -1014,10 +1014,10 @@ object DiacriticUtils {
         return if (stripped == input) input else stripped
     }
 }
-===== END FILE: app/src/main/java/com/antigravity/vietkeyboard/engine/DiacriticUtils.kt =====
+===== END FILE: app/src/main/java/com/vnchflex/vietkeyboard/engine/DiacriticUtils.kt =====
 
-===== FILE: app/src/main/java/com/antigravity/vietkeyboard/engine/VietnameseEngine.kt =====
-package com.antigravity.vietkeyboard.engine
+===== FILE: app/src/main/java/com/vnchflex/vietkeyboard/engine/VietnameseEngine.kt =====
+package com.vnchflex.vietkeyboard.engine
 
 import android.view.inputmethod.InputConnection
 
@@ -1606,10 +1606,10 @@ class VietnameseEngine {
         }
     }
 }
-===== END FILE: app/src/main/java/com/antigravity/vietkeyboard/engine/VietnameseEngine.kt =====
+===== END FILE: app/src/main/java/com/vnchflex/vietkeyboard/engine/VietnameseEngine.kt =====
 
-===== FILE: app/src/main/java/com/antigravity/vietkeyboard/ime/VietKeyboardService.kt =====
-package com.antigravity.vietkeyboard.ime
+===== FILE: app/src/main/java/com/vnchflex/vietkeyboard/ime/VietKeyboardService.kt =====
+package com.vnchflex.vietkeyboard.ime
 
 import android.content.ClipboardManager
 import android.content.Context
@@ -1632,13 +1632,13 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.antigravity.vietkeyboard.R
-import com.antigravity.vietkeyboard.engine.VietnameseEngine
-import com.antigravity.vietkeyboard.macro.MacroEngine
-import com.antigravity.vietkeyboard.macro.MacroStore
-import com.antigravity.vietkeyboard.settings.KeyboardPreferences
-import com.antigravity.vietkeyboard.settings.SettingsActivity
-import com.antigravity.vietkeyboard.suggestion.SuggestionEngine
+import com.vnchflex.vietkeyboard.R
+import com.vnchflex.vietkeyboard.engine.VietnameseEngine
+import com.vnchflex.vietkeyboard.macro.MacroEngine
+import com.vnchflex.vietkeyboard.macro.MacroStore
+import com.vnchflex.vietkeyboard.settings.KeyboardPreferences
+import com.vnchflex.vietkeyboard.settings.SettingsActivity
+import com.vnchflex.vietkeyboard.suggestion.SuggestionEngine
 
 class VietKeyboardService : InputMethodService() {
     private enum class Mode { LETTERS, SYMBOLS1, SYMBOLS2 }
@@ -2235,10 +2235,10 @@ class VietKeyboardService : InputMethodService() {
 
     private fun isMacroTrigger(c: Char): Boolean = c.isWhitespace() || c in ".,;:!?\n"
 }
-===== END FILE: app/src/main/java/com/antigravity/vietkeyboard/ime/VietKeyboardService.kt =====
+===== END FILE: app/src/main/java/com/vnchflex/vietkeyboard/ime/VietKeyboardService.kt =====
 
-===== FILE: app/src/main/java/com/antigravity/vietkeyboard/macro/Macro.kt =====
-package com.antigravity.vietkeyboard.macro
+===== FILE: app/src/main/java/com/vnchflex/vietkeyboard/macro/Macro.kt =====
+package com.vnchflex.vietkeyboard.macro
 
 /** A text-expansion rule triggered by a shortcut token. */
 data class Macro(
@@ -2247,10 +2247,10 @@ data class Macro(
     val caseSensitive: Boolean = false,
     val enabled: Boolean = true,
 )
-===== END FILE: app/src/main/java/com/antigravity/vietkeyboard/macro/Macro.kt =====
+===== END FILE: app/src/main/java/com/vnchflex/vietkeyboard/macro/Macro.kt =====
 
-===== FILE: app/src/main/java/com/antigravity/vietkeyboard/macro/MacroEngine.kt =====
-package com.antigravity.vietkeyboard.macro
+===== FILE: app/src/main/java/com/vnchflex/vietkeyboard/macro/MacroEngine.kt =====
+package com.vnchflex.vietkeyboard.macro
 
 import android.view.inputmethod.InputConnection
 
@@ -2327,10 +2327,10 @@ class MacroEngine(initialMacros: List<Macro> = emptyList()) {
         private const val MAX_LOOKBACK = 64
     }
 }
-===== END FILE: app/src/main/java/com/antigravity/vietkeyboard/macro/MacroEngine.kt =====
+===== END FILE: app/src/main/java/com/vnchflex/vietkeyboard/macro/MacroEngine.kt =====
 
-===== FILE: app/src/main/java/com/antigravity/vietkeyboard/macro/MacroStore.kt =====
-package com.antigravity.vietkeyboard.macro
+===== FILE: app/src/main/java/com/vnchflex/vietkeyboard/macro/MacroStore.kt =====
+package com.vnchflex.vietkeyboard.macro
 
 import android.content.Context
 import org.json.JSONArray
@@ -2439,10 +2439,10 @@ class MacroStore(context: Context) {
         const val KEY_MACROS = "macros_v2"
     }
 }
-===== END FILE: app/src/main/java/com/antigravity/vietkeyboard/macro/MacroStore.kt =====
+===== END FILE: app/src/main/java/com/vnchflex/vietkeyboard/macro/MacroStore.kt =====
 
-===== FILE: app/src/main/java/com/antigravity/vietkeyboard/settings/KeyboardPreferences.kt =====
-package com.antigravity.vietkeyboard.settings
+===== FILE: app/src/main/java/com/vnchflex/vietkeyboard/settings/KeyboardPreferences.kt =====
+package com.vnchflex.vietkeyboard.settings
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -2653,10 +2653,10 @@ class KeyboardPreferences(context: Context) {
         const val PREFS_NAME = "vnchflex_gboard_prefs"
     }
 }
-===== END FILE: app/src/main/java/com/antigravity/vietkeyboard/settings/KeyboardPreferences.kt =====
+===== END FILE: app/src/main/java/com/vnchflex/vietkeyboard/settings/KeyboardPreferences.kt =====
 
-===== FILE: app/src/main/java/com/antigravity/vietkeyboard/settings/SettingsActivity.kt =====
-package com.antigravity.vietkeyboard.settings
+===== FILE: app/src/main/java/com/vnchflex/vietkeyboard/settings/SettingsActivity.kt =====
+package com.vnchflex.vietkeyboard.settings
 
 import android.app.AlertDialog
 import android.content.Intent
@@ -2676,11 +2676,11 @@ import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.antigravity.vietkeyboard.R
-import com.antigravity.vietkeyboard.macro.Macro
-import com.antigravity.vietkeyboard.macro.MacroStore
-import com.antigravity.vietkeyboard.suggestion.PersonalDictionaryStore
-import com.antigravity.vietkeyboard.suggestion.PersonalWord
+import com.vnchflex.vietkeyboard.R
+import com.vnchflex.vietkeyboard.macro.Macro
+import com.vnchflex.vietkeyboard.macro.MacroStore
+import com.vnchflex.vietkeyboard.suggestion.PersonalDictionaryStore
+import com.vnchflex.vietkeyboard.suggestion.PersonalWord
 
 /**
  * Gboard-identical Settings Activity + vnchKey Free Diacritics & Macro Editor.
@@ -3508,10 +3508,10 @@ class SettingsActivity : AppCompatActivity() {
         container.addView(div)
     }
 }
-===== END FILE: app/src/main/java/com/antigravity/vietkeyboard/settings/SettingsActivity.kt =====
+===== END FILE: app/src/main/java/com/vnchflex/vietkeyboard/settings/SettingsActivity.kt =====
 
-===== FILE: app/src/main/java/com/antigravity/vietkeyboard/suggestion/PersonalDictionaryStore.kt =====
-package com.antigravity.vietkeyboard.suggestion
+===== FILE: app/src/main/java/com/vnchflex/vietkeyboard/suggestion/PersonalDictionaryStore.kt =====
+package com.vnchflex.vietkeyboard.suggestion
 
 import android.content.Context
 import org.json.JSONArray
@@ -3656,13 +3656,13 @@ class PersonalDictionaryStore(context: Context) {
         private const val MAX_FOLLOWERS_PER_CONTEXT = 8
     }
 }
-===== END FILE: app/src/main/java/com/antigravity/vietkeyboard/suggestion/PersonalDictionaryStore.kt =====
+===== END FILE: app/src/main/java/com/vnchflex/vietkeyboard/suggestion/PersonalDictionaryStore.kt =====
 
-===== FILE: app/src/main/java/com/antigravity/vietkeyboard/suggestion/SuggestionEngine.kt =====
-package com.antigravity.vietkeyboard.suggestion
+===== FILE: app/src/main/java/com/vnchflex/vietkeyboard/suggestion/SuggestionEngine.kt =====
+package com.vnchflex.vietkeyboard.suggestion
 
 import android.content.Context
-import com.antigravity.vietkeyboard.engine.DiacriticUtils
+import com.vnchflex.vietkeyboard.engine.DiacriticUtils
 
 /**
  * Modern Vietnamese Word Suggestion & Trigram Next-Word Suggestion Engine
@@ -3981,7 +3981,7 @@ class SuggestionEngine(context: Context? = null) {
         return weights
     }
 }
-===== END FILE: app/src/main/java/com/antigravity/vietkeyboard/suggestion/SuggestionEngine.kt =====
+===== END FILE: app/src/main/java/com/vnchflex/vietkeyboard/suggestion/SuggestionEngine.kt =====
 
 ===== FILE: app/src/main/res/drawable/ic_switch_ime_logo.png =====
 [BINARY FILE - BASE64 (1847 bytes)]
@@ -4504,7 +4504,7 @@ iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAG7ElEQVR4AUxUCWxUxxn+Zt7l9d5mbbPG
 ===== FILE: app/src/main/res/xml/method.xml =====
 <?xml version="1.0" encoding="utf-8"?>
 <input-method xmlns:android="http://schemas.android.com/apk/res/android"
-    android:settingsActivity="com.antigravity.vietkeyboard.settings.SettingsActivity"
+    android:settingsActivity="com.vnchflex.vietkeyboard.settings.SettingsActivity"
     android:supportsSwitchingToNextInputMethod="true">
     <subtype
         android:imeSubtypeLocale="vi_VN"

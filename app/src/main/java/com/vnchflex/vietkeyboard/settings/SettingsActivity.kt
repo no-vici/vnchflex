@@ -1,4 +1,4 @@
-package com.antigravity.vietkeyboard.settings
+package com.vnchflex.vietkeyboard.settings
 
 import android.app.AlertDialog
 import android.content.Intent
@@ -18,11 +18,11 @@ import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.antigravity.vietkeyboard.R
-import com.antigravity.vietkeyboard.macro.Macro
-import com.antigravity.vietkeyboard.macro.MacroStore
-import com.antigravity.vietkeyboard.suggestion.PersonalDictionaryStore
-import com.antigravity.vietkeyboard.suggestion.PersonalWord
+import com.vnchflex.vietkeyboard.R
+import com.vnchflex.vietkeyboard.macro.Macro
+import com.vnchflex.vietkeyboard.macro.MacroStore
+import com.vnchflex.vietkeyboard.suggestion.PersonalDictionaryStore
+import com.vnchflex.vietkeyboard.suggestion.PersonalWord
 
 /**
  * Gboard-identical Settings Activity + vnchKey Free Diacritics & Macro Editor.
