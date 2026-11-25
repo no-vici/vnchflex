@@ -269,7 +269,7 @@ class VietKeyboardService : InputMethodService() {
         bindRepeat(R.id.key_backspace_s2, ::onBackspace)
 
         listOf(R.id.key_space, R.id.key_space_s1, R.id.key_space_s2).forEach { id ->
-            val btn = root.findViewById<View>(id) ?: return@forEach
+            val btn = root.findViewById<Button>(id) ?: return@forEach
             btn.setOnTouchListener { v, event ->
                 if (prefs.popupOnKeypress) {
                     when (event.actionMasked) {
