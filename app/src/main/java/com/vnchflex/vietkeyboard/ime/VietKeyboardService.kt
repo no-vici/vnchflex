@@ -313,7 +313,8 @@ class VietKeyboardService : InputMethodService() {
         val root = keyboardView ?: return
         val prefsKey = listOf(
             prefs.showNumberRow, prefs.showSuggestionStrip, prefs.showLanguageSwitchKey,
-            prefs.showEmojiSwitchKey, prefs.themeMode, prefs.oneHandedMode, prefs.keyboardHeight,
+            prefs.showStripDiacriticsButton, prefs.enableVoiceTyping,
+            prefs.themeMode, prefs.oneHandedMode, prefs.keyboardHeight,
             prefs.longPressForSymbols, prefs.enableGlideTyping, prefs.showGestureTrail,
             prefs.glideSensitivityDp, prefs.langSwitchKeyIcon, isVietnameseMode, shiftState.name
         ).joinToString("|")
@@ -323,10 +324,14 @@ class VietKeyboardService : InputMethodService() {
         // 1. Gboard Number row option: Pure numbers 1..0 only at the top row
         rowNumbers?.visibility = if (prefs.showNumberRow) View.VISIBLE else View.GONE
 
-        // 2. Suggestion strip visibility
+        // 2. Suggestion strip visibility & optional toolbar buttons
         topStripContainer?.visibility = if (prefs.showSuggestionStrip) View.VISIBLE else View.GONE
+        root.findViewById<View>(R.id.key_strip_diacritics)?.visibility =
+            if (prefs.showStripDiacriticsButton) View.VISIBLE else View.GONE
+        root.findViewById<View>(R.id.btn_toolbar_voice)?.visibility =
+            if (prefs.enableVoiceTyping) View.VISIBLE else View.GONE
 
-        // 3. Language switch key & Emoji switch key options
+        // 3. Language switch key & Comma secondary emoji symbol (Gboard style)
         val switchVisibility = if (prefs.showLanguageSwitchKey) View.VISIBLE else View.GONE
         val switchIconRes = when (prefs.langSwitchKeyIcon) {
             "ev" -> if (isVietnameseMode) R.drawable.ic_lang_v else R.drawable.ic_lang_e
@@ -339,8 +344,7 @@ class VietKeyboardService : InputMethodService() {
             btn?.visibility = switchVisibility
             btn?.setImageResource(switchIconRes)
         }
-        root.findViewById<View>(R.id.key_emoji)?.visibility =
-            if (prefs.showEmojiSwitchKey) View.VISIBLE else View.GONE
+        root.findViewById<GboardKeyButton>(R.id.key_comma)?.secondarySymbol = "😊"
 
         // 4. Spacebar label shows active language (Tiếng Việt / English)
         val spaceLabel = if (isVietnameseMode) getString(R.string.key_space) else "English"
@@ -546,11 +550,17 @@ class VietKeyboardService : InputMethodService() {
         }
 
         bindClick(R.id.key_shift, ::onShiftPressed)
-        bindClick(R.id.key_emoji) { commitRaw("😊") }
-        root.findViewById<View>(R.id.key_emoji)?.setOnLongClickListener { emojiBtn ->
-            performKeyFeedback(emojiBtn, isLongPress = true)
-            showEmojiPickerPopup(emojiBtn)
-            true
+        root.findViewById<GboardKeyButton>(R.id.key_comma)?.let { commaBtn ->
+            commaBtn.secondarySymbol = "😊"
+            commaBtn.setOnClickListener {
+                performKeyFeedback(commaBtn)
+                onPunctuation(',')
+            }
+            commaBtn.setOnLongClickListener {
+                performKeyFeedback(commaBtn, isLongPress = true)
+                showEmojiPickerPopup(commaBtn)
+                true
+            }
         }
 
         bindRepeat(R.id.key_backspace, ::onBackspace)
@@ -633,14 +643,14 @@ class VietKeyboardService : InputMethodService() {
             }
         }
         listOf(R.id.key_enter, R.id.key_enter_s1, R.id.key_enter_s2).forEach { bindClick(it, ::onEnter) }
-        listOf(R.id.key_comma, R.id.key_dot).forEach { id ->
-            bindClick(id) { onPunctuation(root.findViewById<Button>(id).text.first()) }
-        }
+        bindClick(R.id.key_dot) { onPunctuation('.') }
+        bindClick(R.id.s1_comma) { onPunctuation(',') }
+        bindClick(R.id.s1_dot) { onPunctuation('.') }
 
         // Toolbar quick actions
         bindClick(R.id.key_strip_diacritics, ::onStripDiacritics)
-        bindClick(R.id.btn_toolbar_macro) { openSettingsSection("macro") }
         bindClick(R.id.btn_toolbar_clipboard, ::onPasteClipboard)
+        bindClick(R.id.btn_toolbar_voice, ::onVoiceTyping)
         bindClick(R.id.btn_toolbar_settings) { openSettingsSection(null) }
 
         bindClick(R.id.key_mode_symbols) { showMode(Mode.SYMBOLS1) }
@@ -1365,6 +1375,45 @@ class VietKeyboardService : InputMethodService() {
         val ic = currentInputConnection ?: return
         vnEngine.removeDiacritics(ic)
         updateSuggestions(vnEngine.composingText)
+    }
+
+    private fun onVoiceTyping() {
+        currentInputConnection?.let { vnEngine.commit(it) }
+        // 1. Try switching to an enabled system Voice Input IME (e.g. Google Voice Typing) if available
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager
+        val voiceImeId = imm?.enabledInputMethodList?.firstOrNull { imi ->
+            imi.packageName != packageName && (
+                imi.id.contains("voice", ignoreCase = true) ||
+                    imi.packageName.contains("tts", ignoreCase = true) ||
+                    (0 until imi.subtypeCount).any { idx ->
+                        imi.getSubtypeAt(idx).mode.equals("voice", ignoreCase = true)
+                    }
+                )
+        }?.id
+        if (voiceImeId != null) {
+            try {
+                switchInputMethod(voiceImeId)
+                return
+            } catch (_: Exception) {
+                // Fallback to VoiceInputActivity below
+            }
+        }
+
+        // 2. Fallback: launch translucent VoiceInputActivity using RecognizerIntent.ACTION_RECOGNIZE_SPEECH
+        VoiceInputActivity.onVoiceResult = { spokenText ->
+            popupHandler.post {
+                val trimmed = spokenText.trim()
+                if (trimmed.isNotEmpty()) {
+                    commitRaw("$trimmed ")
+                    recordCommittedWord(trimmed)
+                }
+            }
+        }
+        val intent = Intent(this, VoiceInputActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            putExtra(VoiceInputActivity.EXTRA_LANG, if (isVietnameseMode) "vi-VN" else "en-US")
+        }
+        startActivity(intent)
     }
 
     private fun captureCurrentSystemClip() {

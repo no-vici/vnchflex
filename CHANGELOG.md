@@ -4,6 +4,20 @@ Tất cả các thay đổi đáng chú ý của dự án **vnchFlex** đều đ
 
 ---
 
+## [Unreleased / Latest] — Bố cục Gboard gọn gàng, Space rộng & Voice Typing
+
+### Added & Improved (Tính năng mới & Cải thiện)
+- **Mở rộng phím Space & gộp Emoji vào phím dấu phẩy (`,`)**:
+  - Bỏ phím `😊` rời cạnh dấu cách; chuyển `😊` thành ký hiệu phụ trên `key_comma` (`GboardKeyButton`), nhấn giữ `,` để mở bảng chọn Emoji.
+  - Tăng `layout_weight` của phím Space (`key_space`, `key_space_s1`, `key_space_s2`) từ `4.0` lên `5.2` để bấm thoải mái và chính xác hơn.
+- **Dọn gọn thanh công cụ gợi ý**:
+  - Bỏ nút `"Gõ tắt"` trên thanh công cụ để dành thêm không gian cho 3 ô gợi ý từ & Next-word.
+  - Chuyển nút `"Bỏ dấu"` thành tùy chọn trong **Cài đặt → Tùy chọn** (`showStripDiacriticsButton`, mặc định tắt).
+- **Nhập liệu bằng giọng nói (`🎤` Voice Typing)**:
+  - Thêm nút `🎤` (`btn_toolbar_voice`) trên thanh công cụ, ưu tiên chuyển sang bộ gõ giọng nói hệ thống hoặc mở `VoiceInputActivity` (`RecognizerIntent`) theo ngôn ngữ đang gõ (`vi-VN` / `en-US`).
+
+---
+
 ## [Unreleased / Latest] — Tối ưu phím Space, SuggestionEngine & Icon English
 
 ### Added & Improved (Tính năng mới & Cải thiện)

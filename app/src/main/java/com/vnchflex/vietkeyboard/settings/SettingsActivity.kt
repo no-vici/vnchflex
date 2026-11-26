@@ -303,10 +303,10 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         addSwitchItem(
-            title = "Hiện phím biểu tượng cảm xúc",
-            subtitle = "Hiển thị phím mặt cười cạnh dấu cách",
-            checked = prefs.showEmojiSwitchKey
-        ) { prefs.showEmojiSwitchKey = it }
+            title = "Hiện nút \"Bỏ dấu\" trên thanh gợi ý",
+            subtitle = "Hiển thị nút Bỏ dấu nhanh ở góc trái thanh công cụ (tắt mặc định để rộng chỗ cho gợi ý từ)",
+            checked = prefs.showStripDiacriticsButton
+        ) { prefs.showStripDiacriticsButton = it }
 
         addSwitchItem(
             title = "Nhấn giữ để lấy ký hiệu (Long press for symbols)",

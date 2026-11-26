@@ -32,6 +32,13 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ime.VoiceInputActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <service
             android:name=".ime.VnchSpellCheckerService"
             android:exported="true"

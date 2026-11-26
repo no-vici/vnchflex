@@ -26,7 +26,12 @@ class KeyboardPreferences(context: Context) {
         get() = prefs.getString("pref_lang_switch_key_icon", "logo") ?: "logo"
         set(v) = prefs.edit().putString("pref_lang_switch_key_icon", v).apply()
 
-    /** Hiện phím biểu tượng cảm xúc (Show emoji switch key) */
+    /** Hiện nút Bỏ dấu trên thanh công cụ gợi ý (tắt mặc định để ưu tiên không gian gợi ý từ) */
+    var showStripDiacriticsButton: Boolean
+        get() = prefs.getBoolean("pref_show_strip_diacritics_btn", false)
+        set(v) = prefs.edit().putBoolean("pref_show_strip_diacritics_btn", v).apply()
+
+    /** Hiện phím biểu tượng cảm xúc (Show emoji switch key - nay đã chuyển thành ký hiệu phụ trên phím dấu phẩy) */
     var showEmojiSwitchKey: Boolean
         get() = prefs.getBoolean("pref_show_emoji_switch_key", false)
         set(v) = prefs.edit().putBoolean("pref_show_emoji_switch_key", v).apply()

@@ -9,7 +9,7 @@
     android:paddingTop="3dp"
     android:paddingBottom="6dp">
 
-    <!-- GBOARD TOP BAR: Quick Tools (Bỏ dấu tự do vnchKey, Macro, Clipboard, Settings) + 3-Slot Suggestion Strip -->
+    <!-- GBOARD TOP BAR: Quick Tools (Clipboard, Optional Bỏ dấu, 3-Slot Suggestion Strip, Voice, Settings) -->
     <LinearLayout
         android:id="@+id/top_strip_container"
         android:layout_width="match_parent"
@@ -18,17 +18,12 @@
         android:orientation="horizontal"
         android:paddingHorizontal="2dp">
 
-        <!-- Nút Bỏ dấu tự do (vnchKey) -->
+        <!-- Nút Bỏ dấu tự do (tùy chọn trong Cài đặt -> Tùy chọn) -->
         <Button
             android:id="@+id/key_strip_diacritics"
             style="@style/ToolbarChipBtn"
-            android:text="@string/key_strip_diacritics" />
-
-        <!-- Nút mở nhanh Bảng gõ tắt Macro (vnchKey) -->
-        <Button
-            android:id="@+id/btn_toolbar_macro"
-            style="@style/ToolbarChipBtn"
-            android:text="Gõ tắt" />
+            android:text="@string/key_strip_diacritics"
+            android:visibility="gone" />
 
         <!-- Nút dán nhanh Bảng nhớ tạm Gboard -->
         <Button
@@ -45,6 +40,12 @@
             android:gravity="center"
             android:orientation="horizontal"
             android:paddingHorizontal="2dp" />
+
+        <!-- Nút nhập liệu bằng giọng nói (Voice Typing kiểu Gboard) -->
+        <Button
+            android:id="@+id/btn_toolbar_voice"
+            style="@style/ToolbarChipBtn"
+            android:text="🎤" />
 
         <!-- Nút mở Cài đặt Gboard & vnchKey -->
         <Button
@@ -128,13 +129,12 @@
             <ImageButton android:id="@+id/key_backspace" style="@style/OvalImageKeyBtn" android:layout_weight="1.5" android:src="@drawable/ic_gboard_backspace" android:contentDescription="Delete" />
         </LinearLayout>
 
-        <!-- Row 4: ?123 | , | Logo Switch IME | (Optional Emoji) | Spacebar | . | Enter -->
+        <!-- Row 4: ?123 | , (with 😊 secondary symbol) | Logo Switch IME | Wide Spacebar | . | Enter -->
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:baselineAligned="false" android:gravity="center_vertical" android:orientation="horizontal">
             <Button android:id="@+id/key_mode_symbols" style="@style/OvalFuncKeyBtn" android:layout_weight="1.5" android:text="\?123" />
-            <Button android:id="@+id/key_comma" style="@style/FuncKeyBtn" android:layout_weight="0.9" android:text="," />
+            <com.vnchflex.vietkeyboard.ime.GboardKeyButton android:id="@+id/key_comma" style="@style/FuncKeyBtn" android:layout_weight="0.9" android:text="," />
             <ImageButton android:id="@+id/key_switch_ime" style="@style/LogoSwitchKeyBtn" android:layout_weight="1.0" android:src="@drawable/ic_switch_ime_logo" android:contentDescription="@string/app_name" />
-            <Button android:id="@+id/key_emoji" style="@style/FuncKeyBtn" android:layout_weight="0.9" android:text="😊" android:visibility="gone" />
-            <Button android:id="@+id/key_space" style="@style/SpaceKeyBtn" android:layout_weight="4.0" android:text="@string/key_space" />
+            <Button android:id="@+id/key_space" style="@style/SpaceKeyBtn" android:layout_weight="5.2" android:text="@string/key_space" />
             <Button android:id="@+id/key_dot" style="@style/FuncKeyBtn" android:layout_weight="0.9" android:text="." />
             <ImageButton android:id="@+id/key_enter" style="@style/EnterKeyBtn" android:layout_weight="1.5" android:src="@drawable/ic_gboard_enter" android:contentDescription="Enter" />
         </LinearLayout>
@@ -191,7 +191,7 @@
             <Button android:id="@+id/key_mode_letters_s1" style="@style/OvalFuncKeyBtn" android:layout_weight="1.5" android:text="ABC" />
             <Button android:id="@+id/s1_comma" style="@style/FuncKeyBtn" android:layout_weight="0.9" android:text="," />
             <ImageButton android:id="@+id/key_switch_ime_s1" style="@style/LogoSwitchKeyBtn" android:layout_weight="1.0" android:src="@drawable/ic_switch_ime_logo" android:contentDescription="@string/app_name" />
-            <Button android:id="@+id/key_space_s1" style="@style/SpaceKeyBtn" android:layout_weight="4.0" android:text="@string/key_space" />
+            <Button android:id="@+id/key_space_s1" style="@style/SpaceKeyBtn" android:layout_weight="5.2" android:text="@string/key_space" />
             <Button android:id="@+id/s1_dot" style="@style/FuncKeyBtn" android:layout_weight="0.9" android:text="." />
             <ImageButton android:id="@+id/key_enter_s1" style="@style/EnterKeyBtn" android:layout_weight="1.5" android:src="@drawable/ic_gboard_enter" android:contentDescription="Enter" />
         </LinearLayout>
@@ -247,7 +247,7 @@
             <Button android:id="@+id/key_mode_letters_s2" style="@style/OvalFuncKeyBtn" android:layout_weight="1.5" android:text="ABC" />
             <Button android:id="@+id/s2_lt" style="@style/FuncKeyBtn" android:layout_weight="0.9" android:text="&lt;" />
             <ImageButton android:id="@+id/key_switch_ime_s2" style="@style/LogoSwitchKeyBtn" android:layout_weight="1.0" android:src="@drawable/ic_switch_ime_logo" android:contentDescription="@string/app_name" />
-            <Button android:id="@+id/key_space_s2" style="@style/SpaceKeyBtn" android:layout_weight="4.0" android:text="@string/key_space" />
+            <Button android:id="@+id/key_space_s2" style="@style/SpaceKeyBtn" android:layout_weight="5.2" android:text="@string/key_space" />
             <Button android:id="@+id/s2_gt" style="@style/FuncKeyBtn" android:layout_weight="0.9" android:text="&gt;" />
             <ImageButton android:id="@+id/key_enter_s2" style="@style/EnterKeyBtn" android:layout_weight="1.5" android:src="@drawable/ic_gboard_enter" android:contentDescription="Enter" />
         </LinearLayout>
