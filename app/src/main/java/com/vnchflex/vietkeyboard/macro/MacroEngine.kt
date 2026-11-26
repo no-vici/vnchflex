@@ -46,18 +46,12 @@ class MacroEngine(initialMacros: List<Macro> = emptyList()) {
 
         ic.beginBatchEdit()
         try {
-            if (composingLength == token.length && composingLength > 0) {
-                // Replace active composing span directly to avoid finish/delete IPC race.
-                ic.setComposingText("", 1)
-                ic.commitText(expandedWithTrigger, 1)
-            } else {
-                if (composingLength > 0) {
-                    ic.finishComposingText()
-                }
-                val deleted = ic.deleteSurroundingText(token.length, 0)
-                if (!deleted) return false
-                ic.commitText(expandedWithTrigger, 1)
+            if (composingLength > 0) {
+                ic.finishComposingText()
             }
+            val deleted = ic.deleteSurroundingText(token.length, 0)
+            if (!deleted) return false
+            ic.commitText(expandedWithTrigger, 1)
             lastExpansion = (token + trigger) to expandedWithTrigger
         } finally {
             ic.endBatchEdit()
