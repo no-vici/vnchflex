@@ -178,6 +178,88 @@ class PersonalDictionaryStore(context: Context) {
         return root.toString()
     }
 
+    fun exportBackupJson(): JSONObject {
+        flushNgrams()
+        val root = JSONObject()
+        val words = JSONArray()
+        loadPersonalWords().forEach { w ->
+            words.put(JSONObject().apply {
+                put("word", w.word)
+                put("shortcut", w.shortcut)
+                put("locale", w.locale)
+            })
+        }
+        root.put("personalWords", words)
+        val learned = JSONArray()
+        loadLearnedWords().forEach { learned.put(it) }
+        root.put("learnedWords", learned)
+        root.put("learnedBigrams", JSONObject(serializeNgramJson(loadLearnedBigrams())))
+        root.put("learnedTrigrams", JSONObject(serializeNgramJson(loadLearnedTrigrams())))
+        return root
+    }
+
+    fun importBackupJson(root: JSONObject, replace: Boolean): Int {
+        var count = 0
+        val personalArr = root.optJSONArray("personalWords")
+        if (personalArr != null) {
+            val current = if (replace) mutableListOf() else loadPersonalWords().toMutableList()
+            for (i in 0 until personalArr.length()) {
+                val o = personalArr.optJSONObject(i) ?: continue
+                val word = o.optString("word", "").trim()
+                if (word.isEmpty()) continue
+                val shortcut = o.optString("shortcut", "")
+                val locale = o.optString("locale", "vi_VN")
+                current.removeAll { it.word.equals(word, ignoreCase = true) && it.locale == locale }
+                current.add(PersonalWord(word, shortcut, locale))
+                count++
+            }
+            savePersonalWords(current)
+        }
+
+        val learnedArr = root.optJSONArray("learnedWords")
+        if (learnedArr != null) {
+            val current = if (replace) mutableSetOf() else loadLearnedWords().toMutableSet()
+            for (i in 0 until learnedArr.length()) {
+                val w = learnedArr.optString(i, "").trim().lowercase()
+                if (w.length >= 2 && current.add(w)) count++
+            }
+            learnedWordsCache = current
+            prefs.edit().putStringSet(KEY_LEARNED_WORDS, HashSet(current)).apply()
+        }
+
+        val bigramsObj = root.optJSONObject("learnedBigrams")
+        if (bigramsObj != null) {
+            val imported = parseNgramJson(bigramsObj.toString())
+            val current = if (replace) mutableMapOf() else loadLearnedBigrams().mapValues { it.value.toMutableMap() }.toMutableMap()
+            mergeNgrams(current, imported)
+            learnedBigramsCache = current
+            count += imported.size
+        }
+
+        val trigramsObj = root.optJSONObject("learnedTrigrams")
+        if (trigramsObj != null) {
+            val imported = parseNgramJson(trigramsObj.toString())
+            val current = if (replace) mutableMapOf() else loadLearnedTrigrams().mapValues { it.value.toMutableMap() }.toMutableMap()
+            mergeNgrams(current, imported)
+            learnedTrigramsCache = current
+            count += imported.size
+        }
+        flushNgrams()
+        return count
+    }
+
+    private fun mergeNgrams(
+        target: MutableMap<String, MutableMap<String, Int>>,
+        source: Map<String, Map<String, Int>>
+    ) {
+        source.forEach { (ctx, followers) ->
+            val dest = target.getOrPut(ctx) { mutableMapOf() }
+            followers.forEach { (w, c) ->
+                dest[w] = (dest[w] ?: 0) + c
+            }
+        }
+    }
+
     private fun defaultPersonalWords(): List<PersonalWord> = listOf(
         PersonalWord("Việt Nam", "vn", "vi_VN"),
         PersonalWord("vnchFlex", "vf", "vi_VN"),

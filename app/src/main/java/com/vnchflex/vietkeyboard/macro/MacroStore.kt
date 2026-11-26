@@ -36,8 +36,13 @@ class MacroStore(context: Context) {
         return obj.toString(2)
     }
 
-    fun importJson(rawJson: String): Int {
-        val current = load().toMutableList()
+    /** Full backup format preserving caseSensitive/enabled. */
+    fun exportBackupJson(): String = serialize(load())
+
+    fun importJson(rawJson: String): Int = importJson(rawJson, replace = false)
+
+    fun importJson(rawJson: String, replace: Boolean): Int {
+        val current = if (replace) mutableListOf() else load().toMutableList()
         var importedCount = 0
         val trimmed = rawJson.trim()
         if (trimmed.startsWith("{")) {
@@ -48,7 +53,7 @@ class MacroStore(context: Context) {
                 val v = obj.optString(k, "").trim()
                 if (k.isNotEmpty() && v.isNotEmpty()) {
                     current.removeAll { it.shortcut.equals(k, ignoreCase = true) }
-                    current.add(0, Macro(k, v))
+                    current.add(Macro(k, v))
                     importedCount++
                 }
             }
@@ -56,11 +61,11 @@ class MacroStore(context: Context) {
             val parsed = parse(trimmed)
             parsed.forEach { m ->
                 current.removeAll { it.shortcut.equals(m.shortcut, ignoreCase = true) }
-                current.add(0, m)
+                current.add(m)
                 importedCount++
             }
         }
-        if (importedCount > 0) save(current)
+        if (importedCount > 0 || replace) save(current)
         return importedCount
     }
 

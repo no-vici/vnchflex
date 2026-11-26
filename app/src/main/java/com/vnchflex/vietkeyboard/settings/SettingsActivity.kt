@@ -4,6 +4,7 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
@@ -17,12 +18,15 @@ import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.vnchflex.vietkeyboard.R
 import com.vnchflex.vietkeyboard.macro.Macro
 import com.vnchflex.vietkeyboard.macro.MacroStore
 import com.vnchflex.vietkeyboard.suggestion.PersonalDictionaryStore
 import com.vnchflex.vietkeyboard.suggestion.PersonalWord
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * Gboard-identical Settings Activity + vnchKey Free Diacritics & Macro Editor.
@@ -52,6 +56,7 @@ class SettingsActivity : AppCompatActivity() {
         MACRO_EDITOR,
         GLIDE_TYPING,
         VOICE_CLIPBOARD,
+        BACKUP_RESTORE,
         ADVANCED,
         ABOUT
     }
@@ -64,6 +69,16 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var toolbarTitle: TextView
     private lateinit var btnBack: ImageView
     private var currentScreen = Screen.MAIN
+
+    private var pendingExportJson: String? = null
+    private val exportBackupLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri: Uri? ->
+        val json = pendingExportJson
+        pendingExportJson = null
+        if (uri != null && json != null) writeBackupToUri(uri, json)
+    }
+    private val importBackupLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) readBackupFromUri(uri)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -120,6 +135,7 @@ class SettingsActivity : AppCompatActivity() {
             Screen.MACRO_EDITOR -> renderMacroEditorScreen()
             Screen.GLIDE_TYPING -> renderGlideTypingScreen()
             Screen.VOICE_CLIPBOARD -> renderVoiceClipboardScreen()
+            Screen.BACKUP_RESTORE -> renderBackupRestoreScreen()
             Screen.ADVANCED -> renderAdvancedScreen()
             Screen.ABOUT -> renderAboutScreen()
         }
@@ -179,6 +195,11 @@ class SettingsActivity : AppCompatActivity() {
             title = "Nhập bằng giọng nói & Bảng nhớ tạm",
             subtitle = "Voice typing & Clipboard history",
             target = Screen.VOICE_CLIPBOARD
+        )
+        addNavRow(
+            title = "Sao lưu & khôi phục (Backup & restore)",
+            subtitle = "Xuất/nhập dữ liệu đã học, từ điển, macro, cài đặt",
+            target = Screen.BACKUP_RESTORE
         )
         addNavRow(
             title = "Nâng cao (Advanced)",
@@ -782,6 +803,172 @@ class SettingsActivity : AppCompatActivity() {
             subtitle = "Hiển thị văn bản đã sao chép gần đây trên thanh công cụ",
             checked = prefs.enableClipboardHistory
         ) { prefs.enableClipboardHistory = it }
+    }
+
+    // ==================== 8.5 BACKUP & RESTORE ====================
+    private fun renderBackupRestoreScreen() {
+        toolbarTitle.text = "Sao lưu & khôi phục"
+
+        addSectionHeader("Xuất dữ liệu (Export)")
+        addActionItem(
+            title = "Xuất tất cả dữ liệu",
+            subtitle = "Cài đặt, macro/gõ tắt, từ điển cá nhân, từ đã học, n-gram"
+        ) { exportBackup() }
+
+        addSectionHeader("Nhập dữ liệu (Import)")
+        addActionItem(
+            title = "Nhập dữ liệu từ file JSON",
+            subtitle = "Chọn file backup vnchFlex để gộp hoặc thay thế dữ liệu"
+        ) { confirmAndPickImport() }
+
+        addSectionHeader("Lưu ý")
+        addActionItem(
+            title = "GBoard learned data",
+            subtitle = "Android không cho app khác đọc dữ liệu học riêng của GBoard. Bạn có thể dùng Export/Import của vnchFlex để chuyển máy."
+        ) {}
+    }
+
+    private fun exportBackup() {
+        try {
+            val json = buildBackupJson().toString(2)
+            pendingExportJson = json
+            exportBackupLauncher.launch("vnchflex-backup.json")
+        } catch (e: Exception) {
+            Toast.makeText(this, "Không thể tạo backup: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun confirmAndPickImport() {
+        AlertDialog.Builder(this)
+            .setTitle("Nhập dữ liệu")
+            .setMessage("Bạn muốn gộp vào dữ liệu hiện tại hay thay thế hoàn toàn?")
+            .setPositiveButton("Gộp") { _, _ ->
+                pendingImportReplace = false
+                importBackupLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+            }
+            .setNeutralButton("Hủy", null)
+            .setNegativeButton("Thay thế") { _, _ ->
+                AlertDialog.Builder(this)
+                    .setTitle("Thay thế toàn bộ?")
+                    .setMessage("Dữ liệu đã học/từ điển/macro/cài đặt tương ứng trong backup sẽ thay thế dữ liệu hiện tại.")
+                    .setPositiveButton("Thay thế") { _, _ ->
+                        pendingImportReplace = true
+                        importBackupLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+                    }
+                    .setNegativeButton("Hủy", null)
+                    .show()
+            }
+            .show()
+    }
+
+    private var pendingImportReplace: Boolean = false
+
+    private fun buildBackupJson(): JSONObject {
+        val root = JSONObject()
+        root.put("format", "vnchflex-backup")
+        root.put("version", 1)
+        root.put("exportedAt", System.currentTimeMillis())
+
+        // Settings
+        val settingsObj = JSONObject()
+        val sp = getSharedPreferences(KeyboardPreferences.PREFS_NAME, MODE_PRIVATE)
+        for ((k, v) in sp.all) {
+            when (v) {
+                is Boolean -> settingsObj.put(k, v)
+                is Int -> settingsObj.put(k, v)
+                is Long -> settingsObj.put(k, v)
+                is Float -> settingsObj.put(k, v.toDouble())
+                is String -> settingsObj.put(k, v)
+                is Set<*> -> {
+                    val arr = JSONArray()
+                    v.filterIsInstance<String>().forEach { arr.put(it) }
+                    settingsObj.put(k, JSONObject().put("__type", "string_set").put("values", arr))
+                }
+            }
+        }
+        root.put("settings", settingsObj)
+
+        // Macros (full format)
+        root.put("macros", JSONArray(macroStore.exportBackupJson()))
+
+        // Personal dictionary + learned data
+        root.put("dictionary", dictStore.exportBackupJson())
+        return root
+    }
+
+    private fun writeBackupToUri(uri: Uri, json: String) {
+        try {
+            contentResolver.openOutputStream(uri)?.use { os ->
+                os.writer(Charsets.UTF_8).use { it.write(json) }
+            } ?: throw IllegalStateException("Không mở được file để ghi")
+            Toast.makeText(this, "Đã xuất backup", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Lỗi xuất backup: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun readBackupFromUri(uri: Uri) {
+        try {
+            val raw = contentResolver.openInputStream(uri)?.use { ins ->
+                ins.bufferedReader(Charsets.UTF_8).readText()
+            } ?: throw IllegalStateException("Không đọc được file")
+            val root = JSONObject(raw)
+            val replace = pendingImportReplace
+            val summary = applyBackupJson(root, replace)
+            Toast.makeText(this, summary, Toast.LENGTH_LONG).show()
+            navigateTo(Screen.BACKUP_RESTORE)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Lỗi nhập backup: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun applyBackupJson(root: JSONObject, replace: Boolean): String {
+        var macrosCount = 0
+        var dictCount = 0
+        var settingsCount = 0
+
+        val settingsObj = root.optJSONObject("settings")
+        if (settingsObj != null) {
+            val sp = getSharedPreferences(KeyboardPreferences.PREFS_NAME, MODE_PRIVATE)
+            val editor = sp.edit()
+            if (replace) editor.clear()
+            val keys = settingsObj.keys()
+            while (keys.hasNext()) {
+                val k = keys.next()
+                val v = settingsObj.opt(k)
+                when (v) {
+                    is Boolean -> editor.putBoolean(k, v)
+                    is Int -> editor.putInt(k, v)
+                    is Long -> editor.putLong(k, v)
+                    is Double -> editor.putFloat(k, v.toFloat())
+                    is String -> editor.putString(k, v)
+                    is JSONObject -> {
+                        if (v.optString("__type") == "string_set") {
+                            val arr = v.optJSONArray("values") ?: JSONArray()
+                            val set = mutableSetOf<String>()
+                            for (i in 0 until arr.length()) set.add(arr.optString(i))
+                            editor.putStringSet(k, set)
+                        }
+                    }
+                }
+                settingsCount++
+            }
+            editor.apply()
+        }
+
+        val macrosAny = root.opt("macros")
+        if (macrosAny is JSONArray) {
+            macrosCount = macroStore.importJson(macrosAny.toString(), replace)
+        } else if (macrosAny is JSONObject) {
+            macrosCount = macroStore.importJson(macrosAny.toString(), replace)
+        }
+
+        val dictObj = root.optJSONObject("dictionary")
+        if (dictObj != null) {
+            dictCount = dictStore.importBackupJson(dictObj, replace)
+        }
+
+        return "Đã nhập backup (${if (replace) "thay thế" else "gộp"}): $settingsCount cài đặt, $macrosCount macro, $dictCount mục từ điển/học."
     }
 
     // ==================== 9. ADVANCED ====================
