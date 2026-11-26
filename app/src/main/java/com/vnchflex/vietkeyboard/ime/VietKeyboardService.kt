@@ -412,7 +412,10 @@ class VietKeyboardService : InputMethodService() {
                                 refreshLetterKeyLabels()
                             }
                         }
-                        flushPendingRollover()
+                        val commitOnDown = pendingRolloverAction
+                        pendingRolloverAction = null
+                        // Keep pendingRolloverCancel so next key rollover can cancel this key's long-press.
+                        commitOnDown?.invoke()
                         downCommitted = true
                     }
                     MotionEvent.ACTION_MOVE -> {
@@ -754,11 +757,12 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun flushPendingRollover() {
-        val action = pendingRolloverAction ?: return
+        val action = pendingRolloverAction
+        val cancel = pendingRolloverCancel
         pendingRolloverAction = null
-        pendingRolloverCancel?.invoke()
         pendingRolloverCancel = null
-        action.invoke()
+        cancel?.invoke()
+        action?.invoke()
     }
 
     private fun trackCommittedChar(c: Char?) {
