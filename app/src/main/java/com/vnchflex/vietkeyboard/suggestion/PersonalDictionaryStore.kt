@@ -137,13 +137,19 @@ class PersonalDictionaryStore(context: Context) {
             .apply()
     }
 
-    /** Reload learned caches from disk (used after external corpus import). */
-    fun reloadLearnedDataFromDisk() {
+    /** Xóa cache trên RAM để lần đọc tiếp theo lấy dữ liệu mới nhất từ SharedPreferences */
+    fun invalidateCaches() {
         flushNgrams()
+        personalWordsCache = null
         learnedWordsCache = null
         learnedBigramsCache = null
         learnedTrigramsCache = null
         learnedWordsDirty = false
+    }
+
+    /** Reload learned caches from disk (used after external corpus import). */
+    fun reloadLearnedDataFromDisk() {
+        invalidateCaches()
     }
 
     private fun scheduleNgramSave() {

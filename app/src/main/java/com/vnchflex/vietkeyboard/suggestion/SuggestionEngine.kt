@@ -826,24 +826,27 @@ class SuggestionEngine(context: Context? = null) {
         dictStore?.clearLearnedWords()
     }
 
-    /** Reload learned data from disk, merging into in-memory model (for external corpus import). */
+    /**
+     * Nạp lại toàn bộ từ đã học, Bigram và Trigram từ PersonalDictionaryStore
+     * (dùng sau khi Import backup hoặc Xóa từ đã học trong SettingsActivity).
+     */
     fun reloadFromStore() {
         val store = dictStore ?: return
-        store.reloadLearnedDataFromDisk()
+        store.invalidateCaches()
         synchronized(learnLock) {
+            userUnigramCounts.clear()
+            userBigrams.clear()
+            userTrigrams.clear()
+
             store.loadLearnedWords().forEach { w ->
-                if (userUnigramCounts[w] == null) {
-                    userUnigramCounts[w] = 5
-                    insertIntoTrie(w)
-                }
+                userUnigramCounts[w] = (userUnigramCounts[w] ?: 0) + 5
+                insertIntoTrie(w)
             }
             store.loadLearnedBigrams().forEach { (ctx, map) ->
-                val dest = userBigrams.getOrPut(ctx) { mutableMapOf() }
-                map.forEach { (w, c) -> dest[w] = maxOf(dest[w] ?: 0, c) }
+                userBigrams[ctx] = map.toMutableMap()
             }
             store.loadLearnedTrigrams().forEach { (ctx, map) ->
-                val dest = userTrigrams.getOrPut(ctx) { mutableMapOf() }
-                map.forEach { (w, c) -> dest[w] = maxOf(dest[w] ?: 0, c) }
+                userTrigrams[ctx] = map.toMutableMap()
             }
         }
     }

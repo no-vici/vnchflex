@@ -57,6 +57,7 @@ class VietKeyboardService : InputMethodService() {
     private lateinit var clipboardStore: ClipboardStore
     private var clipboardPanelController: ClipboardPanelController? = null
     private var isClipboardPanelOpen = false
+    private var shouldReloadDictionaryOnResume = false
     private var clipboardManager: ClipboardManager? = null
     private val learnExecutor: java.util.concurrent.ExecutorService = java.util.concurrent.Executors.newSingleThreadExecutor()
     private var shiftState = ShiftState.LOWER
@@ -267,8 +268,13 @@ class VietKeyboardService : InputMethodService() {
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        if (shouldReloadDictionaryOnResume) {
+            shouldReloadDictionaryOnResume = false
+            if (::suggestionEngine.isInitialized) {
+                learnExecutor.execute { suggestionEngine.reloadFromStore() }
+            }
+        }
         syncPreferencesToEngines()
-        if (::suggestionEngine.isInitialized) suggestionEngine.reloadFromStore()
         applyPreferencesToView()
         updateAutoCapitalization()
         updateSuggestions(vnEngine.composingText)
@@ -1408,6 +1414,7 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun openSettingsSection(section: String?) {
+        shouldReloadDictionaryOnResume = true
         val intent = Intent(this, SettingsActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             if (section != null) putExtra("section", section)
