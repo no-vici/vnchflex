@@ -166,6 +166,17 @@ class VietKeyboardService : InputMethodService() {
         glideOverlay?.onGlideStart = {
             dismissKeyPopup()
             dismissAltPopup()
+            currentInputConnection?.let { ic ->
+                if (vnEngine.isComposing) {
+                    vnEngine.onBackspace(ic)
+                } else if (!isVietnameseMode && enComposing.isNotEmpty()) {
+                    enComposing.deleteCharAt(enComposing.length - 1)
+                    ic.deleteSurroundingText(1, 0)
+                }
+                if (currentTokenBuffer.isNotEmpty()) {
+                    currentTokenBuffer.deleteCharAt(currentTokenBuffer.length - 1)
+                }
+            }
         }
         glideOverlay?.onGlideComplete = { swipedKeys ->
             dismissKeyPopup()
@@ -257,6 +268,8 @@ class VietKeyboardService : InputMethodService() {
 
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
+        currentTokenBuffer.clear()
+        justExpandedMacroWithSpace = false
         syncPreferencesToEngines()
         vnEngine.reset()
         updateSuggestions("")
@@ -878,10 +891,17 @@ class VietKeyboardService : InputMethodService() {
 
     private fun commitRaw(text: String) {
         lastGlideCommittedLength = 0
+        justExpandedMacroWithSpace = false
         if (altPopup?.isShowing == true) dismissAltPopup()
         val ic = currentInputConnection ?: return
         vnEngine.commit(ic)
         ic.commitText(text, 1)
+        if (text.isNotEmpty() && text.all { it.isLetterOrDigit() }) {
+            currentTokenBuffer.append(text)
+        } else {
+            currentTokenBuffer.clear()
+        }
+        trackCommittedChar(text.lastOrNull())
         updateAutoCapitalization()
         updateSuggestions("")
     }
@@ -905,6 +925,12 @@ class VietKeyboardService : InputMethodService() {
     private fun onBackspace() {
         val ic = currentInputConnection ?: return
         val now = System.currentTimeMillis()
+        justExpandedMacroWithSpace = false
+        if (lastGlideCommittedLength > 0 && !backspaceRepeating) {
+            currentTokenBuffer.clear()
+        } else if (currentTokenBuffer.isNotEmpty()) {
+            currentTokenBuffer.deleteCharAt(currentTokenBuffer.length - 1)
+        }
 
         // 0. Gboard Glide Typing behavior: Single Backspace immediately after a glided word deletes the whole glided word
         if (lastGlideCommittedLength > 0 && !backspaceRepeating) {
@@ -1257,6 +1283,8 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun onEnter() {
+        currentTokenBuffer.clear()
+        justExpandedMacroWithSpace = false
         val ic = currentInputConnection ?: return
         vnEngine.commit(ic)
         ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
@@ -1505,6 +1533,8 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun acceptSuggestion(word: String) {
+        currentTokenBuffer.clear()
+        justExpandedMacroWithSpace = false
         val ic = currentInputConnection ?: return
         val composing = vnEngine.composingText
         if (composing.isNotEmpty()) {
