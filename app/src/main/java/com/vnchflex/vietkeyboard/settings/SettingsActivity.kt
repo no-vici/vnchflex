@@ -726,6 +726,14 @@ class SettingsActivity : AppCompatActivity() {
             checked = prefs.showGestureTrail
         ) { prefs.showGestureTrail = it }
 
+        addSliderItem(
+            title = "Độ nhạy vuốt (nhỏ = nhạy hơn)",
+            unit = " dp",
+            min = 14,
+            max = 36,
+            current = prefs.glideSensitivityDp
+        ) { prefs.glideSensitivityDp = it }
+
         addSwitchItem(
             title = "Bật xóa bằng cử chỉ (Enable gesture delete)",
             subtitle = "Trượt sang trái từ phím xóa lùi để xóa nhanh cả từ",

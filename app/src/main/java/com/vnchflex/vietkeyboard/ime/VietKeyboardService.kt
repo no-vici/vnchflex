@@ -291,7 +291,7 @@ class VietKeyboardService : InputMethodService() {
             prefs.showNumberRow, prefs.showSuggestionStrip, prefs.showLanguageSwitchKey,
             prefs.showEmojiSwitchKey, prefs.themeMode, prefs.oneHandedMode, prefs.keyboardHeight,
             prefs.longPressForSymbols, prefs.enableGlideTyping, prefs.showGestureTrail,
-            isVietnameseMode, shiftState.name
+            prefs.glideSensitivityDp, isVietnameseMode, shiftState.name
         ).joinToString("|")
         if (prefsKey == lastAppliedPrefsKey) return
         lastAppliedPrefsKey = prefsKey
@@ -345,6 +345,7 @@ class VietKeyboardService : InputMethodService() {
         // 7. Refresh letter labels & glide overlay settings
         glideOverlay?.glideEnabled = prefs.enableGlideTyping
         glideOverlay?.showTrail = prefs.showGestureTrail
+        glideOverlay?.glideThresholdPx = prefs.glideSensitivityDp * density
         glideOverlay?.registerLetterKeys(letterButtons)
         refreshLetterKeyLabels()
     }

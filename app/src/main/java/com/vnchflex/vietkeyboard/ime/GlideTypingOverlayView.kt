@@ -43,7 +43,11 @@ class GlideTypingOverlayView @JvmOverloads constructor(
         strokeWidth = 10f * resources.displayMetrics.density
     }
 
-    private val glideThresholdPx = 24f * resources.displayMetrics.density
+    var glideThresholdPx: Float = 24f * resources.displayMetrics.density
+    private val keyHitPaddingPx = (4f * resources.displayMetrics.density).toInt()
+    private val minDwellDistancePx = 8f * resources.displayMetrics.density
+    private var lastKeyRecordX = 0f
+    private var lastKeyRecordY = 0f
     private var downX = 0f
     private var downY = 0f
     private var isGliding = false
@@ -101,6 +105,8 @@ class GlideTypingOverlayView @JvmOverloads constructor(
                 if (startKey != null) {
                     swipedKeys.append(startKey)
                     trailPath.moveTo(ev.x, ev.y)
+                    lastKeyRecordX = ev.x
+                    lastKeyRecordY = ev.y
                 }
                 return false
             }
@@ -177,17 +183,43 @@ class GlideTypingOverlayView @JvmOverloads constructor(
 
     private fun recordPoint(x: Float, y: Float) {
         trailPath.lineTo(x, y)
-        val key = findKeyAt(x.toInt(), y.toInt())
-        if (key != null && (swipedKeys.isEmpty() || swipedKeys.last() != key)) {
+        val key = findKeyAt(x.toInt(), y.toInt()) ?: return
+        if (swipedKeys.isEmpty()) {
             swipedKeys.append(key)
+            lastKeyRecordX = x
+            lastKeyRecordY = y
+            return
+        }
+        if (swipedKeys.last() != key) {
+            val moved = hypot(x - lastKeyRecordX, y - lastKeyRecordY)
+            if (moved >= minDwellDistancePx) {
+                swipedKeys.append(key)
+                lastKeyRecordX = x
+                lastKeyRecordY = y
+            }
         }
     }
 
     private fun findKeyAt(x: Int, y: Int): Char? {
+        var bestChar: Char? = null
+        var bestDistSq = Float.MAX_VALUE
         for ((ch, rect) in letterKeyRects) {
-            tempRect.set(rect)
-            if (tempRect.contains(x, y)) return ch
+            tempRect.set(
+                rect.left - keyHitPaddingPx,
+                rect.top - keyHitPaddingPx / 2,
+                rect.right + keyHitPaddingPx,
+                rect.bottom + keyHitPaddingPx / 2
+            )
+            if (tempRect.contains(x, y)) {
+                val dx = x - rect.exactCenterX()
+                val dy = y - rect.exactCenterY()
+                val distSq = dx * dx + dy * dy
+                if (distSq < bestDistSq) {
+                    bestDistSq = distSq
+                    bestChar = ch
+                }
+            }
         }
-        return null
+        return bestChar
     }
 }

@@ -147,6 +147,11 @@ class KeyboardPreferences(context: Context) {
         get() = prefs.getBoolean("pref_gesture_trail", true)
         set(v) = prefs.edit().putBoolean("pref_gesture_trail", v).apply()
 
+    /** Độ nhạy vuốt Glide Typing (ngưỡng kích hoạt dp: 14 = rất nhạy, 24 = mặc định, 36 = ít nhạy) */
+    var glideSensitivityDp: Int
+        get() = prefs.getInt("pref_glide_sensitivity_dp", 24)
+        set(v) = prefs.edit().putInt("pref_glide_sensitivity_dp", v.coerceIn(14, 36)).apply()
+
     var enableGestureDelete: Boolean
         get() = prefs.getBoolean("pref_gesture_delete", true)
         set(v) = prefs.edit().putBoolean("pref_gesture_delete", v).apply()
