@@ -306,6 +306,8 @@ class VietKeyboardService : InputMethodService() {
         val switchVisibility = if (prefs.showLanguageSwitchKey) View.VISIBLE else View.GONE
         val switchIconRes = when (prefs.langSwitchKeyIcon) {
             "ev" -> if (isVietnameseMode) R.drawable.ic_lang_v else R.drawable.ic_lang_e
+            "globe" -> R.drawable.ic_lang_globe
+            "vncharkey_logo" -> R.drawable.ic_lang_vncharkey_logo
             else -> R.drawable.ic_switch_ime_logo
         }
         listOf(R.id.key_switch_ime, R.id.key_switch_ime_s1, R.id.key_switch_ime_s2).forEach { id ->

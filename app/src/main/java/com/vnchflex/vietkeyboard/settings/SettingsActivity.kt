@@ -255,6 +255,8 @@ class SettingsActivity : AppCompatActivity() {
         val langIconOptions = listOf(
             "Logo vnchFlex (mặc định)" to "logo",
             "V/E VnCharKey (theo ngôn ngữ)" to "ev",
+            "Globe" to "globe",
+            "Logo VnCharKey" to "vncharkey_logo",
         )
         val currentLangIconLabel = langIconOptions.firstOrNull { it.second == prefs.langSwitchKeyIcon }?.first
             ?: "Logo vnchFlex (mặc định)"

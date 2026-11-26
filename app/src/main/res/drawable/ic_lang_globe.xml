@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="256"
+    android:viewportHeight="256">
+    <!-- Rounded background -->
+    <path
+        android:fillColor="#E8F5E9"
+        android:strokeColor="#2E7D32"
+        android:strokeWidth="8"
+        android:pathData="M64,24 L192,24 A40,40 0 0,1 232,64 L232,192 A40,40 0 0,1 192,232 L64,232 A40,40 0 0,1 24,192 L24,64 A40,40 0 0,1 64,24 Z" />
+    <!-- Globe circle -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#2E7D32"
+        android:strokeWidth="10"
+        android:pathData="M128,58 A70,70 0 1,1 127.99,58 Z" />
+    <!-- Equator -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#2E7D32"
+        android:strokeWidth="8"
+        android:pathData="M62,128 L194,128" />
+    <!-- Latitude top -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#2E7D32"
+        android:strokeWidth="7"
+        android:pathData="M72,96 C90,90 166,90 184,96" />
+    <!-- Latitude bottom -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#2E7D32"
+        android:strokeWidth="7"
+        android:pathData="M72,160 C90,166 166,166 184,160" />
+    <!-- Meridian center -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#2E7D32"
+        android:strokeWidth="8"
+        android:pathData="M128,58 C104,78 104,178 128,198 C152,178 152,78 128,58 Z" />
+    <!-- Meridian side -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#2E7D32"
+        android:strokeWidth="7"
+        android:pathData="M128,58 C80,82 80,174 128,198" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#2E7D32"
+        android:strokeWidth="7"
+        android:pathData="M128,58 C176,82 176,174 128,198" />
+</vector>
