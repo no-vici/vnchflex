@@ -286,6 +286,7 @@ class VietKeyboardService : InputMethodService() {
         enComposing.clear()
         lastGlideCommittedLength = 0
         justExpandedMacroWithSpace = false
+        trackCommittedChar(null)
         syncPreferencesToEngines()
         vnEngine.useComposingSpan = !isTelegramPackage(attribute?.packageName ?: currentInputEditorInfo?.packageName)
         currentInputConnection?.let { vnEngine.commit(it) } ?: vnEngine.reset()
@@ -330,7 +331,7 @@ class VietKeyboardService : InputMethodService() {
         val switchIconRes = when (prefs.langSwitchKeyIcon) {
             "ev" -> if (isVietnameseMode) R.drawable.ic_lang_v else R.drawable.ic_lang_e
             "globe" -> R.drawable.ic_lang_globe
-            "vncharkey_logo" -> R.drawable.ic_lang_vncharkey_logo
+            "vncharkey_logo" -> if (isVietnameseMode) R.drawable.ic_lang_vncharkey_logo else R.drawable.ic_lang_vncharkey_e
             else -> R.drawable.ic_switch_ime_logo
         }
         listOf(R.id.key_switch_ime, R.id.key_switch_ime_s1, R.id.key_switch_ime_s2).forEach { id ->
@@ -570,6 +571,8 @@ class VietKeyboardService : InputMethodService() {
                     showImePicker()
                 }
             }
+            btn.setOnClickListener(null)
+            btn.setOnLongClickListener(null)
             btn.setOnTouchListener { _, event ->
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
@@ -581,12 +584,13 @@ class VietKeyboardService : InputMethodService() {
                         isSpacePressed = true
                         spaceCommittedByRollover = false
                         popupHandler.removeCallbacks(spaceLongPressRunnable)
-                        popupHandler.postDelayed(spaceLongPressRunnable, 900L)
+                        popupHandler.postDelayed(spaceLongPressRunnable, 750L)
+                        true
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        if (!prefs.enableGestureCursorControl) return@setOnTouchListener false
+                        if (!prefs.enableGestureCursorControl) return@setOnTouchListener true
                         val density = resources.displayMetrics.density
-                        val swipeThresholdPx = 24f * density
+                        val swipeThresholdPx = 22f * density
                         val stepPx = 14f * density
                         val dx = event.x - lastStepX
                         if (kotlin.math.abs(event.x - startX) > swipeThresholdPx) {
@@ -603,6 +607,7 @@ class VietKeyboardService : InputMethodService() {
                                 lastStepX = event.x
                             }
                         }
+                        true
                     }
                     MotionEvent.ACTION_UP -> {
                         popupHandler.removeCallbacks(spaceLongPressRunnable)
@@ -611,21 +616,21 @@ class VietKeyboardService : InputMethodService() {
                             spaceCommittedByRollover = false
                             return@setOnTouchListener true
                         }
-                        if (didSwipe || didLongPress) return@setOnTouchListener true
-                        performKeyFeedback(btn)
-                        onSpacePressed()
-                        return@setOnTouchListener true
+                        if (!didSwipe && !didLongPress) {
+                            performKeyFeedback(btn)
+                            onSpacePressed()
+                        }
+                        true
                     }
                     MotionEvent.ACTION_CANCEL -> {
                         popupHandler.removeCallbacks(spaceLongPressRunnable)
                         isSpacePressed = false
                         spaceCommittedByRollover = false
-                        if (didSwipe || didLongPress) return@setOnTouchListener true
+                        true
                     }
+                    else -> true
                 }
-                false
             }
-            btn.setOnLongClickListener(null)
         }
         listOf(R.id.key_enter, R.id.key_enter_s1, R.id.key_enter_s2).forEach { bindClick(it, ::onEnter) }
         listOf(R.id.key_comma, R.id.key_dot).forEach { id ->
@@ -678,9 +683,13 @@ class VietKeyboardService : InputMethodService() {
 
     private fun updateAutoCapitalization(beforeText: String? = null) {
         if (!prefs.autoCapitalization || shiftState == ShiftState.CAPS_LOCK) return
-        val before = beforeText ?: currentInputConnection?.getTextBeforeCursor(4, 0)?.toString().orEmpty()
-        val trimmed = before.trimEnd()
-        val shouldCap = before.isEmpty() || trimmed.endsWith(".") || trimmed.endsWith("!") || trimmed.endsWith("?") || before.endsWith("\n")
+        val shouldCap = if (beforeText != null) {
+            val trimmed = beforeText.trimEnd()
+            beforeText.isEmpty() || trimmed.endsWith(".") || trimmed.endsWith("!") || trimmed.endsWith("?") || trimmed.endsWith("\n")
+        } else {
+            lastCommittedChar == null || lastCommittedChar == '\n' ||
+                (lastCommittedChar == ' ' && (prevCommittedChar == '.' || prevCommittedChar == '!' || prevCommittedChar == '?'))
+        }
         val newShift = if (shouldCap) ShiftState.SHIFTED else ShiftState.LOWER
         if (shiftState != newShift) {
             shiftState = newShift
@@ -866,12 +875,14 @@ class VietKeyboardService : InputMethodService() {
                 }
                 if (prefs.macroEnabled && tokenForMacro.isNotEmpty() && macroEngine.tryExpand(ic, c, beforeCursor = tokenForMacro)) {
                     justExpandedMacroWithSpace = (c == ' ')
+                    trackCommittedChar(c)
                     updateAutoCapitalization()
                     updateSuggestions("")
                     return
                 }
                 justExpandedMacroWithSpace = false
                 ic.commitText(c.toString(), 1)
+                trackCommittedChar(c)
                 updateAutoCapitalization()
                 updateSuggestions("")
                 return
@@ -884,6 +895,7 @@ class VietKeyboardService : InputMethodService() {
                 currentTokenBuffer.clear()
             }
             ic.commitText(c.toString(), 1)
+            trackCommittedChar(c)
             updateAutoCapitalization()
             updateSuggestions(enComposing.toString())
             return

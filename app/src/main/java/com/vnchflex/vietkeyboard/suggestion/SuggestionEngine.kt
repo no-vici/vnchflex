@@ -24,7 +24,9 @@ import com.vnchflex.vietkeyboard.engine.DiacriticUtils
  */
 class SuggestionEngine(context: Context? = null) {
     private val dictStore = context?.let { PersonalDictionaryStore(it) }
-    private val learnLock = Any()
+    private val rwLock = java.util.concurrent.locks.ReentrantReadWriteLock()
+    private val readLock = rwLock.readLock()
+    private val writeLock = rwLock.writeLock()
     private val trainedData = loadTrainedDataAsset(context)
 
     // Unigram dictionary with base frequency weights (including Southern Vietnamese dialect words: dzìa, dzách, dzô, dzậy, dzọt, dzui...)
@@ -600,14 +602,21 @@ class SuggestionEngine(context: Context? = null) {
     }
 
     private val strippedTrieRoot = TrieNode()
+    @Volatile
     private var trieBuilt = false
 
     private fun ensureTrieBuilt() {
         if (trieBuilt) return
-        trieBuilt = true
-        coreUnigramWeights.keys.forEach { insertIntoTrie(it) }
-        englishUnigramWeights.keys.forEach { insertIntoTrie(it) }
-        userUnigramCounts.keys.forEach { insertIntoTrie(it) }
+        writeLock.lock()
+        try {
+            if (trieBuilt) return
+            coreUnigramWeights.keys.forEach { insertIntoTrie(it) }
+            englishUnigramWeights.keys.forEach { insertIntoTrie(it) }
+            userUnigramCounts.keys.forEach { insertIntoTrie(it) }
+            trieBuilt = true
+        } finally {
+            writeLock.unlock()
+        }
     }
 
     private fun insertIntoTrie(word: String) {
@@ -621,26 +630,31 @@ class SuggestionEngine(context: Context? = null) {
         }
     }
 
-    private fun collectFromTrie(prefixStripped: String, limit: Int = 48): List<String> = synchronized(learnLock) {
-        ensureTrieBuilt()
-        var node = strippedTrieRoot
-        for (c in prefixStripped) {
-            node = node.children[c] ?: return@synchronized emptyList()
-        }
-        val out = ArrayList<String>(limit)
-        val queue = ArrayDeque<TrieNode>()
-        queue.add(node)
-        while (queue.isNotEmpty() && out.size < limit) {
-            val cur = queue.removeFirst()
-            for (w in cur.words) {
-                out.add(w)
-                if (out.size >= limit) break
+    private fun collectFromTrie(prefixStripped: String, limit: Int = 48): List<String> {
+        if (!trieBuilt) ensureTrieBuilt()
+        readLock.lock()
+        try {
+            var node = strippedTrieRoot
+            for (c in prefixStripped) {
+                node = node.children[c] ?: return emptyList()
             }
-            if (out.size < limit) {
-                cur.children.values.forEach { queue.add(it) }
+            val out = ArrayList<String>(limit)
+            val queue = ArrayDeque<TrieNode>()
+            queue.add(node)
+            while (queue.isNotEmpty() && out.size < limit) {
+                val cur = queue.removeFirst()
+                for (w in cur.words) {
+                    out.add(w)
+                    if (out.size >= limit) break
+                }
+                if (out.size < limit) {
+                    cur.children.values.forEach { queue.add(it) }
+                }
             }
+            return out
+        } finally {
+            readLock.unlock()
         }
-        out
     }
 
     init {
@@ -652,6 +666,11 @@ class SuggestionEngine(context: Context? = null) {
         }
         dictStore?.loadLearnedTrigrams()?.forEach { (ctx, map) ->
             userTrigrams[ctx] = map.toMutableMap()
+        }
+        // Dựng sẵn cây Trie trên luồng nền ngay khi khởi tạo để lần chạm phím đầu tiên mượt tức thì
+        java.util.concurrent.Executors.newSingleThreadExecutor().apply {
+            execute { ensureTrieBuilt() }
+            shutdown()
         }
     }
 
@@ -667,72 +686,78 @@ class SuggestionEngine(context: Context? = null) {
         limit: Int = 3,
         includeEmoji: Boolean = true,
         macroPreview: String? = null,
-    ): List<String> = synchronized(learnLock) {
+    ): List<String> {
         val q = prefix.trim()
-        if (q.isEmpty()) return@synchronized emptyList()
-        val lower = q.lowercase()
-        val strippedQuery = DiacriticUtils.strip(lower)
-        val isUpperFirst = q.first().isUpperCase()
+        if (q.isEmpty()) return emptyList()
+        if (!trieBuilt) ensureTrieBuilt()
+        readLock.lock()
+        try {
+            val lower = q.lowercase()
+            val strippedQuery = DiacriticUtils.strip(lower)
+            val isUpperFirst = q.first().isUpperCase()
 
-        val results = mutableListOf<String>()
-        // Slot 0 (Gboard left slot): exact composing text
-        results.add(q)
+            val results = mutableListOf<String>()
+            // Slot 0 (Gboard left slot): exact composing text
+            results.add(q)
 
-        englishContractions[lower]?.let { contraction ->
-            if (!results.contains(contraction)) results.add(contraction)
-        }
-
-        // Slot 1 priority: Macro preview or Personal Dictionary shortcut
-        if (!macroPreview.isNullOrEmpty() && !results.contains(macroPreview)) {
-            results.add(macroPreview)
-        }
-
-        val personalWords = dictStore?.loadPersonalWords().orEmpty()
-        personalWords.forEach { pw ->
-            val pwLower = pw.word.lowercase()
-            val pwStripped = DiacriticUtils.strip(pwLower)
-            if (pw.shortcut.equals(lower, ignoreCase = true) ||
-                pwLower.startsWith(lower) ||
-                pwStripped.startsWith(strippedQuery)
-            ) {
-                if (!results.contains(pw.word)) results.add(pw.word)
+            englishContractions[lower]?.let { contraction ->
+                if (!results.contains(contraction)) results.add(contraction)
             }
-        }
 
-        if (includeEmoji) {
-            (emojiMap[lower] ?: emojiMap[strippedQuery])?.let { emoji ->
-                if (!results.contains(emoji)) results.add(emoji)
+            // Slot 1 priority: Macro preview or Personal Dictionary shortcut
+            if (!macroPreview.isNullOrEmpty() && !results.contains(macroPreview)) {
+                results.add(macroPreview)
             }
-        }
 
-        // Contextual Trigram & Bigram candidate boosts for prefix completion
-        val contextualFollowers = getContextualWeights(prevWord2, prevWord1)
-
-        val allWords = collectFromTrie(strippedQuery, 48)
-        val scoredCandidates = allWords
-            .asSequence()
-            .filter { candidate ->
-                if (candidate.equals(lower, ignoreCase = true)) return@filter false
-                val candStripped = strippedWordCache.getOrPut(candidate) { DiacriticUtils.strip(candidate) }
-                candidate.startsWith(lower) || candStripped.startsWith(strippedQuery)
+            val personalWords = dictStore?.loadPersonalWords().orEmpty()
+            personalWords.forEach { pw ->
+                val pwLower = pw.word.lowercase()
+                val pwStripped = DiacriticUtils.strip(pwLower)
+                if (pw.shortcut.equals(lower, ignoreCase = true) ||
+                    pwLower.startsWith(lower) ||
+                    pwStripped.startsWith(strippedQuery)
+                ) {
+                    if (!results.contains(pw.word)) results.add(pw.word)
+                }
             }
-            .map { candidate ->
-                val exactPrefixBoost = if (candidate.startsWith(lower)) 250 else 100
-                val contextBoost = (contextualFollowers[candidate] ?: 0) * 120
-                val userBoost = (userUnigramCounts[candidate] ?: 0) * 15
-                val baseWeight = coreUnigramWeights[candidate] ?: 50
-                val lengthPenalty = (candidate.length - lower.length).coerceAtLeast(0) * 4
-                val totalScore = exactPrefixBoost + contextBoost + userBoost + baseWeight - lengthPenalty
-                candidate to totalScore
+
+            if (includeEmoji) {
+                (emojiMap[lower] ?: emojiMap[strippedQuery])?.let { emoji ->
+                    if (!results.contains(emoji)) results.add(emoji)
+                }
             }
-            .sortedByDescending { it.second }
 
-        scoredCandidates.forEach { (candidate, _) ->
-            val cased = if (isUpperFirst) candidate.replaceFirstChar { it.uppercaseChar() } else candidate
-            if (!results.contains(cased)) results.add(cased)
+            // Contextual Trigram & Bigram candidate boosts for prefix completion
+            val contextualFollowers = getContextualWeights(prevWord2, prevWord1)
+
+            val allWords = collectFromTrie(strippedQuery, 48)
+            val scoredCandidates = allWords
+                .asSequence()
+                .filter { candidate ->
+                    if (candidate.equals(lower, ignoreCase = true)) return@filter false
+                    val candStripped = strippedWordCache.getOrPut(candidate) { DiacriticUtils.strip(candidate) }
+                    candidate.startsWith(lower) || candStripped.startsWith(strippedQuery)
+                }
+                .map { candidate ->
+                    val exactPrefixBoost = if (candidate.startsWith(lower)) 250 else 100
+                    val contextBoost = (contextualFollowers[candidate] ?: 0) * 120
+                    val userBoost = (userUnigramCounts[candidate] ?: 0) * 15
+                    val baseWeight = coreUnigramWeights[candidate] ?: 50
+                    val lengthPenalty = (candidate.length - lower.length).coerceAtLeast(0) * 4
+                    val totalScore = exactPrefixBoost + contextBoost + userBoost + baseWeight - lengthPenalty
+                    candidate to totalScore
+                }
+                .sortedByDescending { it.second }
+
+            scoredCandidates.forEach { (candidate, _) ->
+                val cased = if (isUpperFirst) candidate.replaceFirstChar { it.uppercaseChar() } else candidate
+                if (!results.contains(cased)) results.add(cased)
+            }
+
+            return results.take(limit)
+        } finally {
+            readLock.unlock()
         }
-
-        results.take(limit)
     }
 
     /**
@@ -743,38 +768,43 @@ class SuggestionEngine(context: Context? = null) {
         prevWord1: String,
         prevWord2: String = "",
         limit: Int = 3,
-    ): List<String> = synchronized(learnLock) {
+    ): List<String> {
         val p1 = prevWord1.trim().lowercase()
         val p2 = prevWord2.trim().lowercase()
-        if (p1.isEmpty()) return@synchronized listOf("Tôi", "Xin", "Mình").take(limit)
+        if (p1.isEmpty()) return listOf("Tôi", "Xin", "Mình").take(limit)
 
-        val candidates = LinkedHashSet<String>()
+        readLock.lock()
+        try {
+            val candidates = LinkedHashSet<String>()
 
-        // 1. Trigram lookup: (p2, p1) -> nextWord
-        if (p2.isNotEmpty()) {
-            val trigramKey = "$p2 $p1"
-            userTrigrams[trigramKey]?.entries
-                ?.sortedByDescending { it.value }
-                ?.forEach { candidates.add(it.key) }
-            bundledTrigrams[trigramKey]?.forEach { candidates.add(it) }
-        }
-
-        // 2. Katz Backoff -> Bigram lookup: (p1) -> nextWord
-        if (candidates.size < limit) {
-            userBigrams[p1]?.entries
-                ?.sortedByDescending { it.value }
-                ?.forEach { candidates.add(it.key) }
-            bundledBigrams[p1]?.forEach { candidates.add(it) }
-        }
-
-        // 3. Backoff -> High-frequency Vietnamese connectors / unigrams
-        if (candidates.size < limit) {
-            listOf("là", "có", "và", "được", "không", "nha").forEach {
-                if (!it.equals(p1, ignoreCase = true)) candidates.add(it)
+            // 1. Trigram lookup: (p2, p1) -> nextWord
+            if (p2.isNotEmpty()) {
+                val trigramKey = "$p2 $p1"
+                userTrigrams[trigramKey]?.entries
+                    ?.sortedByDescending { it.value }
+                    ?.forEach { candidates.add(it.key) }
+                bundledTrigrams[trigramKey]?.forEach { candidates.add(it) }
             }
-        }
 
-        candidates.take(limit)
+            // 2. Katz Backoff -> Bigram lookup: (p1) -> nextWord
+            if (candidates.size < limit) {
+                userBigrams[p1]?.entries
+                    ?.sortedByDescending { it.value }
+                    ?.forEach { candidates.add(it.key) }
+                bundledBigrams[p1]?.forEach { candidates.add(it) }
+            }
+
+            // 3. Backoff -> High-frequency Vietnamese connectors / unigrams
+            if (candidates.size < limit) {
+                listOf("là", "có", "và", "được", "không", "nha").forEach {
+                    if (!it.equals(p1, ignoreCase = true)) candidates.add(it)
+                }
+            }
+
+            return candidates.take(limit)
+        } finally {
+            readLock.unlock()
+        }
     }
 
     /**
@@ -783,11 +813,12 @@ class SuggestionEngine(context: Context? = null) {
     fun learn(word: String, prevWord1: String = "", prevWord2: String = "") {
         val w = word.trim().lowercase()
         if (w.length < 2) return
-        synchronized(learnLock) {
+        writeLock.lock()
+        try {
             // 1. Learn Unigram
             userUnigramCounts[w] = (userUnigramCounts[w] ?: 0) + 1
             dictStore?.addLearnedWord(w)
-            insertIntoTrie(w)
+            if (trieBuilt) insertIntoTrie(w)
 
             // 2. Learn Bigram (prevWord1 -> w)
             val p1 = prevWord1.trim().lowercase()
@@ -805,6 +836,8 @@ class SuggestionEngine(context: Context? = null) {
                     dictStore?.saveLearnedTrigrams(userTrigrams)
                 }
             }
+        } finally {
+            writeLock.unlock()
         }
     }
 
@@ -821,7 +854,8 @@ class SuggestionEngine(context: Context? = null) {
         var learnedWordCount = 0
         val sentences = sentenceSplitter.split(corpusText.lowercase())
 
-        synchronized(learnLock) {
+        writeLock.lock()
+        try {
             for (sentence in sentences) {
                 val tokens = sentence.trim()
                     .split(Regex("\\s+"))
@@ -835,7 +869,7 @@ class SuggestionEngine(context: Context? = null) {
                 for (token in tokens) {
                     userUnigramCounts[token] = (userUnigramCounts[token] ?: 0) + 1
                     dictStore?.addLearnedWord(token)
-                    insertIntoTrie(token)
+                    if (trieBuilt) insertIntoTrie(token)
 
                     if (prev1.isNotEmpty()) {
                         val bMap = userBigrams.getOrPut(prev1) { mutableMapOf() }
@@ -859,15 +893,20 @@ class SuggestionEngine(context: Context? = null) {
                 dictStore?.saveLearnedTrigrams(userTrigrams)
                 dictStore?.flushNgrams()
             }
+        } finally {
+            writeLock.unlock()
         }
         return learnedWordCount
     }
 
     fun clearLearnedWords() {
-        synchronized(learnLock) {
+        writeLock.lock()
+        try {
             userUnigramCounts.clear()
             userBigrams.clear()
             userTrigrams.clear()
+        } finally {
+            writeLock.unlock()
         }
         dictStore?.clearLearnedWords()
     }
@@ -879,14 +918,15 @@ class SuggestionEngine(context: Context? = null) {
     fun reloadFromStore() {
         val store = dictStore ?: return
         store.invalidateCaches()
-        synchronized(learnLock) {
+        writeLock.lock()
+        try {
             userUnigramCounts.clear()
             userBigrams.clear()
             userTrigrams.clear()
 
             store.loadLearnedWords().forEach { w ->
                 userUnigramCounts[w] = (userUnigramCounts[w] ?: 0) + 5
-                insertIntoTrie(w)
+                if (trieBuilt) insertIntoTrie(w)
             }
             store.loadLearnedBigrams().forEach { (ctx, map) ->
                 userBigrams[ctx] = map.toMutableMap()
@@ -894,6 +934,8 @@ class SuggestionEngine(context: Context? = null) {
             store.loadLearnedTrigrams().forEach { (ctx, map) ->
                 userTrigrams[ctx] = map.toMutableMap()
             }
+        } finally {
+            writeLock.unlock()
         }
     }
 
@@ -952,29 +994,34 @@ class SuggestionEngine(context: Context? = null) {
         dictStore?.flushNgrams()
     }
 
-    private fun getContextualWeights(prevWord2: String, prevWord1: String): Map<String, Int> = synchronized(learnLock) {
-        val weights = mutableMapOf<String, Int>()
+    private fun getContextualWeights(prevWord2: String, prevWord1: String): Map<String, Int> {
         val p1 = prevWord1.trim().lowercase()
         val p2 = prevWord2.trim().lowercase()
-        if (p1.isEmpty()) return@synchronized weights
+        if (p1.isEmpty()) return emptyMap()
 
-        if (p2.isNotEmpty()) {
-            val tKey = "$p2 $p1"
-            bundledTrigrams[tKey]?.forEachIndexed { idx, w ->
-                weights[w] = (weights[w] ?: 0) + (10 - idx).coerceAtLeast(3)
+        readLock.lock()
+        try {
+            val weights = mutableMapOf<String, Int>()
+            if (p2.isNotEmpty()) {
+                val tKey = "$p2 $p1"
+                bundledTrigrams[tKey]?.forEachIndexed { idx, w ->
+                    weights[w] = (weights[w] ?: 0) + (10 - idx).coerceAtLeast(3)
+                }
+                userTrigrams[tKey]?.forEach { (w, count) ->
+                    weights[w] = (weights[w] ?: 0) + count * 6
+                }
             }
-            userTrigrams[tKey]?.forEach { (w, count) ->
-                weights[w] = (weights[w] ?: 0) + count * 6
-            }
-        }
 
-        bundledBigrams[p1]?.forEachIndexed { idx, w ->
-            weights[w] = (weights[w] ?: 0) + (5 - idx).coerceAtLeast(1)
+            bundledBigrams[p1]?.forEachIndexed { idx, w ->
+                weights[w] = (weights[w] ?: 0) + (5 - idx).coerceAtLeast(1)
+            }
+            userBigrams[p1]?.forEach { (w, count) ->
+                weights[w] = (weights[w] ?: 0) + count * 3
+            }
+            return weights
+        } finally {
+            readLock.unlock()
         }
-        userBigrams[p1]?.forEach { (w, count) ->
-            weights[w] = (weights[w] ?: 0) + count * 3
-        }
-        weights
     }
 
     private fun openAssetReader(context: Context, assetName: String): java.io.BufferedReader? {

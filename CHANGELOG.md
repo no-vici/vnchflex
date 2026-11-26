@@ -4,6 +4,20 @@ Tất cả các thay đổi đáng chú ý của dự án **vnchFlex** đều đ
 
 ---
 
+## [Unreleased / Latest] — Tối ưu phím Space, SuggestionEngine & Icon English
+
+### Added & Improved (Tính năng mới & Cải thiện)
+- **Tối ưu độ mượt phím Space & loại bỏ IPC đồng bộ** (`VietKeyboardService`):
+  - Loại bỏ 100% lệnh gọi IPC `getTextBeforeCursor()` trong `updateAutoCapitalization()`, dùng trực tiếp `lastCommittedChar` / `prevCommittedChar` nội bộ.
+  - Chặn chuỗi `performClick()` / state drawable thừa của `Button` trên `key_space`, `key_space_s1`, `key_space_s2` bằng `setOnTouchListener` trả về `true`, giảm ngưỡng vuốt con trỏ xuống `22dp` và nhấn giữ xuống `750ms`.
+- **Tối ưu `SuggestionEngine`**:
+  - Chuyển `learnLock` sang `ReentrantReadWriteLock` để luồng đọc gợi ý trên Main Thread không bị chặn bởi luồng học từ nền.
+  - Dựng sẵn cây Trie (`ensureTrieBuilt()`) trên luồng nền ngay trong `init`.
+- **Icon chuyển ngôn ngữ English (`vncharkey_logo`)**:
+  - Thêm VectorDrawable `ic_lang_vncharkey_e.xml` và tự động chuyển đổi giữa `ic_lang_vncharkey_logo` (Tiếng Việt) và `ic_lang_vncharkey_e` (English).
+
+---
+
 ## [Unreleased / Latest] — Mượt gõ, Composing ổn định, Glide trail, Backup/Restore
 
 ### Added & Improved (Tính năng mới & Cải thiện)
