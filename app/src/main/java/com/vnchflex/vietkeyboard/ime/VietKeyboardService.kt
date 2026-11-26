@@ -727,11 +727,6 @@ class VietKeyboardService : InputMethodService() {
 
     private fun onDigitOrSymbol(text: String) {
         commitRaw(text)
-        if (text.length == 1 && text[0].isLetterOrDigit()) {
-            currentTokenBuffer.append(text[0])
-        } else {
-            currentTokenBuffer.clear()
-        }
     }
 
     private fun onSecondarySymbol(symbol: String) {
