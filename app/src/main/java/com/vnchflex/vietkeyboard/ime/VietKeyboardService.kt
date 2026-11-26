@@ -1266,6 +1266,8 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun deleteWordBeforeCursor() {
+        currentTokenBuffer.clear()
+        justExpandedMacroWithSpace = false
         val ic = currentInputConnection ?: return
         if (vnEngine.isComposing) {
             vnEngine.reset(ic)
