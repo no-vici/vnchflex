@@ -62,6 +62,9 @@ class VietKeyboardService : InputMethodService() {
     private var spaceCommittedByRollover = false
     private var lastCommittedChar: Char? = null
     private var prevCommittedChar: Char? = null
+    private var justExpandedMacroWithSpace = false
+    private var pendingRolloverAction: (() -> Unit)? = null
+    private var pendingRolloverCancel: (() -> Unit)? = null
     private var pendingSuggestionRunnable: Runnable? = null
     private val suggestionExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
     private var lastBackspaceClickTime = 0L
@@ -368,12 +371,26 @@ class VietKeyboardService : InputMethodService() {
             btn.setOnTouchListener { v, event ->
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
+                        flushPendingRollover()
                         longPressHandled = false
                         downX = event.x
                         downY = event.y
                         if (prefs.popupOnKeypress) scheduleKeyPopup(v, btn.text.toString())
                         popupHandler.removeCallbacks(longPressRunnable)
                         popupHandler.postDelayed(longPressRunnable, prefs.longPressDelayMs.toLong().coerceAtLeast(150L))
+                        pendingRolloverCancel = {
+                            popupHandler.removeCallbacks(longPressRunnable)
+                            dismissKeyPopup()
+                        }
+                        pendingRolloverAction = {
+                            performKeyFeedback(btn)
+                            val ch = if (shiftState != ShiftState.LOWER) baseLetter.uppercase()[0] else baseLetter[0]
+                            onChar(ch)
+                            if (shiftState == ShiftState.SHIFTED) {
+                                shiftState = ShiftState.LOWER
+                                refreshLetterKeyLabels()
+                            }
+                        }
                     }
                     MotionEvent.ACTION_MOVE -> {
                         if (altPopup?.isShowing == true && altAnchor === v) {
@@ -387,14 +404,20 @@ class VietKeyboardService : InputMethodService() {
                     MotionEvent.ACTION_UP -> {
                         popupHandler.removeCallbacks(longPressRunnable)
                         if (altPopup?.isShowing == true && altAnchor === v) {
+                            pendingRolloverAction = null
+                            pendingRolloverCancel = null
                             commitAltSelection()
                             dismissKeyPopup()
                             return@setOnTouchListener true
                         }
                         dismissKeyPopup()
+                        flushPendingRollover()
+                        return@setOnTouchListener true
                     }
                     MotionEvent.ACTION_CANCEL -> {
                         popupHandler.removeCallbacks(longPressRunnable)
+                        pendingRolloverAction = null
+                        pendingRolloverCancel = null
                         dismissAltPopup()
                         dismissKeyPopup()
                     }
@@ -406,14 +429,7 @@ class VietKeyboardService : InputMethodService() {
                     longPressHandled = false
                     return@setOnClickListener
                 }
-                dismissKeyPopup()
-                performKeyFeedback(btn)
-                val ch = if (shiftState != ShiftState.LOWER) baseLetter.uppercase()[0] else baseLetter[0]
-                onChar(ch)
-                if (shiftState == ShiftState.SHIFTED) {
-                    shiftState = ShiftState.LOWER
-                    refreshLetterKeyLabels()
-                }
+                flushPendingRollover()
             }
             btn.setOnLongClickListener(null)
         }
@@ -502,6 +518,7 @@ class VietKeyboardService : InputMethodService() {
             btn.setOnTouchListener { _, event ->
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
+                        flushPendingRollover()
                         startX = event.x
                         lastStepX = event.x
                         didSwipe = false
@@ -708,6 +725,14 @@ class VietKeyboardService : InputMethodService() {
         commitRaw(symbol)
     }
 
+    private fun flushPendingRollover() {
+        val action = pendingRolloverAction ?: return
+        pendingRolloverAction = null
+        pendingRolloverCancel?.invoke()
+        pendingRolloverCancel = null
+        action.invoke()
+    }
+
     private fun trackCommittedChar(c: Char?) {
         if (c == null) {
             prevCommittedChar = null
@@ -748,6 +773,10 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun onPunctuation(c: Char) {
+        if (justExpandedMacroWithSpace && c in ".,;:!?") {
+            justExpandedMacroWithSpace = false
+            currentInputConnection?.deleteSurroundingText(1, 0)
+        }
         onChar(c)
         if (prefs.autoSpaceAfterPunctuation && (c == ',' || c == '.' || c == '!' || c == '?')) {
             currentInputConnection?.commitText(" ", 1)
@@ -777,10 +806,12 @@ class VietKeyboardService : InputMethodService() {
                     recordCommittedWord(finishedEn)
                 }
                 if (prefs.macroEnabled && finishedEn.isNotEmpty() && macroEngine.tryExpand(ic, c, beforeCursor = finishedEn)) {
+                    justExpandedMacroWithSpace = (c == ' ')
                     updateAutoCapitalization()
                     updateSuggestions("")
                     return
                 }
+                justExpandedMacroWithSpace = false
                 ic.commitText(c.toString(), 1)
                 updateAutoCapitalization()
                 updateSuggestions("")
@@ -802,12 +833,14 @@ class VietKeyboardService : InputMethodService() {
             if (finishedWord.isNotEmpty()) {
                 suggestionExecutor.execute { recordCommittedWord(finishedWord) }
                 if (prefs.macroEnabled && macroEngine.tryExpand(ic, c, beforeCursor = finishedWord)) {
+                    justExpandedMacroWithSpace = (c == ' ')
                     trackCommittedChar(c)
                     updateAutoCapitalization()
                     scheduleSuggestionsUpdate("")
                     return
                 }
             }
+            justExpandedMacroWithSpace = false
             ic.commitText(c.toString(), 1)
             trackCommittedChar(c)
             updateAutoCapitalization()
@@ -815,6 +848,7 @@ class VietKeyboardService : InputMethodService() {
             return
         }
 
+        justExpandedMacroWithSpace = false
         val handled = vnEngine.onChar(c, ic)
         if (!handled) {
             vnEngine.commit(ic)
