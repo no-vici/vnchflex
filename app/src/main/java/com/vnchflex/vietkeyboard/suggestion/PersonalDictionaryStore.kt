@@ -300,7 +300,7 @@ class PersonalDictionaryStore(context: Context) {
         private const val KEY_LEARNED_WORDS = "learned_words"
         private const val KEY_LEARNED_BIGRAMS = "learned_bigrams_v1"
         private const val KEY_LEARNED_TRIGRAMS = "learned_trigrams_v1"
-        private const val MAX_STORED_CONTEXTS = 400
+        private const val MAX_STORED_CONTEXTS = 1500
         private const val MAX_FOLLOWERS_PER_CONTEXT = 8
     }
 }
