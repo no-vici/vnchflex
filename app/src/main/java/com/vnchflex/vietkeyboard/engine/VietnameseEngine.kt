@@ -88,9 +88,14 @@ class VietnameseEngine {
     }
 
     fun reset(ic: InputConnection? = null) {
-        if (ic != null && useComposingSpan && (renderedOutput.isNotEmpty() || rawChars.isNotEmpty())) {
-            // Discard active composing span so stale composing text doesn't linger.
-            ic.commitText("", 1)
+        if (ic != null && (renderedOutput.isNotEmpty() || rawChars.isNotEmpty())) {
+            if (useComposingSpan) {
+                // Discard active composing span so stale composing text doesn't linger.
+                ic.commitText("", 1)
+            } else if (renderedOutput.isNotEmpty()) {
+                // Non-composing mode: text was committed directly, so remove it from editor.
+                ic.deleteSurroundingText(renderedOutput.length, 0)
+            }
         }
         rawChars.clear()
         renderedOutput = ""

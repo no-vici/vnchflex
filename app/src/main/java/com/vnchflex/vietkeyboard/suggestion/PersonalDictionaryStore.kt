@@ -139,12 +139,13 @@ class PersonalDictionaryStore(context: Context) {
 
     /** Xóa cache trên RAM để lần đọc tiếp theo lấy dữ liệu mới nhất từ SharedPreferences */
     fun invalidateCaches() {
-        flushNgrams()
+        handler.removeCallbacks(ngramSaveRunnable)
+        ngramSavePending = false
+        learnedWordsDirty = false
         personalWordsCache = null
         learnedWordsCache = null
         learnedBigramsCache = null
         learnedTrigramsCache = null
-        learnedWordsDirty = false
     }
 
     /** Reload learned caches from disk (used after external corpus import). */
@@ -201,14 +202,17 @@ class PersonalDictionaryStore(context: Context) {
 
     private fun serializeNgramJson(data: Map<String, Map<String, Int>>): String {
         val root = JSONObject()
-        data.entries.take(MAX_STORED_CONTEXTS).forEach { (ctx, followers) ->
-            val child = JSONObject()
-            followers.entries
-                .sortedByDescending { it.value }
-                .take(MAX_FOLLOWERS_PER_CONTEXT)
-                .forEach { (w, count) -> child.put(w, count) }
-            root.put(ctx, child)
-        }
+        data.entries
+            .sortedByDescending { (_, followers) -> followers.values.sum() }
+            .take(MAX_STORED_CONTEXTS)
+            .forEach { (ctx, followers) ->
+                val child = JSONObject()
+                followers.entries
+                    .sortedByDescending { it.value }
+                    .take(MAX_FOLLOWERS_PER_CONTEXT)
+                    .forEach { (w, count) -> child.put(w, count) }
+                root.put(ctx, child)
+            }
         return root.toString()
     }
 

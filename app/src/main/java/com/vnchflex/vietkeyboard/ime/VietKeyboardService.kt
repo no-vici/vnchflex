@@ -1263,19 +1263,9 @@ class VietKeyboardService : InputMethodService() {
     private fun commitPopupSelection(text: String) {
         if (text.length == 1) {
             val c = text[0]
-            val isPlainAsciiLetter = c in 'a'..'z' || c in 'A'..'Z'
-            if (isPlainAsciiLetter) {
-                val ch = if (shiftState != ShiftState.LOWER) c.uppercaseChar() else c.lowercaseChar()
-                onChar(ch)
-                if (shiftState == ShiftState.SHIFTED) {
-                    shiftState = ShiftState.LOWER
-                    refreshLetterKeyLabels()
-                }
-                return
-            }
             if (c.isLetter()) {
                 val ch = if (shiftState != ShiftState.LOWER) c.uppercaseChar() else c.lowercaseChar()
-                commitRaw(ch.toString())
+                onChar(ch)
                 if (shiftState == ShiftState.SHIFTED) {
                     shiftState = ShiftState.LOWER
                     refreshLetterKeyLabels()

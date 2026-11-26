@@ -81,7 +81,7 @@ class SuggestionEngine(context: Context? = null) {
             dễ dệ dệt di dì dí dỉ dị dĩa dịch diễn diện diều diệu dinh dình
             dính dịnh do dò dó dỏ dọ dọa dọn dòng dóng dọng dỗ dốc dồi dối
             dội dồn dông giống dốt dột dơ dờ dớ dở dợ đời đới đợi đơm đờn
-            đợt du dù dú dủ dụ dua dùa dúa dũa dùng dũng dụng duỗi đuổi đuốiar
+            đợt du dù dú dủ dụ dua dùa dúa dũa dùng dũng dụng duỗi đuổi đuối
             đuôi đút duy duyên duyệt dư dừ dứ dữ dự dưa dừa dứa dựa dương dường
             dứt đa đà đá đả đã đạ đạc đai đài đái đải đãi đại đàm đảm
             đám đạm đan đàn đán đạn đang đàng đáng đãng đạng đanh đành đánh đạo đạp
@@ -434,7 +434,23 @@ class SuggestionEngine(context: Context? = null) {
         trainedData.words.forEach { w ->
             if (w.length in 2..20 && !containsKey(w)) put(w, 78)
         }
+
+        // Optional pretrained vi_unigrams asset (plain or .gz)
+        runCatching {
+            val reader = context?.let { openAssetReaderAny(it, "vi_unigrams.txt.gz", "vi_unigrams.txt") }
+            reader?.useLines { lines ->
+                lines.forEach { line ->
+                    val parts = line.trim().split('\t')
+                    val word = parts.firstOrNull()?.lowercase().orEmpty()
+                    val weight = parts.getOrNull(1)?.toIntOrNull() ?: 72
+                    if (word.length in 2..20 && !containsKey(word)) put(word, weight.coerceIn(60, 99))
+                }
+            }
+        }
     }
+
+    private val pretrainedTsvNgrams: Pair<Map<String, List<String>>, Map<String, List<String>>> =
+        loadTsvNgrams(context, "vi_ngrams.tsv.gz", "vi_ngrams.tsv")
 
     // Bundled Trigram Language Model: "prev2 prev1" -> ordered list of next words (gộp dữ liệu mặc định + assets/vi_trigrams.json)
     private val bundledTrigrams: Map<String, List<String>> = buildMap {
@@ -485,6 +501,12 @@ class SuggestionEngine(context: Context? = null) {
             merged.addAll(words)
             put(ctx, merged.toList())
         }
+        pretrainedTsvNgrams.second.forEach { (ctx, words) ->
+            val merged = LinkedHashSet<String>()
+            get(ctx)?.let { merged.addAll(it) }
+            merged.addAll(words)
+            put(ctx, merged.toList())
+        }
     }
 
     // Bundled Bigram Language Model: "prev1" -> ordered list of next words (gộp dữ liệu mặc định + assets/vi_bigrams.json)
@@ -528,6 +550,12 @@ class SuggestionEngine(context: Context? = null) {
             put(ctx, merged.toList())
         }
         trainedData.bigrams.forEach { (ctx, words) ->
+            val merged = LinkedHashSet<String>()
+            get(ctx)?.let { merged.addAll(it) }
+            merged.addAll(words)
+            put(ctx, merged.toList())
+        }
+        pretrainedTsvNgrams.first.forEach { (ctx, words) ->
             val merged = LinkedHashSet<String>()
             get(ctx)?.let { merged.addAll(it) }
             merged.addAll(words)
@@ -871,7 +899,8 @@ class SuggestionEngine(context: Context? = null) {
 
     private val englishUnigramWeights: Map<String, Int> = buildMap {
         val loadedFromAsset = runCatching {
-            context?.assets?.open("en_unigrams.txt")?.bufferedReader()?.useLines { lines ->
+            val reader = context?.let { openAssetReaderAny(it, "en_unigrams.txt.gz", "en_unigrams.txt") }
+            reader?.useLines { lines ->
                 lines.forEach { line ->
                     val parts = line.trim().split('\t')
                     val word = parts.firstOrNull()?.lowercase().orEmpty()
@@ -948,10 +977,29 @@ class SuggestionEngine(context: Context? = null) {
         weights
     }
 
+    private fun openAssetReader(context: Context, assetName: String): java.io.BufferedReader? {
+        return runCatching {
+            if (assetName.endsWith(".gz")) {
+                java.util.zip.GZIPInputStream(context.assets.open(assetName)).bufferedReader(Charsets.UTF_8)
+            } else {
+                context.assets.open(assetName).bufferedReader(Charsets.UTF_8)
+            }
+        }.getOrNull()
+    }
+
+    private fun openAssetReaderAny(context: Context, vararg names: String): java.io.BufferedReader? {
+        for (name in names) {
+            val r = openAssetReader(context, name)
+            if (r != null) return r
+        }
+        return null
+    }
+
     private fun loadAssetNgrams(context: Context?, assetName: String): Map<String, List<String>> {
         if (context == null) return emptyMap()
         return runCatching {
-            val raw = context.assets.open(assetName).bufferedReader().use { it.readText() }
+            val raw = openAssetReaderAny(context, assetName, "$assetName.gz")
+                ?.use { it.readText() } ?: return@runCatching emptyMap()
             val json = org.json.JSONObject(raw)
             buildMap {
                 val keys = json.keys()
@@ -970,6 +1018,33 @@ class SuggestionEngine(context: Context? = null) {
                 }
             }
         }.getOrDefault(emptyMap())
+    }
+
+    private fun loadTsvNgrams(
+        context: Context?,
+        vararg names: String
+    ): Pair<Map<String, List<String>>, Map<String, List<String>>> {
+        if (context == null) return emptyMap<String, List<String>>() to emptyMap()
+        return runCatching {
+            val reader = openAssetReaderAny(context, *names) ?: return@runCatching emptyMap<String, List<String>>() to emptyMap()
+            val bigrams = HashMap<String, List<String>>()
+            val trigrams = HashMap<String, List<String>>()
+            reader.useLines { lines ->
+                lines.forEach { line ->
+                    val tab = line.indexOf('\t')
+                    if (tab <= 0) return@forEach
+                    val ctx = line.substring(0, tab).trim().lowercase()
+                    if (ctx.isEmpty()) return@forEach
+                    val followers = line.substring(tab + 1)
+                        .split(',')
+                        .map { it.trim().lowercase() }
+                        .filter { it.isNotEmpty() }
+                    if (followers.isEmpty()) return@forEach
+                    if (' ' in ctx) trigrams[ctx] = followers else bigrams[ctx] = followers
+                }
+            }
+            bigrams to trigrams
+        }.getOrDefault(emptyMap<String, List<String>>() to emptyMap())
     }
 
     private data class TrainedData(

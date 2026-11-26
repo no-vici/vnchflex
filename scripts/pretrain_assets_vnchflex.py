@@ -42,7 +42,7 @@ def clean_markdown(raw: str) -> str:
     Returns:
         Chuỗi văn bản sạch đã loại bỏ cú pháp đánh dấu và liên kết.
     """
-    raw = re.sub(r"```[\s\(\S\)]*?```", " ", raw)
+    raw = re.sub(r"```[\s\S]*?```", " ", raw)
     raw = re.sub(r"`[^`]*`", " ", raw)
     raw = re.sub(r"\[([^\]]+)\]\([^\)]+\)", r"\1", raw)
     raw = re.sub(r"https?://\S+", " ", raw)
