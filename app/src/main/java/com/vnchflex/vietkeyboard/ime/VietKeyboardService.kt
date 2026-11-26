@@ -291,7 +291,7 @@ class VietKeyboardService : InputMethodService() {
             prefs.showNumberRow, prefs.showSuggestionStrip, prefs.showLanguageSwitchKey,
             prefs.showEmojiSwitchKey, prefs.themeMode, prefs.oneHandedMode, prefs.keyboardHeight,
             prefs.longPressForSymbols, prefs.enableGlideTyping, prefs.showGestureTrail,
-            prefs.glideSensitivityDp, isVietnameseMode, shiftState.name
+            prefs.glideSensitivityDp, prefs.langSwitchKeyIcon, isVietnameseMode, shiftState.name
         ).joinToString("|")
         if (prefsKey == lastAppliedPrefsKey) return
         lastAppliedPrefsKey = prefsKey
@@ -304,8 +304,14 @@ class VietKeyboardService : InputMethodService() {
 
         // 3. Language switch key & Emoji switch key options
         val switchVisibility = if (prefs.showLanguageSwitchKey) View.VISIBLE else View.GONE
+        val switchIconRes = when (prefs.langSwitchKeyIcon) {
+            "ev" -> if (isVietnameseMode) R.drawable.ic_lang_v else R.drawable.ic_lang_e
+            else -> R.drawable.ic_switch_ime_logo
+        }
         listOf(R.id.key_switch_ime, R.id.key_switch_ime_s1, R.id.key_switch_ime_s2).forEach { id ->
-            root.findViewById<View>(id)?.visibility = switchVisibility
+            val btn = root.findViewById<android.widget.ImageButton>(id)
+            btn?.visibility = switchVisibility
+            btn?.setImageResource(switchIconRes)
         }
         root.findViewById<View>(R.id.key_emoji)?.visibility =
             if (prefs.showEmojiSwitchKey) View.VISIBLE else View.GONE

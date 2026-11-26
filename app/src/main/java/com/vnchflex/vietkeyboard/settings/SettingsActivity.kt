@@ -248,9 +248,25 @@ class SettingsActivity : AppCompatActivity() {
 
         addSwitchItem(
             title = "Hiện phím chuyển đổi ngôn ngữ",
-            subtitle = "Hiển thị nút logo chuyển bàn phím ở hàng dưới cùng",
+            subtitle = "Hiển thị nút chuyển ngôn ngữ ở hàng dưới cùng",
             checked = prefs.showLanguageSwitchKey
         ) { prefs.showLanguageSwitchKey = it }
+
+        val langIconOptions = listOf(
+            "Logo vnchFlex (mặc định)" to "logo",
+            "V/E VnCharKey (theo ngôn ngữ)" to "ev",
+        )
+        val currentLangIconLabel = langIconOptions.firstOrNull { it.second == prefs.langSwitchKeyIcon }?.first
+            ?: "Logo vnchFlex (mặc định)"
+        addSingleChoiceItem(
+            title = "Biểu tượng phím chuyển ngôn ngữ",
+            currentValue = currentLangIconLabel,
+            options = langIconOptions,
+            selectedKey = prefs.langSwitchKeyIcon
+        ) {
+            prefs.langSwitchKeyIcon = it
+            navigateTo(Screen.PREFERENCES)
+        }
 
         addSwitchItem(
             title = "Hiện phím biểu tượng cảm xúc",

@@ -21,6 +21,11 @@ class KeyboardPreferences(context: Context) {
         get() = prefs.getBoolean("pref_show_language_switch_key", true)
         set(v) = prefs.edit().putBoolean("pref_show_language_switch_key", v).apply()
 
+    /** Biểu tượng phím chuyển ngôn ngữ: "logo" (mặc định) hoặc "ev" (V/E theo ngôn ngữ) */
+    var langSwitchKeyIcon: String
+        get() = prefs.getString("pref_lang_switch_key_icon", "logo") ?: "logo"
+        set(v) = prefs.edit().putString("pref_lang_switch_key_icon", v).apply()
+
     /** Hiện phím biểu tượng cảm xúc (Show emoji switch key) */
     var showEmojiSwitchKey: Boolean
         get() = prefs.getBoolean("pref_show_emoji_switch_key", false)
