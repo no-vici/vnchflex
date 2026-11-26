@@ -1338,18 +1338,50 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun onPasteClipboard() {
-        if (!prefs.enableClipboardHistory) return
-        val cm = clipboardManager ?: (getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.also { clipboardManager = it } ?: return
-        val current = cm.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString().orEmpty()
+        val anchor = window?.window?.decorView?.findViewById<View>(R.id.btn_toolbar_clipboard)
+            ?: keyboardView?.findViewById(R.id.btn_toolbar_clipboard)
+            ?: return
+        val density = resources.displayMetrics.density
+
+        if (!prefs.enableClipboardHistory) {
+            showClipboardPrompt(
+                anchor = anchor,
+                density = density,
+                message = "Sao chép nhiều mục, dán nhanh cùng một lúc",
+                actionLabel = "Bật bảng nhớ tạm"
+            ) {
+                prefs.enableClipboardHistory = true
+                // Capture current clipboard immediately after enabling.
+                val cm = clipboardManager ?: (getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.also { clipboardManager = it }
+                val current = cm?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString().orEmpty()
+                if (current.isNotBlank()) {
+                    clipboardHistory.remove(current)
+                    clipboardHistory.addFirst(current)
+                }
+                onPasteClipboard()
+            }
+            return
+        }
+
+        val cm = clipboardManager ?: (getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.also { clipboardManager = it }
+        val current = cm?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString().orEmpty()
         if (current.isNotBlank() && clipboardHistory.firstOrNull() != current) {
             clipboardHistory.remove(current)
             clipboardHistory.addFirst(current)
             while (clipboardHistory.size > 15) clipboardHistory.removeLast()
         }
-        val anchor = window?.window?.decorView?.findViewById<View>(R.id.btn_toolbar_clipboard) ?: return
-        if (clipboardHistory.isEmpty()) return
 
-        val density = resources.displayMetrics.density
+        if (clipboardHistory.isEmpty()) {
+            showClipboardPrompt(
+                anchor = anchor,
+                density = density,
+                message = "Chưa có mục nào trong bảng nhớ tạm.\nSao chép văn bản để lưu và dán nhanh tại đây.",
+                actionLabel = null,
+                onAction = null
+            )
+            return
+        }
+
         val listLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding((8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
@@ -1382,6 +1414,48 @@ class VietKeyboardService : InputMethodService() {
             elevation = 8 * density
         }
         val popup = PopupWindow(scroll, (320 * density).toInt(), (220 * density).toInt(), false).apply {
+            isOutsideTouchable = true
+            isTouchable = true
+        }
+        popupRef = popup
+        popup.showAtLocation(anchor.rootView, android.view.Gravity.BOTTOM or android.view.Gravity.CENTER_HORIZONTAL, 0, (56 * density).toInt())
+    }
+
+    private fun showClipboardPrompt(
+        anchor: View,
+        density: Float,
+        message: String,
+        actionLabel: String?,
+        onAction: (() -> Unit)?
+    ) {
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(getColor(R.color.keyboard_bg))
+            elevation = 8 * density
+            setPadding((16 * density).toInt(), (14 * density).toInt(), (16 * density).toInt(), (14 * density).toInt())
+        }
+        layout.addView(TextView(this).apply {
+            text = message
+            textSize = 14f
+            setTextColor(getColor(R.color.key_text))
+        })
+        var popupRef: PopupWindow? = null
+        if (!actionLabel.isNullOrBlank() && onAction != null) {
+            layout.addView(TextView(this).apply {
+                text = actionLabel
+                textSize = 14f
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(getColor(R.color.accent))
+                gravity = Gravity.END
+                setPadding(0, (12 * density).toInt(), 0, 0)
+                setOnClickListener {
+                    performKeyFeedback(this)
+                    popupRef?.dismiss()
+                    onAction()
+                }
+            })
+        }
+        val popup = PopupWindow(layout, (320 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT, false).apply {
             isOutsideTouchable = true
             isTouchable = true
         }
