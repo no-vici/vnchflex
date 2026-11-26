@@ -1024,9 +1024,10 @@ class SuggestionEngine(context: Context? = null) {
         context: Context?,
         vararg names: String
     ): Pair<Map<String, List<String>>, Map<String, List<String>>> {
-        if (context == null) return emptyMap<String, List<String>>() to emptyMap()
+        if (context == null) return emptyMap<String, List<String>>() to emptyMap<String, List<String>>()
         return runCatching {
-            val reader = openAssetReaderAny(context, *names) ?: return@runCatching emptyMap<String, List<String>>() to emptyMap()
+            val reader = openAssetReaderAny(context, *names)
+                ?: return@runCatching emptyMap<String, List<String>>() to emptyMap<String, List<String>>()
             val bigrams = HashMap<String, List<String>>()
             val trigrams = HashMap<String, List<String>>()
             reader.useLines { lines ->
@@ -1044,7 +1045,7 @@ class SuggestionEngine(context: Context? = null) {
                 }
             }
             bigrams to trigrams
-        }.getOrDefault(emptyMap<String, List<String>>() to emptyMap())
+        }.getOrDefault(emptyMap<String, List<String>>() to emptyMap<String, List<String>>())
     }
 
     private data class TrainedData(
