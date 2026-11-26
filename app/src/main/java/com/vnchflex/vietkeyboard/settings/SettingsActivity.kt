@@ -79,6 +79,17 @@ class SettingsActivity : AppCompatActivity() {
     private val importBackupLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) readBackupFromUri(uri)
     }
+    private val importCorpusFileLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) {
+            runCatching {
+                contentResolver.openInputStream(uri)?.use { it.bufferedReader(Charsets.UTF_8).readText() }.orEmpty()
+            }.onSuccess { text ->
+                processCorpusText(text)
+            }.onFailure { e ->
+                Toast.makeText(this, "Không đọc được file: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -503,6 +514,20 @@ class SettingsActivity : AppCompatActivity() {
             subtitle = "Giữ nguyên raw text khi gõ (vd: telegram, tele...) • $whitelistCount từ",
             target = Screen.ENGLISH_WHITELIST
         )
+
+        addActionItem(
+            title = "Học từ văn bản mẫu (Dán đoạn văn)",
+            subtitle = "Dán email, ghi chú hoặc đoạn chat để bàn phím học ngay cách dùng từ & cụm từ của bạn"
+        ) {
+            showCorpusPasteDialog()
+        }
+
+        addActionItem(
+            title = "Học từ file văn bản (.txt)",
+            subtitle = "Chọn file .txt trên máy để huấn luyện gợi ý từ & Trigram cục bộ"
+        ) {
+            importCorpusFileLauncher.launch(arrayOf("text/plain", "text/*"))
+        }
 
         addActionItem(
             title = "Xóa các từ đã học (Delete learned words)",
@@ -1143,5 +1168,46 @@ class SettingsActivity : AppCompatActivity() {
             setBackgroundColor(Color.parseColor("#FFE8EAED"))
         }
         container.addView(div)
+    }
+
+    private fun showCorpusPasteDialog() {
+        val etCorpus = EditText(this).apply {
+            hint = "Dán đoạn văn bản tiếng Việt hoặc tiếng Anh vào đây..."
+            minLines = 6
+            maxLines = 12
+            gravity = Gravity.TOP or Gravity.START
+        }
+        val containerBox = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 24, 48, 8)
+            addView(etCorpus)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Học phong cách gõ từ văn bản")
+            .setMessage("Dữ liệu chỉ được xử lý và lưu 100% offline trên thiết bị của bạn.")
+            .setView(containerBox)
+            .setPositiveButton("Học ngay") { _, _ ->
+                processCorpusText(etCorpus.text.toString())
+            }
+            .setNegativeButton("Hủy", null)
+            .show()
+    }
+
+    private fun processCorpusText(rawText: String) {
+        if (rawText.isBlank()) {
+            Toast.makeText(this, "Văn bản trống, chưa có gì để học", Toast.LENGTH_SHORT).show()
+            return
+        }
+        Thread {
+            val engine = com.vnchflex.vietkeyboard.suggestion.SuggestionEngine(this)
+            val count = engine.learnFromCorpus(rawText)
+            runOnUiThread {
+                Toast.makeText(
+                    this,
+                    "Đã học xong $count từ và cập nhật gợi ý ngữ cảnh Trigram!",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }.start()
     }
 }

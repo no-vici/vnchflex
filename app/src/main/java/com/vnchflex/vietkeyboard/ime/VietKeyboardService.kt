@@ -268,6 +268,7 @@ class VietKeyboardService : InputMethodService() {
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         syncPreferencesToEngines()
+        if (::suggestionEngine.isInitialized) suggestionEngine.reloadFromStore()
         applyPreferencesToView()
         updateAutoCapitalization()
         updateSuggestions(vnEngine.composingText)

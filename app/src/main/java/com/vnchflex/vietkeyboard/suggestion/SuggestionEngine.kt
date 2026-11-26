@@ -762,6 +762,61 @@ class SuggestionEngine(context: Context? = null) {
         }
     }
 
+    /**
+     * Học nhanh Unigram, Bigram và Trigram từ một đoạn văn bản mẫu (email, ghi chú, file .txt).
+     * Tách theo dấu câu để không ghép nhầm từ cuối câu trước với từ đầu câu sau.
+     * @return Số lượng từ hợp lệ đã được xử lý và đưa vào mô hình ngôn ngữ.
+     */
+    fun learnFromCorpus(corpusText: String): Int {
+        if (corpusText.isBlank()) return 0
+        val sentenceSplitter = Regex("[.!?\\n;:\\(\\)\\[\\]\"“”]+")
+        val validTokenRegex = Regex("^[a-záàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ0-9'-]{2,20}$")
+
+        var learnedWordCount = 0
+        val sentences = sentenceSplitter.split(corpusText.lowercase())
+
+        synchronized(learnLock) {
+            for (sentence in sentences) {
+                val tokens = sentence.trim()
+                    .split(Regex("\\s+"))
+                    .map { it.trim('-', '\'') }
+                    .filter { validTokenRegex.matches(it) }
+
+                if (tokens.isEmpty()) continue
+
+                var prev1 = ""
+                var prev2 = ""
+                for (token in tokens) {
+                    userUnigramCounts[token] = (userUnigramCounts[token] ?: 0) + 1
+                    dictStore?.addLearnedWord(token)
+                    insertIntoTrie(token)
+
+                    if (prev1.isNotEmpty()) {
+                        val bMap = userBigrams.getOrPut(prev1) { mutableMapOf() }
+                        bMap[token] = (bMap[token] ?: 0) + 1
+
+                        if (prev2.isNotEmpty()) {
+                            val tKey = "$prev2 $prev1"
+                            val tMap = userTrigrams.getOrPut(tKey) { mutableMapOf() }
+                            tMap[token] = (tMap[token] ?: 0) + 1
+                        }
+                    }
+
+                    prev2 = prev1
+                    prev1 = token
+                    learnedWordCount++
+                }
+            }
+
+            if (learnedWordCount > 0) {
+                dictStore?.saveLearnedBigrams(userBigrams)
+                dictStore?.saveLearnedTrigrams(userTrigrams)
+                dictStore?.flushNgrams()
+            }
+        }
+        return learnedWordCount
+    }
+
     fun clearLearnedWords() {
         synchronized(learnLock) {
             userUnigramCounts.clear()
@@ -769,6 +824,28 @@ class SuggestionEngine(context: Context? = null) {
             userTrigrams.clear()
         }
         dictStore?.clearLearnedWords()
+    }
+
+    /** Reload learned data from disk, merging into in-memory model (for external corpus import). */
+    fun reloadFromStore() {
+        val store = dictStore ?: return
+        store.reloadLearnedDataFromDisk()
+        synchronized(learnLock) {
+            store.loadLearnedWords().forEach { w ->
+                if (userUnigramCounts[w] == null) {
+                    userUnigramCounts[w] = 5
+                    insertIntoTrie(w)
+                }
+            }
+            store.loadLearnedBigrams().forEach { (ctx, map) ->
+                val dest = userBigrams.getOrPut(ctx) { mutableMapOf() }
+                map.forEach { (w, c) -> dest[w] = maxOf(dest[w] ?: 0, c) }
+            }
+            store.loadLearnedTrigrams().forEach { (ctx, map) ->
+                val dest = userTrigrams.getOrPut(ctx) { mutableMapOf() }
+                map.forEach { (w, c) -> dest[w] = maxOf(dest[w] ?: 0, c) }
+            }
+        }
     }
 
     private val englishUnigramWeights: Map<String, Int> = buildMap {
