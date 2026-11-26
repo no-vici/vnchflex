@@ -83,6 +83,7 @@ Khi bạn lướt ngón tay qua các phím `x` -> `i` -> `n` mà không nhấc t
 1. **Bắt chuyển động (`GlideTypingOverlayView.kt`)**:
    - Bình thường, lớp phủ này đứng im để bạn bấm phím như bình thường.
    - Khi ngón tay bạn di chuyển quá **24dp**, nó hiểu: *"À, người dùng đang vuốt!"* -> Nó chặn sự kiện bấm phím thường, hủy popup phím đang hiện, và bắt đầu vẽ **vệt màu xanh** theo ngón tay bạn.
+   - Vệt vuốt giữ các điểm gần ~350ms, đuôi mờ/dần nhỏ về phía sau; khi nhấc tay, vệt fade out mượt thay vì biến mất đột ngột.
    - Trong lúc vuốt, cứ đi qua phím nào, nó ghi nhận chữ cái của phím đó (ví dụ: `x`, `c`, `d`, `i`, `n`).
 
 2. **Giải mã đường vuốt (`GlideDecoder.kt`)**:
@@ -106,5 +107,7 @@ Khi bạn lướt ngón tay qua các phím `x` -> `i` -> `n` mà không nhấc t
 
 **Cách vnchFlex giải quyết:**
 1. **Tự nhớ trạng thái ở local**: Tự theo dõi từ đang gõ và từ vừa gõ trong biến bộ nhớ, hạn chế tối đa việc hỏi `InputConnection` trên mỗi phím bấm.
-2. **Tái sử dụng View (View Recycling)**: Thanh gợi ý và Popup xem trước phím được tạo sẵn 1 lần rồi dùng lại, không tạo mới (`inflate`) liên tục gây giật khung hình.
-3. **Cache dữ liệu**: Danh sách Macro và Từ điển cá nhân được nạp sẵn vào RAM khi khởi động bàn phím, không đọc từ ổ cứng (`SharedPreferences`) mỗi lần gõ.
+2. **Composing bằng `setComposingText`**: Khi đang gõ từ tiếng Việt, engine cập nhật composing span bằng `setComposingText` (chuỗi thường, không UnderlineSpan) thay vì xóa/rồi commit lại liên tục, giúp ổn định hơn trên Chrome/Zalo/WebView.
+3. **Học từ ở nền + debounce lưu**: Việc học từ/ngữ cảnh chạy trên `learnExecutor` single-thread; learned words và n-gram được debounce ghi xuống `SharedPreferences`, tránh làm khựng phím Space.
+4. **Tái sử dụng View (View Recycling)**: Thanh gợi ý và Popup xem trước phím được tạo sẵn 1 lần rồi dùng lại, không tạo mới (`inflate`) liên tục gây giật khung hình.
+5. **Cache dữ liệu**: Danh sách Macro và Từ điển cá nhân được nạp sẵn vào RAM, không đọc/parse JSON từ ổ cứng trên mỗi lần gõ.

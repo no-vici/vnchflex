@@ -42,3 +42,13 @@ Tài liệu này tóm tắt quá trình xây dựng **vnchFlex** từ một bả
   - Xây dựng `GlideDecoder` gọn nhẹ kết hợp bảng `KEY_NEIGHBORS` và mô hình ngôn ngữ **Trigram**.
   - Mở rộng từ điển lên **~5.900 âm tiết tiếng Việt chuẩn** (đã lọc sạch ký tự lạ và từ dính chữ).
   - Bổ sung UX chuẩn Gboard: hiện 3 ứng viên để chạm đổi nhanh (và học lại từ vừa chọn), bấm `Backspace` 1 lần để xóa nguyên từ vừa vuốt.
+- **Kết quả**: Gõ vuốt trơn tru, phản hồi nhanh, đánh đúng ý ngay cả khi di chuyển ngón tay không hoàn hảo.
+
+## Giai đoạn 6: Ổn định composing, học từ nền & tiện ích dữ liệu
+- **Vấn đề**: Gõ nhanh trong WebView/Chrome đôi khi dễ dính/mất chữ do mô hình delete+commit; học từ trên main thread có thể gây khựng Space; dữ liệu học/macro khó chuyển máy.
+- **Giải pháp**:
+  - Chuyển `VietnameseEngine` sang `setComposingText` (không UnderlineSpan), chuẩn hóa `commit/reset/rehydrate` theo composing span.
+  - Đưa `SuggestionEngine.learn` sang `learnExecutor` nền, debounce lưu learned words cùng n-gram trong `PersonalDictionaryStore`.
+  - Thêm vệt vuốt mờ dần (fading tail) cho Glide, sửa hit-box glide sau khi đóng clipboard panel, và reset trạng thái glide khi nhấn Enter.
+  - Thêm Backup/Restore JSON (SAF, gộp/thay thế) cho cài đặt, macro, từ điển cá nhân, từ đã học/ngữ cảnh.
+- **Kết quả**: Gõ ổn định hơn trên app WebView, ít khựng khi học từ, và người dùng có thể sao lưu/chuyển dữ liệu vnchFlex.

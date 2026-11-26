@@ -4,7 +4,26 @@ Tất cả các thay đổi đáng chú ý của dự án **vnchFlex** đều đ
 
 ---
 
-## [Unreleased / Latest] — Gboard Clipboard & Local VersionCode (`6af3027`)
+## [Unreleased / Latest] — Mượt gõ, Composing ổn định, Glide trail, Backup/Restore
+
+### Added & Improved (Tính năng mới & Cải thiện)
+- **Sao lưu & Khôi phục (Backup/Restore)** (`4ee2cca`):
+  - Thêm màn "Sao lưu & khôi phục" trong Cài đặt, xuất/nhập JSON qua SAF.
+  - Bao gồm cài đặt, macro (đầy đủ), từ điển cá nhân, từ đã học, bigram/trigram; hỗ trợ **Gộp** hoặc **Thay thế**.
+- **Clipboard prompt kiểu Gboard** (`8430381`): Nút 📋 hiển thị trạng thái bật clipboard hoặc hướng dẫn khi lịch sử trống.
+- **Glide trail mờ dần** (`f7cfefe`): Vệt vuốt giữ điểm gần ~350ms, alpha/độ dày giảm dần về đuôi, tự fade out ~220ms khi nhấc tay.
+- **Composing ổn định hơn** (`f7cfefe`): `VietnameseEngine` chuyển sang `setComposingText` (không UnderlineSpan), `commit/rehydrate/reset` xử lý composing span đúng; giảm rủi ro dính/mất chữ trên Chrome/Zalo/WebView.
+- **Học từ nền & debounce lưu** (`f7cfefe`): `recordCommittedWord` đẩy `SuggestionEngine.learn` sang `learnExecutor` single-thread; `PersonalDictionaryStore` debounce lưu learned words cùng n-gram; `SuggestionEngine` đồng bộ lock cho learn/suggest.
+
+### Fixed (Sửa lỗi)
+- **Long-press alternates bị mất** (`d42060e`): Không hủy long-press runnable khi self-flush ACTION_DOWN; `flushPendingRollover` luôn gọi cancel.
+- **Glide + Enter + Backspace** (`f7cfefe`): `onEnter()` reset `lastGlideCommittedLength` và track `\n`.
+- **Clipboard panel làm lệch hit-box glide** (`f7cfefe`): `closeClipboardPanel()` rebuild `glideOverlay.registerLetterKeys(...)`.
+- **Icon phím chuyển ngôn ngữ** (`f3e1829`, `90f6c92`): Thêm tùy chọn globe/logo VnCharKey và tinh chỉnh hiển thị.
+
+---
+
+## [Previous] — Gboard Clipboard & Local VersionCode (`6af3027`)
 
 ### Added & Improved (Tính năng mới & Cải thiện)
 - **Bảng nhớ tạm (Clipboard) kiểu Gboard**:
@@ -15,7 +34,7 @@ Tất cả các thay đổi đáng chú ý của dự án **vnchFlex** đều đ
 
 ---
 
-## [Unreleased / Latest] — Whitelist & Space Rollover (`09aea53`)
+## [Previous] — Whitelist & Space Rollover (`09aea53`)
 
 ### Added (Tính năng mới)
 - **Từ ngoại lệ không bỏ dấu (Whitelist)**:

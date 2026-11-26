@@ -20,7 +20,7 @@
 - **Chuyển nhanh VN / EN**: Bấm phím chuyển ngôn ngữ để bật/tắt nhanh chế độ gõ tiếng Việt.
 
 ### 2. Glide Typing (Vuốt để gõ) gọn nhẹ
-- **Vẽ vệt vuốt mượt mà (`GlideTypingOverlayView`)**: Vẽ đường vuốt màu xanh kiểu Gboard, tự động cập nhật tọa độ phím (`hit-box`) khi xoay màn hình, bật/tắt hàng số hoặc đổi chiều cao bàn phím.
+- **Vẽ vệt vuốt mượt mà (`GlideTypingOverlayView`)**: Vẽ đường vuốt màu xanh kiểu Gboard, đuôi vệt mờ dần (fading tail) khi vuốt/nhấc tay, tự động cập nhật tọa độ phím (`hit-box`) khi xoay màn hình, bật/tắt hàng số, đổi chiều cao bàn phím hoặc đóng panel clipboard.
 - **Giải mã thông minh (`GlideDecoder`)**: Khớp ký tự đầu/cuối (có châm chước phím lân cận `KEY_NEIGHBORS`), kiểm tra chuỗi con, gộp ký tự lặp (`collapseRepeats`), kết hợp khoảng cách Levenshtein và xếp hạng lại bằng **Trigram** (`prevWord2`, `prevWord1`).
 - **Từ vựng ~5.900 âm tiết tiếng Việt chuẩn**: Được lọc sạch ký tự lạ và từ dính chữ.
 - **UX tiện lợi**: Hiện 3 ứng viên trên thanh gợi ý để chạm đổi nhanh; bấm **Backspace 1 lần** ngay sau khi vuốt để xóa nguyên từ vừa vuốt.
@@ -39,10 +39,16 @@
   - Vuốt trái từ phím `Backspace` để xóa nhanh từng từ.
 - **Tùy biến linh hoạt**: Chế độ một tay (One-handed), điều chỉnh chiều cao bàn phím, âm thanh/rung phản hồi.
 
-### 5. Tối ưu độ trễ (Low-Latency)
+### 5. Clipboard & Sao lưu/khôi phục
+- **Clipboard kiểu Gboard**: Panel clipboard trong bàn phím, ghim mục, tự xóa mục chưa ghim sau 1 giờ, giao diện 2 cột.
+- **Prompt bật clipboard**: Khi clipboard tắt hoặc trống, nút 📋 hiển thị trạng thái/hướng dẫn rõ ràng thay vì im lặng.
+- **Backup & Restore JSON**: Xuất/nhập qua SAF (gộp hoặc thay thế) cho cài đặt, macro đầy đủ, từ điển cá nhân, từ đã học, bigram/trigram. Hữu ích để chuyển dữ liệu vnchFlex giữa các máy.
+
+### 6. Tối ưu độ trễ (Low-Latency)
 - **Space rollover**: Tự động chốt phím `Space` ngay khi ngón tay kế tiếp chạm phím chữ, loại bỏ tình trạng dính chữ khi gõ nhanh.
 - **Loại bỏ IPC thừa**: Theo dõi ký tự đã commit nội bộ (`trackCommittedChar`) cho `doubleSpacePeriod` thay vì gọi `getTextBeforeCursor` trên mỗi lần nhấn `Space`.
-- **Tách luồng gợi ý & học từ**: Debounce cập nhật thanh gợi ý (`scheduleSuggestionsUpdate`) và đẩy `recordCommittedWord` sang background thread (`suggestionExecutor`) để phím `Space` và `Backspace` phản hồi tức thì.
+- **Tách luồng gợi ý & học từ**: Debounce cập nhật thanh gợi ý (`scheduleSuggestionsUpdate`), đẩy học từ/ngữ cảnh sang `learnExecutor` nền (single-thread) và debounce lưu learned words/ngram để phím `Space` và `Backspace` phản hồi tức thì.
+- **Composing ổn định**: Cập nhật từ đang gõ bằng `setComposingText` (không UnderlineSpan) thay vì delete+commit lặp lại, giảm rủi ro dính/mất chữ trên Chrome/Zalo/WebView khi gõ nhanh.
 - Tái sử dụng View gợi ý và Popup thay vì tạo mới liên tục.
 
 ---
@@ -56,7 +62,9 @@ vnchflex/
 │   │   ├── VietKeyboardService.kt      # Trái tim của bộ gõ (InputMethodService)
 │   │   ├── GboardKeyButton.kt          # Nút bấm custom vẽ ký tự chính + ký tự phụ góc trên
 │   │   ├── GlideTypingOverlayView.kt   # Lớp phủ bắt cử chỉ vuốt & vẽ vệt vuốt
-│   │   └── GlideDecoder.kt             # Thuật toán giải mã đường vuốt thành từ
+│   │   ├── GlideDecoder.kt             # Thuật toán giải mã đường vuốt thành từ
+│   │   ├── ClipboardStore.kt           # Lưu lịch sử clipboard (ghim/tự hết hạn)
+│   │   └── ClipboardPanelController.kt # UI panel clipboard trong bàn phím
 │   ├── engine/
 │   │   ├── VietnameseEngine.kt         # Bộ xử lý Telex, bỏ dấu tự do, hậu kỳ
 │   │   └── DiacriticUtils.kt           # Tiện ích chuẩn hóa & bỏ dấu tiếng Việt
