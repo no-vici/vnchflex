@@ -25,6 +25,7 @@ import com.vnchflex.vietkeyboard.engine.DiacriticUtils
 class SuggestionEngine(context: Context? = null) {
     private val dictStore = context?.let { PersonalDictionaryStore(it) }
     private val learnLock = Any()
+    private val trainedData = loadTrainedDataAsset(context)
 
     // Unigram dictionary with base frequency weights (including Southern Vietnamese dialect words: dzìa, dzách, dzô, dzậy, dzọt, dzui...)
     private val coreUnigramWeights: Map<String, Int> = buildMap {
@@ -428,6 +429,11 @@ class SuggestionEngine(context: Context? = null) {
                 put(clean, 72)
             }
         }
+
+        // Merge pretrained words from vnchflex-trained-data.json (offline corpus pretrain)
+        trainedData.words.forEach { w ->
+            if (w.length in 2..20 && !containsKey(w)) put(w, 78)
+        }
     }
 
     // Bundled Trigram Language Model: "prev2 prev1" -> ordered list of next words (gộp dữ liệu mặc định + assets/vi_trigrams.json)
@@ -473,6 +479,12 @@ class SuggestionEngine(context: Context? = null) {
             merged.addAll(words)
             put(ctx, merged.toList())
         }
+        trainedData.trigrams.forEach { (ctx, words) ->
+            val merged = LinkedHashSet<String>()
+            get(ctx)?.let { merged.addAll(it) }
+            merged.addAll(words)
+            put(ctx, merged.toList())
+        }
     }
 
     // Bundled Bigram Language Model: "prev1" -> ordered list of next words (gộp dữ liệu mặc định + assets/vi_bigrams.json)
@@ -510,6 +522,12 @@ class SuggestionEngine(context: Context? = null) {
 
         val assetBigrams = loadAssetNgrams(context, "vi_bigrams.json")
         assetBigrams.forEach { (ctx, words) ->
+            val merged = LinkedHashSet<String>()
+            get(ctx)?.let { merged.addAll(it) }
+            merged.addAll(words)
+            put(ctx, merged.toList())
+        }
+        trainedData.bigrams.forEach { (ctx, words) ->
             val merged = LinkedHashSet<String>()
             get(ctx)?.let { merged.addAll(it) }
             merged.addAll(words)
@@ -952,5 +970,58 @@ class SuggestionEngine(context: Context? = null) {
                 }
             }
         }.getOrDefault(emptyMap())
+    }
+
+    private data class TrainedData(
+        val words: List<String>,
+        val bigrams: Map<String, List<String>>,
+        val trigrams: Map<String, List<String>>
+    )
+
+    private fun loadTrainedDataAsset(context: Context?): TrainedData {
+        if (context == null) return TrainedData(emptyList(), emptyMap(), emptyMap())
+        return runCatching {
+            val raw = context.assets.open("vnchflex-trained-data.json").bufferedReader().use { it.readText() }
+            val root = org.json.JSONObject(raw)
+            val dict = root.optJSONObject("dictionary") ?: root
+
+            val wordsJson = dict.optJSONArray("learnedWords")
+            val words = buildList(wordsJson?.length() ?: 0) {
+                if (wordsJson != null) {
+                    for (i in 0 until wordsJson.length()) {
+                        val w = wordsJson.optString(i, "").trim().lowercase()
+                        if (w.length in 2..20) add(w)
+                    }
+                }
+            }
+
+            fun parseCountNgrams(key: String, limit: Int = 8): Map<String, List<String>> {
+                val obj = dict.optJSONObject(key) ?: return emptyMap()
+                val out = HashMap<String, List<String>>(obj.length())
+                val keys = obj.keys()
+                while (keys.hasNext()) {
+                    val ctx = keys.next().trim().lowercase()
+                    val followersObj = obj.optJSONObject(ctx) ?: continue
+                    val scored = ArrayList<Pair<String, Int>>(followersObj.length())
+                    val fKeys = followersObj.keys()
+                    while (fKeys.hasNext()) {
+                        val w = fKeys.next().trim().lowercase()
+                        val c = followersObj.optInt(w, 0)
+                        if (w.isNotEmpty() && c > 0) scored.add(w to c)
+                    }
+                    if (ctx.isNotEmpty() && scored.isNotEmpty()) {
+                        scored.sortByDescending { it.second }
+                        out[ctx] = scored.take(limit).map { it.first }
+                    }
+                }
+                return out
+            }
+
+            TrainedData(
+                words = words,
+                bigrams = parseCountNgrams("learnedBigrams"),
+                trigrams = parseCountNgrams("learnedTrigrams")
+            )
+        }.getOrDefault(TrainedData(emptyList(), emptyMap(), emptyMap()))
     }
 }
