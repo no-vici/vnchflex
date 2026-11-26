@@ -718,6 +718,7 @@ class SuggestionEngine(context: Context? = null) {
         // 1. Learn Unigram
         userUnigramCounts[w] = (userUnigramCounts[w] ?: 0) + 1
         dictStore?.addLearnedWord(w)
+        insertIntoTrie(w)
 
         // 2. Learn Bigram (prevWord1 -> w)
         val p1 = prevWord1.trim().lowercase()

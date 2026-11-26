@@ -13,7 +13,6 @@ class MacroStore(context: Context) {
     private var cache: List<Macro>? = null
 
     fun load(): List<Macro> {
-        cache?.let { return it }
         val raw = prefs.getString(KEY_MACROS, null)
         val loaded = if (raw == null) defaultMacros() else runCatching { parse(raw) }.getOrElse { defaultMacros() }
         cache = loaded

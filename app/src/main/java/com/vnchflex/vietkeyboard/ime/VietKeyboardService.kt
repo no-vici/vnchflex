@@ -67,7 +67,7 @@ class VietKeyboardService : InputMethodService() {
     private var pendingRolloverAction: (() -> Unit)? = null
     private var pendingRolloverCancel: (() -> Unit)? = null
     private var pendingSuggestionRunnable: Runnable? = null
-    private val suggestionExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private var lastOwnIcEditMs = 0L
     private var lastBackspaceClickTime = 0L
     private var backspaceRepeating = false
     private var lastGlideCommittedLength = 0
@@ -125,7 +125,6 @@ class VietKeyboardService : InputMethodService() {
 
     override fun onDestroy() {
         if (::suggestionEngine.isInitialized) suggestionEngine.flushPendingSaves()
-        suggestionExecutor.shutdownNow()
         super.onDestroy()
     }
 
@@ -364,22 +363,20 @@ class VietKeyboardService : InputMethodService() {
             val baseLetter = btn.text.toString().lowercase()
             letterButtons[btn] = baseLetter
             var longPressHandled = false
+            var downCommitted = false
             var downX = 0f
             var downY = 0f
             val longPressRunnable = Runnable {
                 if (!prefs.longPressForSymbols) return@Runnable
                 val alts = alternatesForLetter(baseLetter)
                 if (alts.isEmpty()) return@Runnable
-                performKeyFeedback(btn, isLongPress = true)
-                if (alts.size == 1) {
-                    dismissKeyPopup()
-                    showKeyPopup(btn, alts[0])
-                    onSecondarySymbol(alts[0])
-                    longPressHandled = true
-                } else {
-                    showAlternatesPopup(btn, alts)
-                    longPressHandled = true
+                if (downCommitted) {
+                    undoDownLetterCommit()
+                    downCommitted = false
                 }
+                performKeyFeedback(btn, isLongPress = true)
+                showAlternatesPopup(btn, alts)
+                longPressHandled = true
             }
 
             btn.setOnTouchListener { v, event ->
@@ -387,6 +384,7 @@ class VietKeyboardService : InputMethodService() {
                     MotionEvent.ACTION_DOWN -> {
                         flushPendingRollover()
                         longPressHandled = false
+                        downCommitted = false
                         downX = event.x
                         downY = event.y
                         if (prefs.popupOnKeypress) scheduleKeyPopup(v, btn.text.toString())
@@ -406,14 +404,18 @@ class VietKeyboardService : InputMethodService() {
                             }
                         }
                         flushPendingRollover()
+                        downCommitted = true
                     }
                     MotionEvent.ACTION_MOVE -> {
                         if (altPopup?.isShowing == true && altAnchor === v) {
                             updateAltSelectionFromTouch(v, event)
                             return@setOnTouchListener true
                         }
-                        if (!longPressHandled && (kotlin.math.abs(event.x - downX) > 24f || kotlin.math.abs(event.y - downY) > 24f)) {
-                            popupHandler.removeCallbacks(longPressRunnable)
+                        if (!longPressHandled) {
+                            val slop = 28f * resources.displayMetrics.density
+                            if (kotlin.math.abs(event.x - downX) > slop || kotlin.math.abs(event.y - downY) > slop) {
+                                popupHandler.removeCallbacks(longPressRunnable)
+                            }
                         }
                     }
                     MotionEvent.ACTION_UP -> {
@@ -423,10 +425,12 @@ class VietKeyboardService : InputMethodService() {
                             pendingRolloverCancel = null
                             commitAltSelection()
                             dismissKeyPopup()
+                            downCommitted = false
                             return@setOnTouchListener true
                         }
                         dismissKeyPopup()
                         flushPendingRollover()
+                        downCommitted = false
                         return@setOnTouchListener true
                     }
                     MotionEvent.ACTION_CANCEL -> {
@@ -435,6 +439,7 @@ class VietKeyboardService : InputMethodService() {
                         pendingRolloverCancel = null
                         dismissAltPopup()
                         dismissKeyPopup()
+                        downCommitted = false
                     }
                 }
                 false
@@ -636,10 +641,9 @@ class VietKeyboardService : InputMethodService() {
         refreshLetterKeyLabels()
     }
 
-    private fun updateAutoCapitalization() {
+    private fun updateAutoCapitalization(beforeText: String? = null) {
         if (!prefs.autoCapitalization || shiftState == ShiftState.CAPS_LOCK) return
-        val ic = currentInputConnection ?: return
-        val before = ic.getTextBeforeCursor(4, 0)?.toString().orEmpty()
+        val before = beforeText ?: currentInputConnection?.getTextBeforeCursor(4, 0)?.toString().orEmpty()
         val trimmed = before.trimEnd()
         val shouldCap = before.isEmpty() || trimmed.endsWith(".") || trimmed.endsWith("!") || trimmed.endsWith("?") || before.endsWith("\n")
         val newShift = if (shouldCap) ShiftState.SHIFTED else ShiftState.LOWER
@@ -772,6 +776,7 @@ class VietKeyboardService : InputMethodService() {
 
     private fun onSpacePressed() {
         val ic = currentInputConnection ?: return
+        markOwnIcEdit()
         val now = System.currentTimeMillis()
         // Gboard Double-space period option (không cần IPC getTextBeforeCursor)
         if (prefs.doubleSpacePeriod && now - lastSpaceClickTime < 350L && !vnEngine.isComposing) {
@@ -814,6 +819,7 @@ class VietKeyboardService : InputMethodService() {
         lastGlideCommittedLength = 0
         if (altPopup?.isShowing == true) dismissAltPopup()
         val ic = currentInputConnection ?: return
+        markOwnIcEdit()
         if (mode != Mode.LETTERS) {
             commitRaw(c.toString())
             return
@@ -857,7 +863,7 @@ class VietKeyboardService : InputMethodService() {
             vnEngine.commit(ic)
             currentTokenBuffer.clear()
             if (finishedWord.isNotEmpty()) {
-                suggestionExecutor.execute { recordCommittedWord(finishedWord) }
+                recordCommittedWord(finishedWord)
             }
             if (prefs.macroEnabled && tokenForMacro.isNotEmpty() && macroEngine.tryExpand(ic, c, beforeCursor = tokenForMacro)) {
                 justExpandedMacroWithSpace = (c == ' ')
@@ -894,6 +900,7 @@ class VietKeyboardService : InputMethodService() {
         justExpandedMacroWithSpace = false
         if (altPopup?.isShowing == true) dismissAltPopup()
         val ic = currentInputConnection ?: return
+        markOwnIcEdit()
         vnEngine.commit(ic)
         ic.commitText(text, 1)
         if (text.isNotEmpty() && text.all { it.isLetterOrDigit() }) {
@@ -924,6 +931,7 @@ class VietKeyboardService : InputMethodService() {
 
     private fun onBackspace() {
         val ic = currentInputConnection ?: return
+        markOwnIcEdit()
         val now = System.currentTimeMillis()
         justExpandedMacroWithSpace = false
         if (lastGlideCommittedLength > 0 && !backspaceRepeating) {
@@ -958,7 +966,7 @@ class VietKeyboardService : InputMethodService() {
                     ic.endBatchEdit()
                     macroEngine.clearLastExpansion()
                     lastBackspaceClickTime = 0L
-                    updateSuggestions("")
+                    scheduleSuggestionsUpdate("")
                     return
                 }
             } else if (now - lastBackspaceClickTime >= 600L) {
@@ -969,7 +977,7 @@ class VietKeyboardService : InputMethodService() {
 
         // 2. Normal Vietnamese composing backspace
         if (mode == Mode.LETTERS && isVietnameseMode && vnEngine.onBackspace(ic)) {
-            if (!backspaceRepeating) updateSuggestions(vnEngine.composingText)
+            if (!backspaceRepeating) scheduleSuggestionsUpdate(vnEngine.composingText)
             return
         }
         if (mode == Mode.LETTERS && !isVietnameseMode && enComposing.isNotEmpty()) {
@@ -991,8 +999,8 @@ class VietKeyboardService : InputMethodService() {
                 if (prevWord.isNotEmpty()) {
                     ic.deleteSurroundingText(1, 0)
                     vnEngine.rehydrateWord(prevWord)
-                    updateSuggestions(vnEngine.composingText)
-                    updateAutoCapitalization()
+                    scheduleSuggestionsUpdate(vnEngine.composingText)
+                    updateAutoCapitalization(afterDel)
                     return
                 }
             }
@@ -1000,7 +1008,7 @@ class VietKeyboardService : InputMethodService() {
         ic.deleteSurroundingText(1, 0)
         if (!backspaceRepeating) {
             updateAutoCapitalization()
-            updateSuggestions("")
+            scheduleSuggestionsUpdate("")
         }
     }
 
@@ -1084,7 +1092,8 @@ class VietKeyboardService : InputMethodService() {
         anchor.getLocationInWindow(loc)
         val popupW = row.measuredWidth
         val popupH = row.measuredHeight
-        val x = (loc[0] + anchor.width / 2 - popupW / 2).coerceAtLeast(0)
+        val screenW = resources.displayMetrics.widthPixels
+        val x = (loc[0] + anchor.width / 2 - popupW / 2).coerceIn(0, (screenW - popupW).coerceAtLeast(0))
         val y = (loc[1] - popupH - 8).coerceAtLeast(0)
         if (popup.isShowing) popup.dismiss()
         popup.showAtLocation(anchor, Gravity.NO_GRAVITY, x, y)
@@ -1200,6 +1209,22 @@ class VietKeyboardService : InputMethodService() {
         popup.showAtLocation(anchor.rootView, android.view.Gravity.BOTTOM or android.view.Gravity.CENTER_HORIZONTAL, 0, (56 * density).toInt())
     }
 
+    private fun undoDownLetterCommit() {
+        val ic = currentInputConnection ?: return
+        markOwnIcEdit()
+        if (mode == Mode.LETTERS && isVietnameseMode) {
+            if (!vnEngine.onBackspace(ic)) {
+                ic.deleteSurroundingText(1, 0)
+            }
+        } else {
+            ic.deleteSurroundingText(1, 0)
+            if (enComposing.isNotEmpty()) enComposing.deleteCharAt(enComposing.length - 1)
+        }
+        if (currentTokenBuffer.isNotEmpty()) currentTokenBuffer.deleteCharAt(currentTokenBuffer.length - 1)
+        lastCommittedChar = prevCommittedChar
+        prevCommittedChar = null
+    }
+
     private fun commitPopupSelection(text: String) {
         if (text.length == 1) {
             val c = text[0]
@@ -1269,8 +1294,11 @@ class VietKeyboardService : InputMethodService() {
         currentTokenBuffer.clear()
         justExpandedMacroWithSpace = false
         val ic = currentInputConnection ?: return
+        markOwnIcEdit()
         if (vnEngine.isComposing) {
-            vnEngine.reset(ic)
+            val len = vnEngine.composingText.length
+            vnEngine.reset()
+            if (len > 0) ic.deleteSurroundingText(len, 0)
             updateSuggestions("")
             return
         }
@@ -1538,6 +1566,7 @@ class VietKeyboardService : InputMethodService() {
         currentTokenBuffer.clear()
         justExpandedMacroWithSpace = false
         val ic = currentInputConnection ?: return
+        markOwnIcEdit()
         val composing = vnEngine.composingText
         if (composing.isNotEmpty()) {
             // Replace composing text with suggestion
@@ -1595,4 +1624,35 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun isMacroTrigger(c: Char): Boolean = c.isWhitespace() || c in ".,;:!?\n"
+
+    private fun markOwnIcEdit() { lastOwnIcEditMs = System.currentTimeMillis() }
+
+    override fun onUpdateSelection(
+        oldSelStart: Int, oldSelEnd: Int,
+        newSelStart: Int, newSelEnd: Int,
+        candidatesStart: Int, candidatesEnd: Int
+    ) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        if (oldSelStart == newSelStart && oldSelEnd == newSelEnd) return
+        if (System.currentTimeMillis() - lastOwnIcEditMs < 200L) return
+        val ic = currentInputConnection
+        if (newSelStart != newSelEnd) {
+            if (vnEngine.isComposing) {
+                if (ic != null) vnEngine.commit(ic) else vnEngine.reset()
+            } else {
+                vnEngine.reset()
+            }
+            enComposing.clear()
+            currentTokenBuffer.clear()
+            updateSuggestions("")
+            return
+        }
+        if (vnEngine.isComposing) {
+            if (ic != null) vnEngine.commit(ic) else vnEngine.reset()
+        }
+        enComposing.clear()
+        currentTokenBuffer.clear()
+        syncContextFromEditor()
+        updateSuggestions("")
+    }
 }

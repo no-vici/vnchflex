@@ -31,7 +31,6 @@ class PersonalDictionaryStore(context: Context) {
     }
 
     fun loadPersonalWords(): List<PersonalWord> {
-        personalWordsCache?.let { return it }
         val raw = prefs.getString(KEY_PERSONAL_WORDS, null)
         val loaded = if (raw == null) defaultPersonalWords() else runCatching {
             val arr = JSONArray(raw)
