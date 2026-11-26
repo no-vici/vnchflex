@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Rect
+import android.os.SystemClock
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.widget.FrameLayout
@@ -34,13 +35,26 @@ class GlideTypingOverlayView @JvmOverloads constructor(
     private val letterKeyRects = mutableListOf<Pair<Char, Rect>>()
     private var keyRectsDirty = true
 
-    private val trailPath = Path()
+    private data class TrailPoint(val x: Float, val y: Float, val t: Long)
+
+    private val trailPoints = ArrayDeque<TrailPoint>()
     private val trailPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#CC1A73E8")
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
-        strokeWidth = 10f * resources.displayMetrics.density
+    }
+    private val trailLifetimeMs = 350L
+    private val trailFadeOutMs = 220L
+    private var trailFadeStartMs = 0L
+    private val fadeRunnable = object : Runnable {
+        override fun run() {
+            pruneTrail(SystemClock.uptimeMillis())
+            invalidate()
+            if (trailPoints.isNotEmpty()) {
+                postOnAnimationDelayed(this, 16L)
+            }
+        }
     }
 
     var glideThresholdPx: Float = 24f * resources.displayMetrics.density
@@ -99,12 +113,12 @@ class GlideTypingOverlayView @JvmOverloads constructor(
                 downY = ev.y
                 isGliding = false
                 swipedKeys.clear()
-                trailPath.reset()
+                clearTrail()
                 // Only start tracking if touch began on a letter key
                 val startKey = findKeyAt(ev.x.toInt(), ev.y.toInt())
                 if (startKey != null) {
                     swipedKeys.append(startKey)
-                    trailPath.moveTo(ev.x, ev.y)
+                    appendTrailPoint(ev.x, ev.y)
                     lastKeyRecordX = ev.x
                     lastKeyRecordY = ev.y
                 }
@@ -114,7 +128,7 @@ class GlideTypingOverlayView @JvmOverloads constructor(
                 // Người dùng đang gõ nhanh bằng 2 ngón tay -> hủy chế độ vuốt ngay lập tức
                 isGliding = false
                 swipedKeys.clear()
-                trailPath.reset()
+                clearTrail()
                 invalidate()
                 return false
             }
@@ -122,7 +136,7 @@ class GlideTypingOverlayView @JvmOverloads constructor(
                 if (ev.pointerCount > 1) {
                     isGliding = false
                     swipedKeys.clear()
-                    trailPath.reset()
+                    clearTrail()
                     return false
                 }
                 if (swipedKeys.isEmpty()) return false
@@ -138,7 +152,7 @@ class GlideTypingOverlayView @JvmOverloads constructor(
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 isGliding = false
                 swipedKeys.clear()
-                trailPath.reset()
+                clearTrail()
                 return false
             }
         }
@@ -158,8 +172,7 @@ class GlideTypingOverlayView @JvmOverloads constructor(
                 val result = swipedKeys.toString()
                 isGliding = false
                 swipedKeys.clear()
-                trailPath.reset()
-                invalidate()
+                startTrailFadeOut()
                 if (result.length >= 2) {
                     onGlideComplete?.invoke(result)
                 }
@@ -167,7 +180,7 @@ class GlideTypingOverlayView @JvmOverloads constructor(
             MotionEvent.ACTION_CANCEL -> {
                 isGliding = false
                 swipedKeys.clear()
-                trailPath.reset()
+                clearTrail()
                 invalidate()
             }
         }
@@ -176,13 +189,38 @@ class GlideTypingOverlayView @JvmOverloads constructor(
 
     override fun dispatchDraw(canvas: Canvas) {
         super.dispatchDraw(canvas)
-        if (isGliding && showTrail && !trailPath.isEmpty) {
-            canvas.drawPath(trailPath, trailPaint)
+        if (!showTrail || trailPoints.size < 2) return
+        val now = SystemClock.uptimeMillis()
+        pruneTrail(now)
+        if (trailPoints.size < 2) return
+
+        val fadeProgress = if (!isGliding && trailFadeStartMs > 0L) {
+            ((now - trailFadeStartMs).toFloat() / trailFadeOutMs.toFloat()).coerceIn(0f, 1f)
+        } else 0f
+        val fadeAlphaMultiplier = 1f - fadeProgress
+        if (fadeAlphaMultiplier <= 0f) {
+            clearTrail()
+            return
         }
+
+        val baseWidth = 10f * resources.displayMetrics.density
+        val minWidth = 4.5f * resources.displayMetrics.density
+        val points = trailPoints.toList()
+        for (i in 0 until points.size - 1) {
+            val p0 = points[i]
+            val p1 = points[i + 1]
+            val segProgress = (i + 1).toFloat() / (points.size - 1).coerceAtLeast(1).toFloat()
+            val alpha = ((40 + 164 * segProgress) * fadeAlphaMultiplier).toInt().coerceIn(0, 204)
+            if (alpha <= 0) continue
+            trailPaint.strokeWidth = minWidth + (baseWidth - minWidth) * segProgress
+            trailPaint.alpha = alpha
+            canvas.drawLine(p0.x, p0.y, p1.x, p1.y, trailPaint)
+        }
+        trailPaint.alpha = 204
     }
 
     private fun recordPoint(x: Float, y: Float) {
-        trailPath.lineTo(x, y)
+        appendTrailPoint(x, y)
         val key = findKeyAt(x.toInt(), y.toInt()) ?: return
         if (swipedKeys.isEmpty()) {
             swipedKeys.append(key)
@@ -198,6 +236,36 @@ class GlideTypingOverlayView @JvmOverloads constructor(
                 lastKeyRecordY = y
             }
         }
+    }
+
+    private fun appendTrailPoint(x: Float, y: Float) {
+        val now = SystemClock.uptimeMillis()
+        trailPoints.addLast(TrailPoint(x, y, now))
+        pruneTrail(now)
+    }
+
+    private fun pruneTrail(now: Long) {
+        while (trailPoints.isNotEmpty() && now - trailPoints.first().t > trailLifetimeMs) {
+            trailPoints.removeFirst()
+        }
+        if (!isGliding && trailFadeStartMs > 0L && now - trailFadeStartMs >= trailFadeOutMs) {
+            trailPoints.clear()
+            trailFadeStartMs = 0L
+            removeCallbacks(fadeRunnable)
+        }
+    }
+
+    private fun startTrailFadeOut() {
+        trailFadeStartMs = SystemClock.uptimeMillis()
+        removeCallbacks(fadeRunnable)
+        invalidate()
+        postOnAnimationDelayed(fadeRunnable, 16L)
+    }
+
+    private fun clearTrail() {
+        trailPoints.clear()
+        trailFadeStartMs = 0L
+        removeCallbacks(fadeRunnable)
     }
 
     private fun findKeyAt(x: Int, y: Int): Char? {

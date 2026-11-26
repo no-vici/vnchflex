@@ -58,6 +58,7 @@ class VietKeyboardService : InputMethodService() {
     private var clipboardPanelController: ClipboardPanelController? = null
     private var isClipboardPanelOpen = false
     private var clipboardManager: ClipboardManager? = null
+    private val learnExecutor: java.util.concurrent.ExecutorService = java.util.concurrent.Executors.newSingleThreadExecutor()
     private var shiftState = ShiftState.LOWER
     private var lastShiftClickTime = 0L
     private var lastSpaceClickTime = 0L
@@ -125,6 +126,12 @@ class VietKeyboardService : InputMethodService() {
     }
 
     override fun onDestroy() {
+        learnExecutor.shutdown()
+        try {
+            learnExecutor.awaitTermination(250, java.util.concurrent.TimeUnit.MILLISECONDS)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
         if (::suggestionEngine.isInitialized) suggestionEngine.flushPendingSaves()
         super.onDestroy()
     }
@@ -1007,7 +1014,7 @@ class VietKeyboardService : InputMethodService() {
                 val prevWord = afterDel.takeLastWhile { it.isLetter() }
                 if (prevWord.isNotEmpty()) {
                     ic.deleteSurroundingText(1, 0)
-                    vnEngine.rehydrateWord(prevWord)
+                    vnEngine.rehydrateWord(prevWord, ic)
                     scheduleSuggestionsUpdate(vnEngine.composingText)
                     updateAutoCapitalization(afterDel)
                     return
@@ -1324,7 +1331,10 @@ class VietKeyboardService : InputMethodService() {
     private fun onEnter() {
         currentTokenBuffer.clear()
         justExpandedMacroWithSpace = false
+        lastGlideCommittedLength = 0
+        trackCommittedChar('\n')
         val ic = currentInputConnection ?: return
+        markOwnIcEdit()
         vnEngine.commit(ic)
         ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
         ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
@@ -1386,6 +1396,7 @@ class VietKeyboardService : InputMethodService() {
         root.removeView(clipboardPanelController?.createOrUpdateView(0))
         root.findViewById<View>(R.id.top_strip_container)?.visibility = View.VISIBLE
         root.findViewById<View>(R.id.glide_overlay)?.visibility = View.VISIBLE
+        glideOverlay?.registerLetterKeys(letterButtons)
         isClipboardPanelOpen = false
     }
 
@@ -1577,12 +1588,9 @@ class VietKeyboardService : InputMethodService() {
         markOwnIcEdit()
         val composing = vnEngine.composingText
         if (composing.isNotEmpty()) {
-            // Replace composing text with suggestion
+            // Replace composing span with suggestion
             vnEngine.reset(ic)
-            ic.beginBatchEdit()
-            ic.deleteSurroundingText(composing.length, 0)
             ic.commitText("$word ", 1)
-            ic.endBatchEdit()
         } else if (!isVietnameseMode && enComposing.isNotEmpty()) {
             val len = enComposing.length
             enComposing.clear()
@@ -1608,8 +1616,13 @@ class VietKeyboardService : InputMethodService() {
         val clean = word.trim()
         if (clean.isEmpty()) return
         val tokens = clean.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        if (!::suggestionEngine.isInitialized) return
         for (token in tokens) {
-            suggestionEngine.learn(token, prevWord1 = prevCommittedWord1, prevWord2 = prevCommittedWord2)
+            val p1 = prevCommittedWord1
+            val p2 = prevCommittedWord2
+            learnExecutor.execute {
+                suggestionEngine.learn(token, prevWord1 = p1, prevWord2 = p2)
+            }
             prevCommittedWord2 = prevCommittedWord1
             prevCommittedWord1 = token
         }

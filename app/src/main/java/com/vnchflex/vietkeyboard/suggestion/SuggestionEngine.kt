@@ -24,6 +24,7 @@ import com.vnchflex.vietkeyboard.engine.DiacriticUtils
  */
 class SuggestionEngine(context: Context? = null) {
     private val dictStore = context?.let { PersonalDictionaryStore(it) }
+    private val learnLock = Any()
 
     // Unigram dictionary with base frequency weights (including Southern Vietnamese dialect words: dzìa, dzách, dzô, dzậy, dzọt, dzui...)
     private val coreUnigramWeights: Map<String, Int> = buildMap {
@@ -552,11 +553,11 @@ class SuggestionEngine(context: Context? = null) {
         }
     }
 
-    private fun collectFromTrie(prefixStripped: String, limit: Int = 48): List<String> {
+    private fun collectFromTrie(prefixStripped: String, limit: Int = 48): List<String> = synchronized(learnLock) {
         ensureTrieBuilt()
         var node = strippedTrieRoot
         for (c in prefixStripped) {
-            node = node.children[c] ?: return emptyList()
+            node = node.children[c] ?: return@synchronized emptyList()
         }
         val out = ArrayList<String>(limit)
         val queue = ArrayDeque<TrieNode>()
@@ -571,7 +572,7 @@ class SuggestionEngine(context: Context? = null) {
                 cur.children.values.forEach { queue.add(it) }
             }
         }
-        return out
+        out
     }
 
     init {
@@ -598,9 +599,9 @@ class SuggestionEngine(context: Context? = null) {
         limit: Int = 3,
         includeEmoji: Boolean = true,
         macroPreview: String? = null,
-    ): List<String> {
+    ): List<String> = synchronized(learnLock) {
         val q = prefix.trim()
-        if (q.isEmpty()) return emptyList()
+        if (q.isEmpty()) return@synchronized emptyList()
         val lower = q.lowercase()
         val strippedQuery = DiacriticUtils.strip(lower)
         val isUpperFirst = q.first().isUpperCase()
@@ -663,7 +664,7 @@ class SuggestionEngine(context: Context? = null) {
             if (!results.contains(cased)) results.add(cased)
         }
 
-        return results.take(limit)
+        results.take(limit)
     }
 
     /**
@@ -674,10 +675,10 @@ class SuggestionEngine(context: Context? = null) {
         prevWord1: String,
         prevWord2: String = "",
         limit: Int = 3,
-    ): List<String> {
+    ): List<String> = synchronized(learnLock) {
         val p1 = prevWord1.trim().lowercase()
         val p2 = prevWord2.trim().lowercase()
-        if (p1.isEmpty()) return listOf("Tôi", "Xin", "Mình").take(limit)
+        if (p1.isEmpty()) return@synchronized listOf("Tôi", "Xin", "Mình").take(limit)
 
         val candidates = LinkedHashSet<String>()
 
@@ -705,7 +706,7 @@ class SuggestionEngine(context: Context? = null) {
             }
         }
 
-        return candidates.take(limit)
+        candidates.take(limit)
     }
 
     /**
@@ -714,34 +715,37 @@ class SuggestionEngine(context: Context? = null) {
     fun learn(word: String, prevWord1: String = "", prevWord2: String = "") {
         val w = word.trim().lowercase()
         if (w.length < 2) return
+        synchronized(learnLock) {
+            // 1. Learn Unigram
+            userUnigramCounts[w] = (userUnigramCounts[w] ?: 0) + 1
+            dictStore?.addLearnedWord(w)
+            insertIntoTrie(w)
 
-        // 1. Learn Unigram
-        userUnigramCounts[w] = (userUnigramCounts[w] ?: 0) + 1
-        dictStore?.addLearnedWord(w)
-        insertIntoTrie(w)
+            // 2. Learn Bigram (prevWord1 -> w)
+            val p1 = prevWord1.trim().lowercase()
+            if (p1.isNotEmpty()) {
+                val bMap = userBigrams.getOrPut(p1) { mutableMapOf() }
+                bMap[w] = (bMap[w] ?: 0) + 1
+                dictStore?.saveLearnedBigrams(userBigrams)
 
-        // 2. Learn Bigram (prevWord1 -> w)
-        val p1 = prevWord1.trim().lowercase()
-        if (p1.isNotEmpty()) {
-            val bMap = userBigrams.getOrPut(p1) { mutableMapOf() }
-            bMap[w] = (bMap[w] ?: 0) + 1
-            dictStore?.saveLearnedBigrams(userBigrams)
-
-            // 3. Learn Trigram (prevWord2 + " " + prevWord1 -> w)
-            val p2 = prevWord2.trim().lowercase()
-            if (p2.isNotEmpty()) {
-                val tKey = "$p2 $p1"
-                val tMap = userTrigrams.getOrPut(tKey) { mutableMapOf() }
-                tMap[w] = (tMap[w] ?: 0) + 1
-                dictStore?.saveLearnedTrigrams(userTrigrams)
+                // 3. Learn Trigram (prevWord2 + " " + prevWord1 -> w)
+                val p2 = prevWord2.trim().lowercase()
+                if (p2.isNotEmpty()) {
+                    val tKey = "$p2 $p1"
+                    val tMap = userTrigrams.getOrPut(tKey) { mutableMapOf() }
+                    tMap[w] = (tMap[w] ?: 0) + 1
+                    dictStore?.saveLearnedTrigrams(userTrigrams)
+                }
             }
         }
     }
 
     fun clearLearnedWords() {
-        userUnigramCounts.clear()
-        userBigrams.clear()
-        userTrigrams.clear()
+        synchronized(learnLock) {
+            userUnigramCounts.clear()
+            userBigrams.clear()
+            userTrigrams.clear()
+        }
         dictStore?.clearLearnedWords()
     }
 
@@ -799,11 +803,11 @@ class SuggestionEngine(context: Context? = null) {
         dictStore?.flushNgrams()
     }
 
-    private fun getContextualWeights(prevWord2: String, prevWord1: String): Map<String, Int> {
+    private fun getContextualWeights(prevWord2: String, prevWord1: String): Map<String, Int> = synchronized(learnLock) {
         val weights = mutableMapOf<String, Int>()
         val p1 = prevWord1.trim().lowercase()
         val p2 = prevWord2.trim().lowercase()
-        if (p1.isEmpty()) return weights
+        if (p1.isEmpty()) return@synchronized weights
 
         if (p2.isNotEmpty()) {
             val tKey = "$p2 $p1"
@@ -821,6 +825,6 @@ class SuggestionEngine(context: Context? = null) {
         userBigrams[p1]?.forEach { (w, count) ->
             weights[w] = (weights[w] ?: 0) + count * 3
         }
-        return weights
+        weights
     }
 }

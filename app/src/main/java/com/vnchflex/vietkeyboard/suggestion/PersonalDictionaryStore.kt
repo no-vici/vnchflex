@@ -25,6 +25,7 @@ class PersonalDictionaryStore(context: Context) {
     private var learnedBigramsCache: MutableMap<String, MutableMap<String, Int>>? = null
     private var learnedTrigramsCache: MutableMap<String, MutableMap<String, Int>>? = null
     private var ngramSavePending = false
+    private var learnedWordsDirty = false
     private val ngramSaveRunnable = Runnable {
         ngramSavePending = false
         flushNgrams()
@@ -86,7 +87,8 @@ class PersonalDictionaryStore(context: Context) {
         if (w.length < 2) return
         val current = learnedWordsCache ?: loadLearnedWords().toMutableSet().also { learnedWordsCache = it }
         if (current.add(w)) {
-            prefs.edit().putStringSet(KEY_LEARNED_WORDS, HashSet(current)).apply()
+            learnedWordsDirty = true
+            scheduleNgramSave()
         }
     }
 
@@ -124,6 +126,7 @@ class PersonalDictionaryStore(context: Context) {
     fun clearLearnedWords() {
         handler.removeCallbacks(ngramSaveRunnable)
         ngramSavePending = false
+        learnedWordsDirty = false
         learnedWordsCache = mutableSetOf()
         learnedBigramsCache = mutableMapOf()
         learnedTrigramsCache = mutableMapOf()
@@ -143,8 +146,24 @@ class PersonalDictionaryStore(context: Context) {
     fun flushNgrams() {
         handler.removeCallbacks(ngramSaveRunnable)
         ngramSavePending = false
-        learnedBigramsCache?.let { prefs.edit().putString(KEY_LEARNED_BIGRAMS, serializeNgramJson(it)).apply() }
-        learnedTrigramsCache?.let { prefs.edit().putString(KEY_LEARNED_TRIGRAMS, serializeNgramJson(it)).apply() }
+        val editor = prefs.edit()
+        var hasWrites = false
+        if (learnedWordsDirty) {
+            learnedWordsCache?.let {
+                editor.putStringSet(KEY_LEARNED_WORDS, HashSet(it))
+                hasWrites = true
+            }
+            learnedWordsDirty = false
+        }
+        learnedBigramsCache?.let {
+            editor.putString(KEY_LEARNED_BIGRAMS, serializeNgramJson(it))
+            hasWrites = true
+        }
+        learnedTrigramsCache?.let {
+            editor.putString(KEY_LEARNED_TRIGRAMS, serializeNgramJson(it))
+            hasWrites = true
+        }
+        if (hasWrites) editor.apply()
     }
 
     private fun parseNgramJson(raw: String): MutableMap<String, MutableMap<String, Int>> = runCatching {

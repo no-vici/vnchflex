@@ -80,11 +80,16 @@ class VietnameseEngine {
 
     fun commit(ic: InputConnection) {
         if (renderedOutput.isEmpty() && rawChars.isEmpty()) return
+        ic.finishComposingText()
         rawChars.clear()
         renderedOutput = ""
     }
 
     fun reset(ic: InputConnection? = null) {
+        if (ic != null && (renderedOutput.isNotEmpty() || rawChars.isNotEmpty())) {
+            // Discard active composing span so stale composing text doesn't linger.
+            ic.commitText("", 1)
+        }
         rawChars.clear()
         renderedOutput = ""
     }
@@ -92,12 +97,22 @@ class VietnameseEngine {
     /**
      * Post-commit editing (chuẩn vnchKey): nạp lại từ đã gõ trước con trỏ vào bộ đệm
      * để người dùng có thể sửa dấu hoặc xóa lùi tiếp trên từ đó.
+     * Biến từ đó thành composing span để lần gõ kế tiếp thay thế đúng, không bị dính/nhân đôi.
      */
     fun rehydrateWord(word: String, ic: InputConnection? = null) {
         if (word.isEmpty()) return
         rawChars.clear()
         rawChars.addAll(rawKeysFor(word).toList())
         renderedOutput = word
+        if (ic != null) {
+            ic.beginBatchEdit()
+            try {
+                ic.deleteSurroundingText(word.length, 0)
+                ic.setComposingText(word, 1)
+            } finally {
+                ic.endBatchEdit()
+            }
+        }
     }
 
     /** Bỏ dấu tự do (kiểu vnchKey): xóa dấu trên từ đang gõ, vùng đang chọn, hoặc từ ngay trước con trỏ. */
@@ -129,20 +144,17 @@ class VietnameseEngine {
     }
 
     private fun replaceComposingDirect(ic: InputConnection, prevLen: Int, newText: String) {
-        if (newText.isEmpty()) {
-            if (prevLen > 0) {
-                ic.deleteSurroundingText(prevLen, 0)
-            }
-            return
-        }
-        if (prevLen == 0) {
-            ic.commitText(newText, 1)
-            return
-        }
         ic.beginBatchEdit()
-        ic.deleteSurroundingText(prevLen, 0)
-        ic.commitText(newText, 1)
-        ic.endBatchEdit()
+        try {
+            if (newText.isEmpty()) {
+                if (prevLen > 0) ic.commitText("", 1)
+            } else {
+                // No underline span: Gboard-like clean composing, better IPC perf on WebView/Chrome apps.
+                ic.setComposingText(newText, 1)
+            }
+        } finally {
+            ic.endBatchEdit()
+        }
     }
 
     // ==================== TELEX BỎ DẤU TỰ DO & PHƯƠNG NGỮ NAM BỘ (PHONG CÁCH VNCHKEY) ====================
