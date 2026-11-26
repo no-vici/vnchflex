@@ -7,8 +7,17 @@ android {
     namespace = "com.vnchflex.vietkeyboard"
     compileSdk = 35
 
+    val propVersionCode = project.findProperty("versionCode")?.toString()?.toIntOrNull()
     val ciRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
-    val computedVersionCode = if (ciRunNumber != null) 100 + ciRunNumber else 100
+    val gitCommitCount = runCatching {
+        providers.exec {
+            commandLine("git", "rev-list", "--count", "HEAD")
+        }.standardOutput.asText.get().trim().toIntOrNull()
+    }.getOrNull()
+    val computedVersionCode = propVersionCode
+        ?: ciRunNumber?.let { 100 + it }
+        ?: gitCommitCount?.let { 100 + it }
+        ?: 100
 
     defaultConfig {
         applicationId = "com.vnchflex.vietkeyboard"

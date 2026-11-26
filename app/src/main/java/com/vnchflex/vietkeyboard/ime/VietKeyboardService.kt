@@ -54,7 +54,9 @@ class VietKeyboardService : InputMethodService() {
     private var isVietnameseMode = true
     private val enComposing = StringBuilder()
     private val currentTokenBuffer = StringBuilder()
-    private val clipboardHistory = ArrayDeque<String>()
+    private lateinit var clipboardStore: ClipboardStore
+    private var clipboardPanelController: ClipboardPanelController? = null
+    private var isClipboardPanelOpen = false
     private var clipboardManager: ClipboardManager? = null
     private var shiftState = ShiftState.LOWER
     private var lastShiftClickTime = 0L
@@ -106,6 +108,7 @@ class VietKeyboardService : InputMethodService() {
         macroStore = MacroStore(this)
         macroEngine = MacroEngine(macroStore.load())
         suggestionEngine = SuggestionEngine(this)
+        clipboardStore = ClipboardStore(this)
         syncPreferencesToEngines()
         clipboardManager = (getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.also { cm ->
             cm.addPrimaryClipChangedListener {
@@ -114,9 +117,7 @@ class VietKeyboardService : InputMethodService() {
                 if (clip.itemCount > 0) {
                     val text = clip.getItemAt(0).coerceToText(this)?.toString().orEmpty()
                     if (text.isNotBlank()) {
-                        clipboardHistory.remove(text)
-                        clipboardHistory.addFirst(text)
-                        while (clipboardHistory.size > 15) clipboardHistory.removeLast()
+                        clipboardStore.addClip(text)
                     }
                 }
             }
@@ -1337,130 +1338,55 @@ class VietKeyboardService : InputMethodService() {
         updateSuggestions(vnEngine.composingText)
     }
 
-    private fun onPasteClipboard() {
-        val anchor = window?.window?.decorView?.findViewById<View>(R.id.btn_toolbar_clipboard)
-            ?: keyboardView?.findViewById(R.id.btn_toolbar_clipboard)
-            ?: return
-        val density = resources.displayMetrics.density
-
-        if (!prefs.enableClipboardHistory) {
-            showClipboardPrompt(
-                anchor = anchor,
-                density = density,
-                message = "Sao chép nhiều mục, dán nhanh cùng một lúc",
-                actionLabel = "Bật bảng nhớ tạm"
-            ) {
-                prefs.enableClipboardHistory = true
-                // Capture current clipboard immediately after enabling.
-                val cm = clipboardManager ?: (getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.also { clipboardManager = it }
-                val current = cm?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString().orEmpty()
-                if (current.isNotBlank()) {
-                    clipboardHistory.remove(current)
-                    clipboardHistory.addFirst(current)
-                }
-                onPasteClipboard()
-            }
-            return
-        }
-
+    private fun captureCurrentSystemClip() {
+        if (!prefs.enableClipboardHistory) return
         val cm = clipboardManager ?: (getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.also { clipboardManager = it }
         val current = cm?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString().orEmpty()
-        if (current.isNotBlank() && clipboardHistory.firstOrNull() != current) {
-            clipboardHistory.remove(current)
-            clipboardHistory.addFirst(current)
-            while (clipboardHistory.size > 15) clipboardHistory.removeLast()
+        if (current.isNotBlank()) {
+            clipboardStore.addClip(current)
         }
-
-        if (clipboardHistory.isEmpty()) {
-            showClipboardPrompt(
-                anchor = anchor,
-                density = density,
-                message = "Chưa có mục nào trong bảng nhớ tạm.\nSao chép văn bản để lưu và dán nhanh tại đây.",
-                actionLabel = null,
-                onAction = null
-            )
-            return
-        }
-
-        val listLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding((8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
-        }
-        var popupRef: PopupWindow? = null
-        for (item in clipboardHistory) {
-            val tv = TextView(this).apply {
-                text = item.trim()
-                maxLines = 2
-                ellipsize = android.text.TextUtils.TruncateAt.END
-                textSize = 14f
-                setTextColor(getColor(R.color.key_text))
-                setBackgroundColor(getColor(R.color.key_bg))
-                setPadding((12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt())
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { bottomMargin = (6 * density).toInt() }
-                setOnClickListener {
-                    performKeyFeedback(this)
-                    commitRaw(item)
-                    popupRef?.dismiss()
-                }
-            }
-            listLayout.addView(tv)
-        }
-        val scroll = android.widget.ScrollView(this).apply {
-            addView(listLayout)
-            setBackgroundColor(getColor(R.color.keyboard_bg))
-            elevation = 8 * density
-        }
-        val popup = PopupWindow(scroll, (320 * density).toInt(), (220 * density).toInt(), false).apply {
-            isOutsideTouchable = true
-            isTouchable = true
-        }
-        popupRef = popup
-        popup.showAtLocation(anchor.rootView, android.view.Gravity.BOTTOM or android.view.Gravity.CENTER_HORIZONTAL, 0, (56 * density).toInt())
     }
 
-    private fun showClipboardPrompt(
-        anchor: View,
-        density: Float,
-        message: String,
-        actionLabel: String?,
-        onAction: (() -> Unit)?
-    ) {
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(getColor(R.color.keyboard_bg))
-            elevation = 8 * density
-            setPadding((16 * density).toInt(), (14 * density).toInt(), (16 * density).toInt(), (14 * density).toInt())
+    private fun onPasteClipboard() {
+        val root = keyboardView?.findViewById<LinearLayout>(R.id.keyboard_root) ?: return
+        if (isClipboardPanelOpen) {
+            closeClipboardPanel()
+            return
         }
-        layout.addView(TextView(this).apply {
-            text = message
-            textSize = 14f
-            setTextColor(getColor(R.color.key_text))
-        })
-        var popupRef: PopupWindow? = null
-        if (!actionLabel.isNullOrBlank() && onAction != null) {
-            layout.addView(TextView(this).apply {
-                text = actionLabel
-                textSize = 14f
-                setTypeface(typeface, Typeface.BOLD)
-                setTextColor(getColor(R.color.accent))
-                gravity = Gravity.END
-                setPadding(0, (12 * density).toInt(), 0, 0)
-                setOnClickListener {
-                    performKeyFeedback(this)
-                    popupRef?.dismiss()
-                    onAction()
-                }
-            })
+        captureCurrentSystemClip()
+
+        val controller = clipboardPanelController ?: ClipboardPanelController(
+            context = this,
+            prefs = prefs,
+            store = clipboardStore,
+            onPaste = { text -> commitRaw(text) },
+            onClose = { closeClipboardPanel() },
+            onCaptureCurrentClip = { captureCurrentSystemClip() },
+            onHaptic = { view -> performKeyFeedback(view) }
+        ).also { clipboardPanelController = it }
+
+        val targetHeight = root.height
+        root.findViewById<View>(R.id.top_strip_container)?.visibility = View.GONE
+        root.findViewById<View>(R.id.glide_overlay)?.visibility = View.GONE
+        panelSymbols1?.visibility = View.GONE
+        panelSymbols2?.visibility = View.GONE
+
+        val panel = controller.createOrUpdateView(targetHeight)
+        if (panel.parent !== root) {
+            (panel.parent as? android.view.ViewGroup)?.removeView(panel)
+            root.addView(panel)
         }
-        val popup = PopupWindow(layout, (320 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT, false).apply {
-            isOutsideTouchable = true
-            isTouchable = true
-        }
-        popupRef = popup
-        popup.showAtLocation(anchor.rootView, android.view.Gravity.BOTTOM or android.view.Gravity.CENTER_HORIZONTAL, 0, (56 * density).toInt())
+        panel.visibility = View.VISIBLE
+        isClipboardPanelOpen = true
+    }
+
+    private fun closeClipboardPanel() {
+        val root = keyboardView?.findViewById<LinearLayout>(R.id.keyboard_root) ?: return
+        clipboardPanelController?.resetEditMode()
+        root.removeView(clipboardPanelController?.createOrUpdateView(0))
+        root.findViewById<View>(R.id.top_strip_container)?.visibility = View.VISIBLE
+        root.findViewById<View>(R.id.glide_overlay)?.visibility = View.VISIBLE
+        isClipboardPanelOpen = false
     }
 
     private fun openSettingsSection(section: String?) {

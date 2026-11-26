@@ -4,6 +4,17 @@ Tất cả các thay đổi đáng chú ý của dự án **vnchFlex** đều đ
 
 ---
 
+## [Unreleased / Latest] — Gboard Clipboard & Local VersionCode (`6af3027`)
+
+### Added & Improved (Tính năng mới & Cải thiện)
+- **Bảng nhớ tạm (Clipboard) kiểu Gboard**:
+  - Thêm `ClipboardStore` lưu lịch sử clipboard bền vững qua `SharedPreferences`, tự động xóa các mục chưa ghim sau **1 giờ** và giữ các mục đã ghim lên đầu.
+  - Thêm `ClipboardPanelController` hiển thị panel clipboard ngay trong bàn phím với thanh tiêu đề (`←`, `Switch` bật/tắt, nút chỉnh sửa `✎`), thẻ onboarding khi tắt, mẹo sử dụng khi trống, và lưới thẻ **2 cột** (chạm để dán, nhấn giữ để ghim, chế độ chỉnh sửa để ghim/xóa).
+- **Đồng bộ `versionCode` khi build local** (`app/build.gradle.kts`):
+  - Hỗ trợ `-PversionCode=<N>`, `GITHUB_RUN_NUMBER` trên CI, và fallback `100 + git rev-list --count HEAD` khi build local để tránh lỗi downgrade khi cài lên điện thoại.
+
+---
+
 ## [Unreleased / Latest] — Whitelist & Space Rollover (`09aea53`)
 
 ### Added (Tính năng mới)
