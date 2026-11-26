@@ -59,6 +59,14 @@ class VietKeyboardService : InputMethodService() {
     private var isClipboardPanelOpen = false
     private var shouldReloadDictionaryOnResume = false
     private var clipboardManager: ClipboardManager? = null
+    private val clipChangedListener = ClipboardManager.OnPrimaryClipChangedListener {
+        if (!prefs.enableClipboardHistory) return@OnPrimaryClipChangedListener
+        val clip = clipboardManager?.primaryClip ?: return@OnPrimaryClipChangedListener
+        if (clip.itemCount > 0) {
+            val text = clip.getItemAt(0).coerceToText(this)?.toString().orEmpty()
+            if (text.isNotBlank() && ::clipboardStore.isInitialized) clipboardStore.addClip(text)
+        }
+    }
     private val learnExecutor: java.util.concurrent.ExecutorService = java.util.concurrent.Executors.newSingleThreadExecutor()
     private var shiftState = ShiftState.LOWER
     private var lastShiftClickTime = 0L
@@ -113,20 +121,12 @@ class VietKeyboardService : InputMethodService() {
         clipboardStore = ClipboardStore(this)
         syncPreferencesToEngines()
         clipboardManager = (getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.also { cm ->
-            cm.addPrimaryClipChangedListener {
-                if (!prefs.enableClipboardHistory) return@addPrimaryClipChangedListener
-                val clip = cm.primaryClip ?: return@addPrimaryClipChangedListener
-                if (clip.itemCount > 0) {
-                    val text = clip.getItemAt(0).coerceToText(this)?.toString().orEmpty()
-                    if (text.isNotBlank()) {
-                        clipboardStore.addClip(text)
-                    }
-                }
-            }
+            cm.addPrimaryClipChangedListener(clipChangedListener)
         }
     }
 
     override fun onDestroy() {
+        clipboardManager?.removePrimaryClipChangedListener(clipChangedListener)
         learnExecutor.shutdown()
         try {
             learnExecutor.awaitTermination(250, java.util.concurrent.TimeUnit.MILLISECONDS)
@@ -1321,9 +1321,7 @@ class VietKeyboardService : InputMethodService() {
         val ic = currentInputConnection ?: return
         markOwnIcEdit()
         if (vnEngine.isComposing) {
-            val len = vnEngine.composingText.length
-            vnEngine.reset()
-            if (len > 0) ic.deleteSurroundingText(len, 0)
+            vnEngine.reset(ic)
             updateSuggestions("")
             return
         }
