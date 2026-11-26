@@ -53,6 +53,7 @@ class VietKeyboardService : InputMethodService() {
     private var mode = Mode.LETTERS
     private var isVietnameseMode = true
     private val enComposing = StringBuilder()
+    private val currentTokenBuffer = StringBuilder()
     private val clipboardHistory = ArrayDeque<String>()
     private var clipboardManager: ClipboardManager? = null
     private var shiftState = ShiftState.LOWER
@@ -391,6 +392,7 @@ class VietKeyboardService : InputMethodService() {
                                 refreshLetterKeyLabels()
                             }
                         }
+                        flushPendingRollover()
                     }
                     MotionEvent.ACTION_MOVE -> {
                         if (altPopup?.isShowing == true && altAnchor === v) {
@@ -707,6 +709,11 @@ class VietKeyboardService : InputMethodService() {
 
     private fun onDigitOrSymbol(text: String) {
         commitRaw(text)
+        if (text.length == 1 && text[0].isLetterOrDigit()) {
+            currentTokenBuffer.append(text[0])
+        } else {
+            currentTokenBuffer.clear()
+        }
     }
 
     private fun onSecondarySymbol(symbol: String) {
@@ -801,11 +808,13 @@ class VietKeyboardService : InputMethodService() {
         if (!isVietnameseMode) {
             if (isMacroTrigger(c)) {
                 val finishedEn = enComposing.toString()
+                val tokenForMacro = if (currentTokenBuffer.isNotEmpty()) currentTokenBuffer.toString() else finishedEn
                 enComposing.clear()
+                currentTokenBuffer.clear()
                 if (finishedEn.isNotEmpty()) {
                     recordCommittedWord(finishedEn)
                 }
-                if (prefs.macroEnabled && finishedEn.isNotEmpty() && macroEngine.tryExpand(ic, c, beforeCursor = finishedEn)) {
+                if (prefs.macroEnabled && tokenForMacro.isNotEmpty() && macroEngine.tryExpand(ic, c, beforeCursor = tokenForMacro)) {
                     justExpandedMacroWithSpace = (c == ' ')
                     updateAutoCapitalization()
                     updateSuggestions("")
@@ -817,10 +826,12 @@ class VietKeyboardService : InputMethodService() {
                 updateSuggestions("")
                 return
             }
-            if (c.isLetter() || c == '\'') {
-                enComposing.append(c)
+            if (c.isLetterOrDigit() || c == '\'') {
+                if (c.isLetter() || c == '\'') enComposing.append(c) else enComposing.clear()
+                currentTokenBuffer.append(c)
             } else {
                 enComposing.clear()
+                currentTokenBuffer.clear()
             }
             ic.commitText(c.toString(), 1)
             updateAutoCapitalization()
@@ -829,16 +840,18 @@ class VietKeyboardService : InputMethodService() {
         }
         if (isMacroTrigger(c)) {
             val finishedWord = vnEngine.composingText
+            val tokenForMacro = if (currentTokenBuffer.isNotEmpty()) currentTokenBuffer.toString() else finishedWord
             vnEngine.commit(ic)
+            currentTokenBuffer.clear()
             if (finishedWord.isNotEmpty()) {
                 suggestionExecutor.execute { recordCommittedWord(finishedWord) }
-                if (prefs.macroEnabled && macroEngine.tryExpand(ic, c, beforeCursor = finishedWord)) {
-                    justExpandedMacroWithSpace = (c == ' ')
-                    trackCommittedChar(c)
-                    updateAutoCapitalization()
-                    scheduleSuggestionsUpdate("")
-                    return
-                }
+            }
+            if (prefs.macroEnabled && tokenForMacro.isNotEmpty() && macroEngine.tryExpand(ic, c, beforeCursor = tokenForMacro)) {
+                justExpandedMacroWithSpace = (c == ' ')
+                trackCommittedChar(c)
+                updateAutoCapitalization()
+                scheduleSuggestionsUpdate("")
+                return
             }
             justExpandedMacroWithSpace = false
             ic.commitText(c.toString(), 1)
@@ -853,6 +866,11 @@ class VietKeyboardService : InputMethodService() {
         if (!handled) {
             vnEngine.commit(ic)
             ic.commitText(c.toString(), 1)
+        }
+        if (c.isLetterOrDigit()) {
+            currentTokenBuffer.append(c)
+        } else {
+            currentTokenBuffer.clear()
         }
         trackCommittedChar(c)
         scheduleSuggestionsUpdate(vnEngine.composingText)

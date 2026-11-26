@@ -104,7 +104,21 @@ class GlideTypingOverlayView @JvmOverloads constructor(
                 }
                 return false
             }
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                // Người dùng đang gõ nhanh bằng 2 ngón tay -> hủy chế độ vuốt ngay lập tức
+                isGliding = false
+                swipedKeys.clear()
+                trailPath.reset()
+                invalidate()
+                return false
+            }
             MotionEvent.ACTION_MOVE -> {
+                if (ev.pointerCount > 1) {
+                    isGliding = false
+                    swipedKeys.clear()
+                    trailPath.reset()
+                    return false
+                }
                 if (swipedKeys.isEmpty()) return false
                 val dist = hypot(ev.x - downX, ev.y - downY)
                 if (dist >= glideThresholdPx) {
