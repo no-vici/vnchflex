@@ -276,9 +276,11 @@ class VietKeyboardService : InputMethodService() {
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
         currentTokenBuffer.clear()
+        enComposing.clear()
+        lastGlideCommittedLength = 0
         justExpandedMacroWithSpace = false
         syncPreferencesToEngines()
-        vnEngine.reset()
+        currentInputConnection?.let { vnEngine.commit(it) } ?: vnEngine.reset()
         updateSuggestions("")
         showMode(Mode.LETTERS)
     }
@@ -876,18 +878,22 @@ class VietKeyboardService : InputMethodService() {
         if (isMacroTrigger(c)) {
             val finishedWord = vnEngine.composingText
             val tokenForMacro = if (currentTokenBuffer.isNotEmpty()) currentTokenBuffer.toString() else finishedWord
-            vnEngine.commit(ic)
+            val composingLen = finishedWord.length
             currentTokenBuffer.clear()
             if (finishedWord.isNotEmpty()) {
                 recordCommittedWord(finishedWord)
             }
-            if (prefs.macroEnabled && tokenForMacro.isNotEmpty() && macroEngine.tryExpand(ic, c, beforeCursor = tokenForMacro)) {
+            if (prefs.macroEnabled && tokenForMacro.isNotEmpty() &&
+                macroEngine.tryExpand(ic, c, beforeCursor = tokenForMacro, composingLength = composingLen)
+            ) {
+                vnEngine.reset() // composing span cleared by tryExpand
                 justExpandedMacroWithSpace = (c == ' ')
                 trackCommittedChar(c)
                 updateAutoCapitalization()
                 scheduleSuggestionsUpdate("")
                 return
             }
+            vnEngine.commit(ic)
             justExpandedMacroWithSpace = false
             ic.commitText(c.toString(), 1)
             trackCommittedChar(c)
@@ -1415,6 +1421,7 @@ class VietKeyboardService : InputMethodService() {
     private fun switchKeyboard() {
         currentInputConnection?.let { vnEngine.commit(it) }
         isVietnameseMode = !isVietnameseMode
+        if (mode != Mode.LETTERS) showMode(Mode.LETTERS)
         applyPreferencesToView()
         updateSuggestions("")
     }

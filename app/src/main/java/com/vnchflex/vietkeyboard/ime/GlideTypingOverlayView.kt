@@ -189,10 +189,12 @@ class GlideTypingOverlayView @JvmOverloads constructor(
 
     override fun dispatchDraw(canvas: Canvas) {
         super.dispatchDraw(canvas)
-        if (!showTrail || trailPoints.size < 2) return
+        val count = trailPoints.size
+        if (!showTrail || count < 2) return
         val now = SystemClock.uptimeMillis()
         pruneTrail(now)
-        if (trailPoints.size < 2) return
+        val activeCount = trailPoints.size
+        if (activeCount < 2) return
 
         val fadeProgress = if (!isGliding && trailFadeStartMs > 0L) {
             ((now - trailFadeStartMs).toFloat() / trailFadeOutMs.toFloat()).coerceIn(0f, 1f)
@@ -205,11 +207,11 @@ class GlideTypingOverlayView @JvmOverloads constructor(
 
         val baseWidth = 10f * resources.displayMetrics.density
         val minWidth = 4.5f * resources.displayMetrics.density
-        val points = trailPoints.toList()
-        for (i in 0 until points.size - 1) {
-            val p0 = points[i]
-            val p1 = points[i + 1]
-            val segProgress = (i + 1).toFloat() / (points.size - 1).coerceAtLeast(1).toFloat()
+        val denom = (activeCount - 1).coerceAtLeast(1).toFloat()
+        for (i in 0 until activeCount - 1) {
+            val p0 = trailPoints[i]
+            val p1 = trailPoints[i + 1]
+            val segProgress = (i + 1).toFloat() / denom
             val alpha = ((40 + 164 * segProgress) * fadeAlphaMultiplier).toInt().coerceIn(0, 204)
             if (alpha <= 0) continue
             trailPaint.strokeWidth = minWidth + (baseWidth - minWidth) * segProgress

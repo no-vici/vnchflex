@@ -23,7 +23,12 @@ class MacroEngine(initialMacros: List<Macro> = emptyList()) {
         macros = newMacros
     }
 
-    fun tryExpand(ic: InputConnection, trigger: Char, beforeCursor: String? = null): Boolean {
+    fun tryExpand(
+        ic: InputConnection,
+        trigger: Char,
+        beforeCursor: String? = null,
+        composingLength: Int = 0
+    ): Boolean {
         if (isTechnicalDelimiter(trigger) || trigger in "([{<") return false
 
         val before = beforeCursor ?: ic.getTextBeforeCursor(MAX_LOOKBACK, 0)?.toString() ?: return false
@@ -37,13 +42,22 @@ class MacroEngine(initialMacros: List<Macro> = emptyList()) {
 
         val macro = findMacro(token) ?: return false
         val expanded = adaptCase(token, resolveVariables(macro.expansion))
+        val expandedWithTrigger = expanded + trigger
 
         ic.beginBatchEdit()
         try {
-            val deleted = ic.deleteSurroundingText(token.length, 0)
-            if (!deleted) return false
-            val expandedWithTrigger = expanded + trigger
-            ic.commitText(expandedWithTrigger, 1)
+            if (composingLength == token.length && composingLength > 0) {
+                // Replace active composing span directly to avoid finish/delete IPC race.
+                ic.setComposingText("", 1)
+                ic.commitText(expandedWithTrigger, 1)
+            } else {
+                if (composingLength > 0) {
+                    ic.finishComposingText()
+                }
+                val deleted = ic.deleteSurroundingText(token.length, 0)
+                if (!deleted) return false
+                ic.commitText(expandedWithTrigger, 1)
+            }
             lastExpansion = (token + trigger) to expandedWithTrigger
         } finally {
             ic.endBatchEdit()
