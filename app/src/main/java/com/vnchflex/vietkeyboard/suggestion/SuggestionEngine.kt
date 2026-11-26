@@ -430,70 +430,92 @@ class SuggestionEngine(context: Context? = null) {
         }
     }
 
-    // Bundled Trigram Language Model: "prev2 prev1" -> ordered list of next words
-    private val bundledTrigrams: Map<String, List<String>> = mapOf(
-        "xin chào" to listOf("bạn", "mọi người", "anh", "chị"),
-        "cảm ơn" to listOf("bạn", "anh", "chị", "nhiều"),
-        "rất vui" to listOf("được", "khi", "vì"),
-        "vui được" to listOf("gặp", "làm", "biết"),
-        "được gặp" to listOf("bạn", "anh", "mọi người"),
-        "hôm nay" to listOf("tôi", "bạn", "trời", "mình"),
-        "ngày mai" to listOf("mình", "tôi", "bạn", "đi"),
-        "bây giờ" to listOf("mình", "tôi", "bạn", "đang"),
-        "thành phố" to listOf("hồ chí minh", "hà nội", "đà nẵng"),
-        "hồ chí" to listOf("minh", "minh và"),
-        "việt nam" to listOf("ta", "mình", "vô địch", "ơi"),
-        "tiếng việt" to listOf("rất", "chuẩn", "tự do"),
-        "bỏ dấu" to listOf("tự do", "tiếng việt", "nhanh"),
-        "dấu tự" to listOf("do", "động"),
-        "bàn phím" to listOf("tiếng việt", "gboard", "android"),
-        "số điện" to listOf("thoại", "thoại của"),
-        "điện thoại" to listOf("của", "di động", "mới"),
-        "không biết" to listOf("có", "sao", "là", "nữa"),
-        "tôi đang" to listOf("làm", "ở", "đi", "học"),
-        "mình đang" to listOf("ở", "làm", "đi", "ăn"),
-        "bạn đang" to listOf("làm gì", "ở đâu", "đi đâu"),
-        "đang làm" to listOf("gì", "việc", "bài"),
-        "làm gì" to listOf("đó", "vậy", "thế", "dzậy"),
-        "đi dzìa" to listOf("nhà", "quê", "sớm", "thôi"),
-        "mới dzìa" to listOf("tới", "nhà", "luôn"),
-        "bá cháy" to listOf("bọ chét", "luôn", "thiệt"),
-        "số dzách" to listOf("luôn", "thiệt", "nha"),
-        "hết sảy" to listOf("con bà bảy", "luôn", "nha"),
-        "chúc bạn" to listOf("một ngày", "vui vẻ", "thành công"),
-        "một ngày" to listOf("tốt lành", "vui vẻ", "mới"),
-    )
+    // Bundled Trigram Language Model: "prev2 prev1" -> ordered list of next words (gộp dữ liệu mặc định + assets/vi_trigrams.json)
+    private val bundledTrigrams: Map<String, List<String>> = buildMap {
+        val fallbackTrigrams = mapOf(
+            "xin chào" to listOf("bạn", "mọi người", "anh", "chị"),
+            "cảm ơn" to listOf("bạn", "anh", "chị", "nhiều"),
+            "rất vui" to listOf("được", "khi", "vì"),
+            "vui được" to listOf("gặp", "làm", "biết"),
+            "được gặp" to listOf("bạn", "anh", "mọi người"),
+            "hôm nay" to listOf("tôi", "bạn", "trời", "mình"),
+            "ngày mai" to listOf("mình", "tôi", "bạn", "đi"),
+            "bây giờ" to listOf("mình", "tôi", "bạn", "đang"),
+            "thành phố" to listOf("hồ chí minh", "hà nội", "đà nẵng"),
+            "hồ chí" to listOf("minh", "minh và"),
+            "việt nam" to listOf("ta", "mình", "vô địch", "ơi"),
+            "tiếng việt" to listOf("rất", "chuẩn", "tự do"),
+            "bỏ dấu" to listOf("tự do", "tiếng việt", "nhanh"),
+            "dấu tự" to listOf("do", "động"),
+            "bàn phím" to listOf("tiếng việt", "gboard", "android"),
+            "số điện" to listOf("thoại", "thoại của"),
+            "điện thoại" to listOf("của", "di động", "mới"),
+            "không biết" to listOf("có", "sao", "là", "nữa"),
+            "tôi đang" to listOf("làm", "ở", "đi", "học"),
+            "mình đang" to listOf("ở", "làm", "đi", "ăn"),
+            "bạn đang" to listOf("làm gì", "ở đâu", "đi đâu"),
+            "đang làm" to listOf("gì", "việc", "bài"),
+            "làm gì" to listOf("đó", "vậy", "thế", "dzậy"),
+            "đi dzìa" to listOf("nhà", "quê", "sớm", "thôi"),
+            "mới dzìa" to listOf("tới", "nhà", "luôn"),
+            "bá cháy" to listOf("bọ chét", "luôn", "thiệt"),
+            "số dzách" to listOf("luôn", "thiệt", "nha"),
+            "hết sảy" to listOf("con bà bảy", "luôn", "nha"),
+            "chúc bạn" to listOf("một ngày", "vui vẻ", "thành công"),
+            "một ngày" to listOf("tốt lành", "vui vẻ", "mới"),
+        )
+        putAll(fallbackTrigrams)
 
-    // Bundled Bigram Language Model: "prev1" -> ordered list of next words
-    private val bundledBigrams: Map<String, List<String>> = mapOf(
-        "xin" to listOf("chào", "lỗi", "cảm ơn", "hỏi"),
-        "cảm" to listOf("ơn", "thấy", "xúc", "giác"),
-        "việt" to listOf("nam", "ngữ", "kiều"),
-        "hôm" to listOf("nay", "qua", "trước", "đó"),
-        "ngày" to listOf("mai", "nay", "xưa", "mới"),
-        "thành" to listOf("phố", "công", "viên", "thật"),
-        "bàn" to listOf("phím", "làm", "bạc", "ăn"),
-        "không" to listOf("biết", "có", "được", "thể"),
-        "tôi" to listOf("đang", "muốn", "là", "có"),
-        "mình" to listOf("đang", "sẽ", "cũng", "đi"),
-        "bạn" to listOf("có", "đang", "ơi", "nhé"),
-        "đang" to listOf("làm", "ở", "đi", "học"),
-        "làm" to listOf("việc", "gì", "sao", "ơn"),
-        "đi" to listOf("dzìa", "học", "làm", "chơi"),
-        "dzìa" to listOf("nhà", "quê", "trễ", "sớm"),
-        "dzô" to listOf("đây", "nhà", "một", "luôn"),
-        "số" to listOf("dzách", "điện thoại", "lượng", "một"),
-        "dzách" to listOf("luôn", "thiệt", "nha"),
-        "bá" to listOf("cháy", "đạo", "chủ"),
-        "bỏ" to listOf("dấu", "qua", "đi"),
-        "dấu" to listOf("tự do", "câu", "thanh"),
-        "thời" to listOf("gian", "tiết", "điểm"),
-        "công" to listOf("việc", "ty", "nghệ", "nhận"),
-        "sài" to listOf("gòn", "thành"),
-        "hà" to listOf("nội", "đông"),
-        "đà" to listOf("nẵng", "lạt"),
-        "rất" to listOf("vui", "nhiều", "tốt", "hay"),
-    )
+        val assetTrigrams = loadAssetNgrams(context, "vi_trigrams.json")
+        assetTrigrams.forEach { (ctx, words) ->
+            val merged = LinkedHashSet<String>()
+            get(ctx)?.let { merged.addAll(it) }
+            merged.addAll(words)
+            put(ctx, merged.toList())
+        }
+    }
+
+    // Bundled Bigram Language Model: "prev1" -> ordered list of next words (gộp dữ liệu mặc định + assets/vi_bigrams.json)
+    private val bundledBigrams: Map<String, List<String>> = buildMap {
+        val fallbackBigrams = mapOf(
+            "xin" to listOf("chào", "lỗi", "cảm ơn", "hỏi"),
+            "cảm" to listOf("ơn", "thấy", "xúc", "giác"),
+            "việt" to listOf("nam", "ngữ", "kiều"),
+            "hôm" to listOf("nay", "qua", "trước", "đó"),
+            "ngày" to listOf("mai", "nay", "xưa", "mới"),
+            "thành" to listOf("phố", "công", "viên", "thật"),
+            "bàn" to listOf("phím", "làm", "bạc", "ăn"),
+            "không" to listOf("biết", "có", "được", "thể"),
+            "tôi" to listOf("đang", "muốn", "là", "có"),
+            "mình" to listOf("đang", "sẽ", "cũng", "đi"),
+            "bạn" to listOf("có", "đang", "ơi", "nhé"),
+            "đang" to listOf("làm", "ở", "đi", "học"),
+            "làm" to listOf("việc", "gì", "sao", "ơn"),
+            "đi" to listOf("dzìa", "học", "làm", "chơi"),
+            "dzìa" to listOf("nhà", "quê", "trễ", "sớm"),
+            "dzô" to listOf("đây", "nhà", "một", "luôn"),
+            "số" to listOf("dzách", "điện thoại", "lượng", "một"),
+            "dzách" to listOf("luôn", "thiệt", "nha"),
+            "bá" to listOf("cháy", "đạo", "chủ"),
+            "bỏ" to listOf("dấu", "qua", "đi"),
+            "dấu" to listOf("tự do", "câu", "thanh"),
+            "thời" to listOf("gian", "tiết", "điểm"),
+            "công" to listOf("việc", "ty", "nghệ", "nhận"),
+            "sài" to listOf("gòn", "thành"),
+            "hà" to listOf("nội", "đông"),
+            "đà" to listOf("nẵng", "lạt"),
+            "rất" to listOf("vui", "nhiều", "tốt", "hay"),
+        )
+        putAll(fallbackBigrams)
+
+        val assetBigrams = loadAssetNgrams(context, "vi_bigrams.json")
+        assetBigrams.forEach { (ctx, words) ->
+            val merged = LinkedHashSet<String>()
+            get(ctx)?.let { merged.addAll(it) }
+            merged.addAll(words)
+            put(ctx, merged.toList())
+        }
+    }
 
     private val englishContractions = mapOf(
         "dont" to "don't", "cant" to "can't", "wont" to "won't", "didnt" to "didn't",
@@ -826,5 +848,29 @@ class SuggestionEngine(context: Context? = null) {
             weights[w] = (weights[w] ?: 0) + count * 3
         }
         weights
+    }
+
+    private fun loadAssetNgrams(context: Context?, assetName: String): Map<String, List<String>> {
+        if (context == null) return emptyMap()
+        return runCatching {
+            val raw = context.assets.open(assetName).bufferedReader().use { it.readText() }
+            val json = org.json.JSONObject(raw)
+            buildMap {
+                val keys = json.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next().trim().lowercase()
+                    val arr = json.optJSONArray(k) ?: continue
+                    val followers = buildList(arr.length()) {
+                        for (i in 0 until arr.length()) {
+                            val w = arr.optString(i, "").trim().lowercase()
+                            if (w.isNotEmpty()) add(w)
+                        }
+                    }
+                    if (k.isNotEmpty() && followers.isNotEmpty()) {
+                        put(k, followers)
+                    }
+                }
+            }
+        }.getOrDefault(emptyMap())
     }
 }
