@@ -287,9 +287,15 @@ class VietKeyboardService : InputMethodService() {
         lastGlideCommittedLength = 0
         justExpandedMacroWithSpace = false
         syncPreferencesToEngines()
+        vnEngine.useComposingSpan = !isTelegramPackage(attribute?.packageName ?: currentInputEditorInfo?.packageName)
         currentInputConnection?.let { vnEngine.commit(it) } ?: vnEngine.reset()
         updateSuggestions("")
         showMode(Mode.LETTERS)
+    }
+
+    private fun isTelegramPackage(pkg: String?): Boolean {
+        val p = pkg?.lowercase() ?: return false
+        return p == "org.telegram.messenger" || p == "org.telegram.messenger.web" || p == "org.thunderdog.challegram" || p.startsWith("org.telegram.")
     }
 
     private fun syncPreferencesToEngines() {

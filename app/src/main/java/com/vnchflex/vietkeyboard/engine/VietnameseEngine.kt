@@ -36,6 +36,8 @@ class VietnameseEngine {
     var autoRestoreEnglish: Boolean = true
     /** Danh sách từ ngoại lệ do người dùng thêm để giữ nguyên raw text */
     var userWhitelist: Set<String> = emptySet()
+    /** Dùng composing span (gạch chân). Tắt cho app có vấn đề lag/underline như Telegram. */
+    var useComposingSpan: Boolean = true
 
     private val rawChars = mutableListOf<Char>()
     private var renderedOutput: String = ""
@@ -80,13 +82,13 @@ class VietnameseEngine {
 
     fun commit(ic: InputConnection) {
         if (renderedOutput.isEmpty() && rawChars.isEmpty()) return
-        ic.finishComposingText()
+        if (useComposingSpan) ic.finishComposingText()
         rawChars.clear()
         renderedOutput = ""
     }
 
     fun reset(ic: InputConnection? = null) {
-        if (ic != null && (renderedOutput.isNotEmpty() || rawChars.isNotEmpty())) {
+        if (ic != null && useComposingSpan && (renderedOutput.isNotEmpty() || rawChars.isNotEmpty())) {
             // Discard active composing span so stale composing text doesn't linger.
             ic.commitText("", 1)
         }
@@ -104,7 +106,7 @@ class VietnameseEngine {
         rawChars.clear()
         rawChars.addAll(rawKeysFor(word).toList())
         renderedOutput = word
-        if (ic != null) {
+        if (ic != null && useComposingSpan) {
             ic.beginBatchEdit()
             try {
                 ic.deleteSurroundingText(word.length, 0)
@@ -147,10 +149,14 @@ class VietnameseEngine {
         ic.beginBatchEdit()
         try {
             if (newText.isEmpty()) {
-                if (prevLen > 0) ic.commitText("", 1)
-            } else {
-                // No underline span: Gboard-like clean composing, better IPC perf on WebView/Chrome apps.
+                if (prevLen > 0) {
+                    if (useComposingSpan) ic.commitText("", 1) else ic.deleteSurroundingText(prevLen, 0)
+                }
+            } else if (useComposingSpan) {
                 ic.setComposingText(newText, 1)
+            } else {
+                if (prevLen > 0) ic.deleteSurroundingText(prevLen, 0)
+                ic.commitText(newText, 1)
             }
         } finally {
             ic.endBatchEdit()
