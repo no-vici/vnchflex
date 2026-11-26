@@ -8,5 +8,4 @@
 .externalNativeBuild/
 .cxx/
 app/build/
-corpus_data
-pretrain_assets_vnchflex.py
+corpus_data/
