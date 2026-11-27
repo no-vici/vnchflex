@@ -4,6 +4,24 @@ Tất cả các thay đổi đáng chú ý của dự án **vnchFlex** đều đ
 
 ---
 
+## [Unreleased / Latest] — ONNX Offline AI, Gesture Delete, Spatial Auto-Correct & ACTION_DOWN
+
+### Added & Improved (Tính năng mới & Cải thiện)
+- **Công cụ văn bản thông minh `✨` (chỉ hiện khi bôi đen)** (`VietKeyboardService`, `VietnameseTextNormalizer`, `OnnxVietnameseCorrector`):
+  - Tự động hiện nút `✨` trên thanh gợi ý khi bôi đen văn bản (`newSelStart != newSelEnd`) với 4 tác vụ: *Khôi phục dấu Tiếng Việt*, *Chuẩn hóa dấu câu & viết hoa*, *Bỏ dấu Tiếng Việt*, *Đổi IN HOA / chữ thường*.
+  - Tích hợp **ONNX Runtime Android** (`arm64-v8a`, `vi_corrector.onnx` INT8 ~6.92 MB huấn luyện trên 371k câu sạch) kèm ràng buộc giữ nguyên dấu câu & chữ cái gốc, tự động fallback sang `VietnameseTextNormalizer` (Trigram + Unigram) nếu chưa có model.
+  - Thêm script huấn luyện [train_custom_corpus_onnx.py](scripts/train_custom_corpus_onnx.py) (hỗ trợ `.txt`, `.md`, `.pdf`, bảo toàn `dz-`).
+- **Vuốt phím Xóa (`⌫`) sang trái kiểu Gboard** (`VietKeyboardService`):
+  - Chạm và trượt từ `⌫` sang trái để bôi đen từng từ ngược về trước, trượt lại sang phải để bỏ chọn, thả tay để xóa.
+- **Lọc bảo mật OOV & Tự động sửa lệch phím lân cận** (`SuggestionEngine`, `GlideDecoder`, `VietKeyboardService`):
+  - Chặn học từ trên ô mật khẩu/email/URL và bỏ qua chuỗi chứa số/ký tự đặc biệt; từ mới ngoài từ điển cần lặp lại ≥ 2 lần (hoặc được chọn từ gợi ý) mới lưu.
+  - Tự động sửa lỗi chạm lệch 1 phím hàng xóm (`KEY_NEIGHBORS`) khi bấm Space và hoàn tác ngay khi bấm `⌫`.
+- **Tối ưu cảm ứng & giao diện**:
+  - Commit ngay tại `ACTION_DOWN` cho Space, `,` (giữ `,` mở Emoji và tự hoàn tác dấu phẩy), `.`; sửa nuốt dấu cách sau macro cho mọi dấu câu (`.,;:!?`) kể cả khi nhấn giữ.
+  - Căn giữa icon `😊` trên phím `,`, đổi phím Shift & Backspace sang vuông bo tròn với icon `28dp`.
+
+---
+
 ## [Unreleased / Latest] — Bố cục Gboard gọn gàng, Space rộng & Voice Typing
 
 ### Added & Improved (Tính năng mới & Cải thiện)
