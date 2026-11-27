@@ -77,17 +77,29 @@ class OnnxVietnameseCorrector(private val context: Context) {
                 val logits = outputs[0].value as Array<Array<FloatArray>> // [1, seqLen, vocabSize]
                 val sb = StringBuilder(seqLen)
                 for (t in 0 until seqLen) {
+                    val srcChar = trimmed[t]
+                    if (!srcChar.isLetter()) {
+                        sb.append(srcChar)
+                        continue
+                    }
+                    val srcBase = DiacriticUtils.strip(srcChar.toString()).lowercase()
                     val scores = logits[0][t]
-                    var bestId = 0
+                    var bestId = -1
                     var bestScore = Float.NEGATIVE_INFINITY
                     for (v in 2 until scores.size) { // Bỏ qua <PAD>=0 và <UNK>=1
+                        val candChar = id2Char.getOrNull(v) ?: continue
+                        if (candChar == '\u0000' || !candChar.isLetter()) continue
+                        val candBase = DiacriticUtils.strip(candChar.toString()).lowercase()
+                        if (candBase != srcBase) continue
                         if (scores[v] > bestScore) {
                             bestScore = scores[v]
                             bestId = v
                         }
                     }
-                    val outChar = id2Char.getOrNull(bestId) ?: trimmed[t]
-                    sb.append(if (outChar == '\u0000') trimmed[t] else outChar)
+                    val outChar = if (bestId >= 0) id2Char[bestId] else srcChar
+                    sb.append(
+                        if (srcChar.isUpperCase()) outChar.uppercaseChar() else outChar.lowercaseChar()
+                    )
                 }
                 sb.toString()
             }
