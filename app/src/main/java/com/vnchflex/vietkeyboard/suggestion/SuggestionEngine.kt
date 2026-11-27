@@ -602,7 +602,7 @@ class SuggestionEngine(context: Context? = null) {
         val words = ArrayList<String>(2)
     }
 
-    private val strippedTrieRoot = TrieNode()
+    private var strippedTrieRoot = TrieNode()
     @Volatile
     private var trieBuilt = false
 
@@ -956,7 +956,6 @@ class SuggestionEngine(context: Context? = null) {
     fun learnFromCorpus(corpusText: String): Int {
         if (corpusText.isBlank()) return 0
         val sentenceSplitter = Regex("[.!?\\n;:\\(\\)\\[\\]\"“”]+")
-        val validTokenRegex = Regex("^[a-záàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ0-9'-]{2,20}$")
 
         var learnedWordCount = 0
         val sentences = sentenceSplitter.split(corpusText.lowercase())
@@ -967,7 +966,7 @@ class SuggestionEngine(context: Context? = null) {
                 val tokens = sentence.trim()
                     .split(Regex("\\s+"))
                     .map { it.trim('-', '\'') }
-                    .filter { validTokenRegex.matches(it) }
+                    .filter { token -> token.length in 2..20 && token.all { it.isLetter() } }
 
                 if (tokens.isEmpty()) continue
 
@@ -1012,6 +1011,10 @@ class SuggestionEngine(context: Context? = null) {
             userUnigramCounts.clear()
             userBigrams.clear()
             userTrigrams.clear()
+            pendingOovCounts.clear()
+            strippedWordCache.clear()
+            strippedTrieRoot = TrieNode()
+            trieBuilt = false
         } finally {
             writeLock.unlock()
         }
@@ -1030,10 +1033,13 @@ class SuggestionEngine(context: Context? = null) {
             userUnigramCounts.clear()
             userBigrams.clear()
             userTrigrams.clear()
+            pendingOovCounts.clear()
+            strippedWordCache.clear()
+            strippedTrieRoot = TrieNode()
+            trieBuilt = false
 
             store.loadLearnedWords().forEach { w ->
                 userUnigramCounts[w] = (userUnigramCounts[w] ?: 0) + 5
-                if (trieBuilt) insertIntoTrie(w)
             }
             store.loadLearnedBigrams().forEach { (ctx, map) ->
                 userBigrams[ctx] = map.toMutableMap()
@@ -1070,28 +1076,41 @@ class SuggestionEngine(context: Context? = null) {
     }
 
     fun getGlideVocabulary(isVietnameseMode: Boolean = true): Map<String, Int> {
-        return LinkedHashMap<String, Int>(coreUnigramWeights.size + englishUnigramWeights.size + userUnigramCounts.size).apply {
-            if (isVietnameseMode) {
-                englishUnigramWeights.forEach { (w, weight) ->
-                    put(w, (weight - 12).coerceIn(55, 84))
+        readLock.lock()
+        try {
+            return LinkedHashMap<String, Int>(coreUnigramWeights.size + englishUnigramWeights.size + userUnigramCounts.size).apply {
+                if (isVietnameseMode) {
+                    englishUnigramWeights.forEach { (w, weight) ->
+                        put(w, (weight - 12).coerceIn(55, 84))
+                    }
+                    putAll(coreUnigramWeights)
+                } else {
+                    putAll(englishUnigramWeights)
                 }
-                putAll(coreUnigramWeights)
-            } else {
-                putAll(englishUnigramWeights)
+                userUnigramCounts.forEach { (w, count) ->
+                    put(w, (get(w) ?: 65) + (count * 12).coerceAtMost(80))
+                }
             }
-            userUnigramCounts.forEach { (w, count) ->
-                put(w, (get(w) ?: 65) + (count * 12).coerceAtMost(80))
-            }
+        } finally {
+            readLock.unlock()
         }
     }
 
     fun isKnownWord(word: String): Boolean {
         val clean = word.trim().lowercase()
         if (clean.isEmpty()) return false
+        val isUserKnown = {
+            readLock.lock()
+            try {
+                userUnigramCounts.containsKey(clean)
+            } finally {
+                readLock.unlock()
+            }
+        }
         return coreUnigramWeights.containsKey(clean) ||
             englishUnigramWeights.containsKey(clean) ||
             englishContractions.containsValue(word) ||
-            userUnigramCounts.containsKey(clean)
+            isUserKnown()
     }
 
     fun getContextBoosts(prevWord2: String, prevWord1: String): Map<String, Int> =

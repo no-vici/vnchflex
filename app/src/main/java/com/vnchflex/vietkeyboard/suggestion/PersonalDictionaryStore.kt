@@ -26,12 +26,15 @@ class PersonalDictionaryStore(context: Context) {
     private var learnedTrigramsCache: MutableMap<String, MutableMap<String, Int>>? = null
     private var ngramSavePending = false
     private var learnedWordsDirty = false
+    private var learnedBigramsDirty = false
+    private var learnedTrigramsDirty = false
     private val ngramSaveRunnable = Runnable {
         ngramSavePending = false
         flushNgrams()
     }
 
     fun loadPersonalWords(): List<PersonalWord> {
+        personalWordsCache?.let { return it }
         val raw = prefs.getString(KEY_PERSONAL_WORDS, null)
         val loaded = if (raw == null) defaultPersonalWords() else runCatching {
             val arr = JSONArray(raw)
@@ -104,6 +107,7 @@ class PersonalDictionaryStore(context: Context) {
         if (learnedBigramsCache !== bigrams) {
             learnedBigramsCache = bigrams.mapValues { it.value.toMutableMap() }.toMutableMap()
         }
+        learnedBigramsDirty = true
         scheduleNgramSave()
     }
 
@@ -119,6 +123,7 @@ class PersonalDictionaryStore(context: Context) {
         if (learnedTrigramsCache !== trigrams) {
             learnedTrigramsCache = trigrams.mapValues { it.value.toMutableMap() }.toMutableMap()
         }
+        learnedTrigramsDirty = true
         scheduleNgramSave()
     }
 
@@ -127,6 +132,8 @@ class PersonalDictionaryStore(context: Context) {
         handler.removeCallbacks(ngramSaveRunnable)
         ngramSavePending = false
         learnedWordsDirty = false
+        learnedBigramsDirty = false
+        learnedTrigramsDirty = false
         learnedWordsCache = mutableSetOf()
         learnedBigramsCache = mutableMapOf()
         learnedTrigramsCache = mutableMapOf()
@@ -142,6 +149,8 @@ class PersonalDictionaryStore(context: Context) {
         handler.removeCallbacks(ngramSaveRunnable)
         ngramSavePending = false
         learnedWordsDirty = false
+        learnedBigramsDirty = false
+        learnedTrigramsDirty = false
         personalWordsCache = null
         learnedWordsCache = null
         learnedBigramsCache = null
@@ -171,13 +180,21 @@ class PersonalDictionaryStore(context: Context) {
             }
             learnedWordsDirty = false
         }
-        learnedBigramsCache?.let {
-            editor.putString(KEY_LEARNED_BIGRAMS, serializeNgramJson(it))
-            hasWrites = true
+        if (learnedBigramsDirty) {
+            learnedBigramsCache?.let {
+                val snapshot = it.mapValues { (_, v) -> HashMap(v) }
+                editor.putString(KEY_LEARNED_BIGRAMS, serializeNgramJson(snapshot))
+                hasWrites = true
+            }
+            learnedBigramsDirty = false
         }
-        learnedTrigramsCache?.let {
-            editor.putString(KEY_LEARNED_TRIGRAMS, serializeNgramJson(it))
-            hasWrites = true
+        if (learnedTrigramsDirty) {
+            learnedTrigramsCache?.let {
+                val snapshot = it.mapValues { (_, v) -> HashMap(v) }
+                editor.putString(KEY_LEARNED_TRIGRAMS, serializeNgramJson(snapshot))
+                hasWrites = true
+            }
+            learnedTrigramsDirty = false
         }
         if (hasWrites) editor.apply()
     }
@@ -262,6 +279,7 @@ class PersonalDictionaryStore(context: Context) {
                 if (w.length >= 2 && current.add(w)) count++
             }
             learnedWordsCache = current
+            learnedWordsDirty = false
             prefs.edit().putStringSet(KEY_LEARNED_WORDS, HashSet(current)).apply()
         }
 
@@ -271,6 +289,7 @@ class PersonalDictionaryStore(context: Context) {
             val current = if (replace) mutableMapOf() else loadLearnedBigrams().mapValues { it.value.toMutableMap() }.toMutableMap()
             mergeNgrams(current, imported)
             learnedBigramsCache = current
+            learnedBigramsDirty = true
             count += imported.size
         }
 
@@ -280,6 +299,7 @@ class PersonalDictionaryStore(context: Context) {
             val current = if (replace) mutableMapOf() else loadLearnedTrigrams().mapValues { it.value.toMutableMap() }.toMutableMap()
             mergeNgrams(current, imported)
             learnedTrigramsCache = current
+            learnedTrigramsDirty = true
             count += imported.size
         }
         flushNgrams()
