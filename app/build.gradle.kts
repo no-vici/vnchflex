@@ -25,6 +25,7 @@ android {
         targetSdk = 35
         versionCode = computedVersionCode
         versionName = "1.0.$computedVersionCode"
+        base.archivesName.set("vnchflex-$versionName")
 
         ndk {
             abiFilters += listOf("arm64-v8a")
