@@ -326,7 +326,7 @@ class VietKeyboardService : InputMethodService() {
         val prefsKey = listOf(
             prefs.showNumberRow, prefs.showSuggestionStrip, prefs.showLanguageSwitchKey,
             prefs.showStripDiacriticsButton, prefs.enableVoiceTyping,
-            prefs.themeMode, prefs.oneHandedMode, prefs.keyboardHeight,
+            prefs.themeMode, prefs.keyBorders, prefs.oneHandedMode, prefs.keyboardHeight,
             prefs.longPressForSymbols, prefs.enableGlideTyping, prefs.showGestureTrail,
             prefs.glideSensitivityDp, prefs.langSwitchKeyIcon, isVietnameseMode, shiftState.name
         ).joinToString("|")
@@ -367,9 +367,38 @@ class VietKeyboardService : InputMethodService() {
             root.findViewById<Button>(id)?.text = spaceLabel
         }
 
-        // 5. Theme (Gboard Light vs Dark)
+        // 5. Theme (Gboard Light vs Dark) & Key Borders
         val isDark = prefs.themeMode == "gboard_dark"
+        val showBorders = prefs.keyBorders
         root.setBackgroundColor(getColor(if (isDark) R.color.keyboard_bg_dark else R.color.keyboard_bg))
+        val keyTextColor = getColor(if (isDark) R.color.key_text_dark else R.color.key_text)
+        val keyBgColor = getColor(if (isDark) R.color.key_bg_dark else R.color.key_bg)
+        val funcBgColor = getColor(if (isDark) R.color.key_func_bg_dark else R.color.key_func_bg)
+        letterButtons.keys.forEach { btn ->
+            btn.setTextColor(keyTextColor)
+            if (!showBorders) {
+                btn.setBackgroundColor(Color.TRANSPARENT)
+            } else if (isDark) {
+                btn.backgroundTintList = android.content.res.ColorStateList.valueOf(keyBgColor)
+            } else {
+                btn.backgroundTintList = null
+                btn.setBackgroundResource(R.drawable.key_bg)
+            }
+        }
+        listOf(R.id.key_space, R.id.key_space_s1, R.id.key_space_s2).forEach { id ->
+            root.findViewById<Button>(id)?.let { sp ->
+                sp.setTextColor(keyTextColor)
+                if (isDark) sp.backgroundTintList = android.content.res.ColorStateList.valueOf(keyBgColor)
+                else sp.backgroundTintList = null
+            }
+        }
+        listOf(R.id.key_comma, R.id.key_dot, R.id.key_mode_symbols).forEach { id ->
+            root.findViewById<Button>(id)?.let { fb ->
+                fb.setTextColor(keyTextColor)
+                if (isDark) fb.backgroundTintList = android.content.res.ColorStateList.valueOf(funcBgColor)
+                else fb.backgroundTintList = null
+            }
+        }
 
         // 6. One-handed mode & Keyboard height
         val density = resources.displayMetrics.density
@@ -1870,8 +1899,16 @@ class VietKeyboardService : InputMethodService() {
 
     private fun performKeyFeedback(view: View, isLongPress: Boolean = false) {
         if (prefs.hapticOnKeypress) {
-            val flag = if (isLongPress) HapticFeedbackConstants.LONG_PRESS else HapticFeedbackConstants.KEYBOARD_TAP
-            view.performHapticFeedback(flag)
+            val ms = prefs.vibrationStrengthMs
+            if (ms > 0) {
+                if (ms != 15 && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    val vib = getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+                    vib?.vibrate(android.os.VibrationEffect.createOneShot(ms.toLong(), android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    val flag = if (isLongPress) HapticFeedbackConstants.LONG_PRESS else HapticFeedbackConstants.KEYBOARD_TAP
+                    view.performHapticFeedback(flag)
+                }
+            }
         }
         if (prefs.soundOnKeypress) {
             val am = audioManager ?: (getSystemService(Context.AUDIO_SERVICE) as? AudioManager)?.also { audioManager = it }
