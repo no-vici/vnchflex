@@ -1244,48 +1244,15 @@ class SuggestionEngine(context: Context? = null) {
 
     private fun loadTrainedDataAsset(context: Context?): TrainedData {
         if (context == null) return TrainedData(emptyList(), emptyMap(), emptyMap())
-        return runCatching {
-            val raw = context.assets.open("vnchflex-trained-data.json").bufferedReader().use { it.readText() }
-            val root = org.json.JSONObject(raw)
-            val dict = root.optJSONObject("dictionary") ?: root
+        val words = runCatching {
+            openAssetReaderAny(context, "vi_trained_words.txt.gz", "vi_trained_words.txt")?.useLines { lines ->
+                lines.map { it.trim().lowercase() }
+                    .filter { it.length in 2..20 }
+                    .toList()
+            } ?: emptyList()
+        }.getOrDefault(emptyList())
 
-            val wordsJson = dict.optJSONArray("learnedWords")
-            val words = buildList(wordsJson?.length() ?: 0) {
-                if (wordsJson != null) {
-                    for (i in 0 until wordsJson.length()) {
-                        val w = wordsJson.optString(i, "").trim().lowercase()
-                        if (w.length in 2..20) add(w)
-                    }
-                }
-            }
-
-            fun parseCountNgrams(key: String, limit: Int = 8): Map<String, List<String>> {
-                val obj = dict.optJSONObject(key) ?: return emptyMap()
-                val out = HashMap<String, List<String>>(obj.length())
-                val keys = obj.keys()
-                while (keys.hasNext()) {
-                    val ctx = keys.next().trim().lowercase()
-                    val followersObj = obj.optJSONObject(ctx) ?: continue
-                    val scored = ArrayList<Pair<String, Int>>(followersObj.length())
-                    val fKeys = followersObj.keys()
-                    while (fKeys.hasNext()) {
-                        val w = fKeys.next().trim().lowercase()
-                        val c = followersObj.optInt(w, 0)
-                        if (w.isNotEmpty() && c > 0) scored.add(w to c)
-                    }
-                    if (ctx.isNotEmpty() && scored.isNotEmpty()) {
-                        scored.sortByDescending { it.second }
-                        out[ctx] = scored.take(limit).map { it.first }
-                    }
-                }
-                return out
-            }
-
-            TrainedData(
-                words = words,
-                bigrams = parseCountNgrams("learnedBigrams"),
-                trigrams = parseCountNgrams("learnedTrigrams")
-            )
-        }.getOrDefault(TrainedData(emptyList(), emptyMap(), emptyMap()))
+        val (bigrams, trigrams) = loadTsvNgrams(context, "vi_trained_ngrams.tsv.gz", "vi_trained_ngrams.tsv")
+        return TrainedData(words = words, bigrams = bigrams, trigrams = trigrams)
     }
 }
