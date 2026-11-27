@@ -155,7 +155,7 @@ class MiniBiGRUCorrector(nn.Module):
 
 
 def train_custom_onnx(
-    corpus_dir: str = "./my_clean_corpus",
+    corpus_dir: str = "./corpus_data",
     out_dir: str = "app/src/main/assets",
     epochs: int = 8,
     batch_size: int = 256,
