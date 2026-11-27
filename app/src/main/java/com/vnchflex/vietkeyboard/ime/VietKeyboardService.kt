@@ -687,6 +687,16 @@ class VietKeyboardService : InputMethodService() {
         }
         listOf(R.id.key_enter, R.id.key_enter_s1, R.id.key_enter_s2).forEach { bindClick(it, ::onEnter) }
         root.findViewById<Button>(R.id.key_dot)?.let { dotBtn ->
+            var downCommitted = false
+            val dotLongPressRunnable = Runnable {
+                if (downCommitted) {
+                    undoDownPunctuationCommit('.')
+                    downCommitted = false
+                }
+                dismissKeyPopup()
+                performKeyFeedback(dotBtn, isLongPress = true)
+                showAlternatesPopup(dotBtn, listOf("?", "!", ",", ":", ";", "-", "(", ")", "/"))
+            }
             dotBtn.setOnClickListener(null)
             dotBtn.setOnLongClickListener(null)
             dotBtn.setOnTouchListener { v, event ->
@@ -696,10 +706,31 @@ class VietKeyboardService : InputMethodService() {
                         if (prefs.popupOnKeypress) scheduleKeyPopup(v, ".")
                         performKeyFeedback(dotBtn)
                         onPunctuation('.')
+                        downCommitted = true
+                        popupHandler.removeCallbacks(dotLongPressRunnable)
+                        popupHandler.postDelayed(dotLongPressRunnable, prefs.longPressDelayMs.toLong().coerceAtLeast(250L))
                         true
                     }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    MotionEvent.ACTION_MOVE -> {
+                        if (altPopup?.isShowing == true && altAnchor === v) {
+                            updateAltSelectionFromTouch(v, event)
+                        }
+                        true
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        popupHandler.removeCallbacks(dotLongPressRunnable)
                         dismissKeyPopup()
+                        if (altPopup?.isShowing == true && altAnchor === v) {
+                            commitAltSelection()
+                        }
+                        downCommitted = false
+                        true
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
+                        popupHandler.removeCallbacks(dotLongPressRunnable)
+                        dismissKeyPopup()
+                        dismissAltPopup()
+                        downCommitted = false
                         true
                     }
                     else -> true
