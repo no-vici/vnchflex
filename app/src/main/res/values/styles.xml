@@ -49,9 +49,9 @@
         <item name="android:paddingHorizontal">4dp</item>
     </style>
 
-    <style name="OvalImageKeyBtn" parent="OvalFuncKeyBtn">
+    <style name="OvalImageKeyBtn" parent="FuncKeyBtn">
         <item name="android:scaleType">centerInside</item>
-        <item name="android:padding">10dp</item>
+        <item name="android:padding">6dp</item>
     </style>
 
     <style name="LogoSwitchKeyBtn" parent="FuncKeyBtn">
