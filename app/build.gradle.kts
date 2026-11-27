@@ -24,7 +24,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = computedVersionCode
-        versionName = "1.0.$computedVersionCode"
+        versionName = "1.1.$computedVersionCode"
         base.archivesName.set("vnchflex-$versionName")
 
         ndk {
