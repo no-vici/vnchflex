@@ -561,14 +561,35 @@ class VietKeyboardService : InputMethodService() {
         root.findViewById<GboardKeyButton>(R.id.key_comma)?.let { commaBtn ->
             commaBtn.secondarySymbol = "😊"
             commaBtn.centerSecondarySymbol = true
-            commaBtn.setOnClickListener {
-                performKeyFeedback(commaBtn)
-                onPunctuation(',')
-            }
-            commaBtn.setOnLongClickListener {
+            var downCommitted = false
+            val emojiLongPressRunnable = Runnable {
+                if (downCommitted) {
+                    undoDownPunctuationCommit(',')
+                    downCommitted = false
+                }
                 performKeyFeedback(commaBtn, isLongPress = true)
                 showEmojiPickerPopup(commaBtn)
-                true
+            }
+            commaBtn.setOnClickListener(null)
+            commaBtn.setOnLongClickListener(null)
+            commaBtn.setOnTouchListener { _, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        flushPendingRollover()
+                        performKeyFeedback(commaBtn)
+                        onPunctuation(',')
+                        downCommitted = true
+                        popupHandler.removeCallbacks(emojiLongPressRunnable)
+                        popupHandler.postDelayed(emojiLongPressRunnable, prefs.longPressDelayMs.toLong().coerceAtLeast(250L))
+                        true
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        popupHandler.removeCallbacks(emojiLongPressRunnable)
+                        downCommitted = false
+                        true
+                    }
+                    else -> true
+                }
             }
         }
 
@@ -652,7 +673,26 @@ class VietKeyboardService : InputMethodService() {
             }
         }
         listOf(R.id.key_enter, R.id.key_enter_s1, R.id.key_enter_s2).forEach { bindClick(it, ::onEnter) }
-        bindClick(R.id.key_dot) { onPunctuation('.') }
+        root.findViewById<Button>(R.id.key_dot)?.let { dotBtn ->
+            dotBtn.setOnClickListener(null)
+            dotBtn.setOnLongClickListener(null)
+            dotBtn.setOnTouchListener { v, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        flushPendingRollover()
+                        if (prefs.popupOnKeypress) scheduleKeyPopup(v, ".")
+                        performKeyFeedback(dotBtn)
+                        onPunctuation('.')
+                        true
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        dismissKeyPopup()
+                        true
+                    }
+                    else -> true
+                }
+            }
+        }
         bindClick(R.id.s1_comma) { onPunctuation(',') }
         bindClick(R.id.s1_dot) { onPunctuation('.') }
 
@@ -864,7 +904,9 @@ class VietKeyboardService : InputMethodService() {
         onChar(c)
         if (prefs.autoSpaceAfterPunctuation && (c == ',' || c == '.' || c == '!' || c == '?')) {
             currentInputConnection?.commitText(" ", 1)
+            trackCommittedChar(' ')
         }
+        lastSpaceClickTime = 0L
         updateAutoCapitalization()
     }
 
@@ -1297,6 +1339,15 @@ class VietKeyboardService : InputMethodService() {
         val ic = currentInputConnection ?: return
         markOwnIcEdit()
         ic.deleteSurroundingText(1, 0)
+        lastCommittedChar = prevCommittedChar
+        prevCommittedChar = null
+    }
+
+    private fun undoDownPunctuationCommit(punct: Char) {
+        val ic = currentInputConnection ?: return
+        markOwnIcEdit()
+        val deleteLen = if (prefs.autoSpaceAfterPunctuation && punct in ",.!?") 2 else 1
+        ic.deleteSurroundingText(deleteLen, 0)
         lastCommittedChar = prevCommittedChar
         prevCommittedChar = null
     }
