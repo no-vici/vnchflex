@@ -94,6 +94,7 @@ class VietKeyboardService : InputMethodService() {
     private var keyPopup: PopupWindow? = null
     private var keyPopupText: TextView? = null
     private var audioManager: AudioManager? = null
+    private var vibrator: android.os.Vibrator? = null
     private val popupHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var pendingPopupAnchor: View? = null
     private var pendingPopupLabel: String = ""
@@ -120,6 +121,7 @@ class VietKeyboardService : InputMethodService() {
         super.onCreate()
         prefs = KeyboardPreferences(this)
         audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
         vnEngine = VietnameseEngine()
         macroStore = MacroStore(this)
         macroEngine = MacroEngine(macroStore.load())
@@ -672,10 +674,10 @@ class VietKeyboardService : InputMethodService() {
                         didSwipe = false
                         didLongPress = false
                         isSpacePressed = true
-                        spaceCommittedByRollover = true
                         performKeyFeedback(btn)
-                        onSpacePressed()
-                        committedOnDown = true
+                        val committed = onSpacePressed()
+                        committedOnDown = committed
+                        spaceCommittedByRollover = committed
                         popupHandler.removeCallbacks(spaceLongPressRunnable)
                         popupHandler.postDelayed(spaceLongPressRunnable, 750L)
                         true
@@ -1027,12 +1029,12 @@ class VietKeyboardService : InputMethodService() {
         popupHandler.postDelayed(runnable, 25L)
     }
 
-    private fun onSpacePressed() {
-        val ic = currentInputConnection ?: return
+    private fun onSpacePressed(): Boolean {
+        val ic = currentInputConnection ?: return false
         markOwnIcEdit()
         if (justInsertedAutoSpaceAfterPunct) {
             justInsertedAutoSpaceAfterPunct = false
-            return
+            return false
         }
         val now = System.currentTimeMillis()
         // Gboard Double-space period option (không cần IPC getTextBeforeCursor)
@@ -1047,11 +1049,12 @@ class VietKeyboardService : InputMethodService() {
                 lastSpaceClickTime = 0L
                 updateAutoCapitalization()
                 scheduleSuggestionsUpdate("")
-                return
+                return true
             }
         }
         lastSpaceClickTime = now
         onChar(' ')
+        return true
     }
 
     private fun onPunctuation(c: Char) {
@@ -1080,9 +1083,9 @@ class VietKeyboardService : InputMethodService() {
         }
         // Space rollover: nếu ngón tay vẫn đang giữ Space (chưa swipe/long-press) mà chạm phím khác, chốt Space ngay
         if (c != ' ' && isSpacePressed && !spaceCommittedByRollover) {
-            spaceCommittedByRollover = true
             isSpacePressed = false
-            onSpacePressed()
+            val committed = onSpacePressed()
+            spaceCommittedByRollover = committed
         }
         lastGlideCommittedLength = 0
         if (altPopup?.isShowing == true) dismissAltPopup()
@@ -1905,8 +1908,12 @@ class VietKeyboardService : InputMethodService() {
             val ms = prefs.vibrationStrengthMs
             if (ms > 0) {
                 if (ms != 15 && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                    val vib = getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
-                    vib?.vibrate(android.os.VibrationEffect.createOneShot(ms.toLong(), android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                    val vib = vibrator ?: (getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator)?.also { vibrator = it }
+                    val effect = android.os.VibrationEffect.createOneShot(
+                        ms.toLong(),
+                        android.os.VibrationEffect.DEFAULT_AMPLITUDE
+                    )
+                    learnExecutor.execute { vib?.vibrate(effect) }
                 } else {
                     val flag = if (isLongPress) HapticFeedbackConstants.LONG_PRESS else HapticFeedbackConstants.KEYBOARD_TAP
                     view.performHapticFeedback(flag)

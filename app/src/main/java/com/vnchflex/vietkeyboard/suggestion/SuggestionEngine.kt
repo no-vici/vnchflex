@@ -894,7 +894,7 @@ class SuggestionEngine(context: Context? = null) {
         var bestCandidate: String? = null
         var bestScore = 0
 
-        readLock.lock()
+        if (!readLock.tryLock()) return null
         try {
             for (v in variants) {
                 var node = strippedTrieRoot
