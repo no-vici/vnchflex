@@ -47,10 +47,10 @@ class VietnameseEngine {
 
     fun onChar(input: Char, ic: InputConnection): Boolean {
         if (input.isLetter()) {
-            val prevLen = renderedOutput.length
+            val prevText = renderedOutput
             rawChars.add(input)
             renderedOutput = transformTelex(rawChars)
-            replaceComposingDirect(ic, prevLen, renderedOutput)
+            replaceComposingDirect(ic, prevText, renderedOutput)
             return true
         }
         commit(ic)
@@ -59,24 +59,24 @@ class VietnameseEngine {
 
     fun onBackspace(ic: InputConnection): Boolean {
         if (rawChars.isEmpty()) return false
-        val prevLen = renderedOutput.length
+        val prevText = renderedOutput
         if (renderedOutput.isNotEmpty()) {
             val updated = renderedOutput.dropLast(1)
             if (updated.isEmpty()) {
                 rawChars.clear()
                 renderedOutput = ""
-                replaceComposingDirect(ic, prevLen, "")
+                replaceComposingDirect(ic, prevText, "")
             } else {
                 renderedOutput = updated
                 rawChars.clear()
                 rawChars.addAll(rawKeysFor(updated).toList())
-                replaceComposingDirect(ic, prevLen, renderedOutput)
+                replaceComposingDirect(ic, prevText, renderedOutput)
             }
             return true
         }
         rawChars.removeAt(rawChars.lastIndex)
         renderedOutput = if (rawChars.isEmpty()) "" else transformTelex(rawChars)
-        replaceComposingDirect(ic, prevLen, renderedOutput)
+        replaceComposingDirect(ic, prevText, renderedOutput)
         return true
     }
 
@@ -125,12 +125,12 @@ class VietnameseEngine {
     /** Bỏ dấu tự do (kiểu vnchKey): xóa dấu trên từ đang gõ, vùng đang chọn, hoặc từ ngay trước con trỏ. */
     fun removeDiacritics(ic: InputConnection) {
         if (rawChars.isNotEmpty()) {
-            val prevLen = renderedOutput.length
+            val prevText = renderedOutput
             val stripped = DiacriticUtils.strip(renderedOutput)
             rawChars.clear()
             rawChars.addAll(stripped.toList())
             renderedOutput = stripped
-            replaceComposingDirect(ic, prevLen, renderedOutput)
+            replaceComposingDirect(ic, prevText, renderedOutput)
             return
         }
         val selected = ic.getSelectedText(0)?.toString()
@@ -150,18 +150,23 @@ class VietnameseEngine {
         }
     }
 
-    private fun replaceComposingDirect(ic: InputConnection, prevLen: Int, newText: String) {
+    private fun replaceComposingDirect(ic: InputConnection, prevText: String, newText: String) {
         ic.beginBatchEdit()
         try {
             if (newText.isEmpty()) {
-                if (prevLen > 0) {
-                    if (useComposingSpan) ic.commitText("", 1) else ic.deleteSurroundingText(prevLen, 0)
+                if (prevText.isNotEmpty()) {
+                    if (useComposingSpan) ic.commitText("", 1) else ic.deleteSurroundingText(prevText.length, 0)
                 }
             } else if (useComposingSpan) {
                 ic.setComposingText(newText, 1)
             } else {
-                if (prevLen > 0) ic.deleteSurroundingText(prevLen, 0)
-                ic.commitText(newText, 1)
+                var common = 0
+                val maxCommon = minOf(prevText.length, newText.length)
+                while (common < maxCommon && prevText[common] == newText[common]) common++
+                val delCount = prevText.length - common
+                val appendStr = newText.substring(common)
+                if (delCount > 0) ic.deleteSurroundingText(delCount, 0)
+                if (appendStr.isNotEmpty()) ic.commitText(appendStr, 1)
             }
         } finally {
             ic.endBatchEdit()
