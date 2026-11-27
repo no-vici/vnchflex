@@ -48,6 +48,7 @@ class VietKeyboardService : InputMethodService() {
     private var glideOverlay: GlideTypingOverlayView? = null
     private var rowNumbers: View? = null
     private var panelLetters: View? = null
+    private var panelLettersBottom: View? = null
     private var panelSymbols1: View? = null
     private var panelSymbols2: View? = null
 
@@ -69,6 +70,7 @@ class VietKeyboardService : InputMethodService() {
         }
     }
     private val learnExecutor: java.util.concurrent.ExecutorService = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private val hapticExecutor: java.util.concurrent.ExecutorService = java.util.concurrent.Executors.newSingleThreadExecutor()
     private var shiftState = ShiftState.LOWER
     private var lastShiftClickTime = 0L
     private var lastSpaceClickTime = 0L
@@ -137,6 +139,7 @@ class VietKeyboardService : InputMethodService() {
     override fun onDestroy() {
         clipboardManager?.removePrimaryClipChangedListener(clipChangedListener)
         if (::onnxCorrector.isInitialized) onnxCorrector.close()
+        hapticExecutor.shutdownNow()
         learnExecutor.shutdown()
         try {
             learnExecutor.awaitTermination(250, java.util.concurrent.TimeUnit.MILLISECONDS)
@@ -155,6 +158,7 @@ class VietKeyboardService : InputMethodService() {
         glideOverlay = view.findViewById(R.id.glide_overlay)
         rowNumbers = view.findViewById(R.id.row_numbers)
         panelLetters = view.findViewById(R.id.panel_letters)
+        panelLettersBottom = view.findViewById(R.id.panel_letters_bottom)
         panelSymbols1 = view.findViewById(R.id.panel_symbols1)
         panelSymbols2 = view.findViewById(R.id.panel_symbols2)
         suggestionSlots.clear()
@@ -654,6 +658,7 @@ class VietKeyboardService : InputMethodService() {
             val spaceLongPressRunnable = Runnable {
                 if (!didSwipe) {
                     didLongPress = true
+                    btn.isPressed = false
                     isSpacePressed = false
                     if (committedOnDown) {
                         undoDownSpaceCommit()
@@ -669,6 +674,7 @@ class VietKeyboardService : InputMethodService() {
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
                         flushPendingRollover()
+                        btn.isPressed = true
                         startX = event.x
                         lastStepX = event.x
                         didSwipe = false
@@ -690,6 +696,7 @@ class VietKeyboardService : InputMethodService() {
                         val dx = event.x - lastStepX
                         if (!didSwipe && kotlin.math.abs(event.x - startX) > swipeThresholdPx) {
                             didSwipe = true
+                            btn.isPressed = false
                             isSpacePressed = false
                             popupHandler.removeCallbacks(spaceLongPressRunnable)
                             if (committedOnDown) {
@@ -710,6 +717,7 @@ class VietKeyboardService : InputMethodService() {
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         popupHandler.removeCallbacks(spaceLongPressRunnable)
+                        btn.isPressed = false
                         isSpacePressed = false
                         spaceCommittedByRollover = false
                         committedOnDown = false
@@ -979,6 +987,7 @@ class VietKeyboardService : InputMethodService() {
     private fun showMode(newMode: Mode) {
         mode = newMode
         panelLetters?.visibility = if (newMode == Mode.LETTERS) View.VISIBLE else View.GONE
+        panelLettersBottom?.visibility = if (newMode == Mode.LETTERS) View.VISIBLE else View.GONE
         panelSymbols1?.visibility = if (newMode == Mode.SYMBOLS1) View.VISIBLE else View.GONE
         panelSymbols2?.visibility = if (newMode == Mode.SYMBOLS2) View.VISIBLE else View.GONE
     }
@@ -1917,7 +1926,7 @@ class VietKeyboardService : InputMethodService() {
                         ms.toLong(),
                         android.os.VibrationEffect.DEFAULT_AMPLITUDE
                     )
-                    learnExecutor.execute { vib?.vibrate(effect) }
+                    hapticExecutor.execute { vib?.vibrate(effect) }
                 } else {
                     val flag = if (isLongPress) HapticFeedbackConstants.LONG_PRESS else HapticFeedbackConstants.KEYBOARD_TAP
                     view.performHapticFeedback(flag)
