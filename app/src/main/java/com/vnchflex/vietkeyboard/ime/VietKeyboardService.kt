@@ -40,6 +40,7 @@ class VietKeyboardService : InputMethodService() {
     private lateinit var macroEngine: MacroEngine
     private lateinit var macroStore: MacroStore
     private lateinit var suggestionEngine: SuggestionEngine
+    private lateinit var onnxCorrector: com.vnchflex.vietkeyboard.engine.OnnxVietnameseCorrector
 
     private var keyboardView: View? = null
     private var topStripContainer: View? = null
@@ -122,6 +123,7 @@ class VietKeyboardService : InputMethodService() {
         macroStore = MacroStore(this)
         macroEngine = MacroEngine(macroStore.load())
         suggestionEngine = SuggestionEngine(this)
+        onnxCorrector = com.vnchflex.vietkeyboard.engine.OnnxVietnameseCorrector(this).also { it.initAsync() }
         clipboardStore = ClipboardStore(this)
         syncPreferencesToEngines()
         clipboardManager = (getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.also { cm ->
@@ -1636,7 +1638,11 @@ class VietKeyboardService : InputMethodService() {
 
         val actions: List<Pair<String, (String) -> String>> = listOf(
             "✨  Khôi phục dấu Tiếng Việt" to { txt ->
-                com.vnchflex.vietkeyboard.engine.VietnameseTextNormalizer.restoreDiacriticsAndNormalize(txt, suggestionEngine)
+                if (::onnxCorrector.isInitialized && onnxCorrector.isReady) {
+                    onnxCorrector.correctSentence(txt)
+                } else {
+                    com.vnchflex.vietkeyboard.engine.VietnameseTextNormalizer.restoreDiacriticsAndNormalize(txt, suggestionEngine)
+                }
             },
             "📝  Chuẩn hóa dấu câu & viết hoa" to { txt ->
                 com.vnchflex.vietkeyboard.engine.VietnameseTextNormalizer.normalizePunctuationAndCase(txt)
