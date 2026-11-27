@@ -78,6 +78,7 @@ class VietKeyboardService : InputMethodService() {
     private var prevCommittedChar: Char? = null
     private var justExpandedMacroWithSpace = false
     private var justExpandedMacroBeforeDown = false
+    private var justInsertedAutoSpaceAfterPunct = false
     private var lastAutoCorrection: Pair<String, String>? = null
     private var hasTextSelection = false
     private var aiToolsPopup: PopupWindow? = null
@@ -133,6 +134,7 @@ class VietKeyboardService : InputMethodService() {
 
     override fun onDestroy() {
         clipboardManager?.removePrimaryClipChangedListener(clipChangedListener)
+        if (::onnxCorrector.isInitialized) onnxCorrector.close()
         learnExecutor.shutdown()
         try {
             learnExecutor.awaitTermination(250, java.util.concurrent.TimeUnit.MILLISECONDS)
@@ -965,6 +967,10 @@ class VietKeyboardService : InputMethodService() {
     private fun onSpacePressed() {
         val ic = currentInputConnection ?: return
         markOwnIcEdit()
+        if (justInsertedAutoSpaceAfterPunct) {
+            justInsertedAutoSpaceAfterPunct = false
+            return
+        }
         val now = System.currentTimeMillis()
         // Gboard Double-space period option (không cần IPC getTextBeforeCursor)
         if (prefs.doubleSpacePeriod && now - lastSpaceClickTime < 350L && !vnEngine.isComposing) {
@@ -996,6 +1002,9 @@ class VietKeyboardService : InputMethodService() {
         if (prefs.autoSpaceAfterPunctuation && (c == ',' || c == '.' || c == '!' || c == '?')) {
             ic?.commitText(" ", 1)
             trackCommittedChar(' ')
+            justInsertedAutoSpaceAfterPunct = true
+        } else {
+            justInsertedAutoSpaceAfterPunct = false
         }
         ic?.endBatchEdit()
         lastSpaceClickTime = 0L
@@ -1003,6 +1012,9 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun onChar(c: Char) {
+        if (c != ' ') {
+            justInsertedAutoSpaceAfterPunct = false
+        }
         // Space rollover: nếu ngón tay vẫn đang giữ Space (chưa swipe/long-press) mà chạm phím khác, chốt Space ngay
         if (c != ' ' && isSpacePressed && !spaceCommittedByRollover) {
             spaceCommittedByRollover = true

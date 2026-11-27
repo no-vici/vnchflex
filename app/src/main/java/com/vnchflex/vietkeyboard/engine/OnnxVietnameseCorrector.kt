@@ -55,9 +55,29 @@ class OnnxVietnameseCorrector(private val context: Context) {
     }
 
     /**
-     * Sửa lỗi dấu & chính tả cho một câu hoặc đoạn văn bản ngắn (tối đa 128 ký tự/lượt).
+     * Sửa lỗi dấu & chính tả cho một câu hoặc đoạn văn bản (tự động chia nhỏ theo ranh giới câu/từ nếu > 128 ký tự).
      */
     fun correctSentence(input: String): String {
+        if (!isReady || input.isBlank()) return input
+        if (input.length <= 128) return correctChunk(input)
+
+        val sb = StringBuilder(input.length)
+        var start = 0
+        while (start < input.length) {
+            var end = (start + 128).coerceAtMost(input.length)
+            if (end < input.length) {
+                val lastBreak = input.lastIndexOfAny(charArrayOf('\n', '.', '!', '?', ' '), startIndex = end - 1)
+                if (lastBreak > start + 32) {
+                    end = lastBreak + 1
+                }
+            }
+            sb.append(correctChunk(input.substring(start, end)))
+            start = end
+        }
+        return sb.toString()
+    }
+
+    private fun correctChunk(input: String): String {
         val ortEnv = env ?: return input
         val ortSession = session ?: return input
         if (!isReady || input.isBlank()) return input
