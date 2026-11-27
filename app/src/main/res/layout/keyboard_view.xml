@@ -41,6 +41,13 @@
             android:orientation="horizontal"
             android:paddingHorizontal="2dp" />
 
+        <!-- Nút công cụ chuẩn hóa/sửa văn bản (CHỈ hiện khi người dùng đang bôi đen văn bản) -->
+        <Button
+            android:id="@+id/btn_toolbar_ai_tools"
+            style="@style/ToolbarChipBtn"
+            android:text="✨"
+            android:visibility="gone" />
+
         <!-- Nút nhập liệu bằng giọng nói (Voice Typing kiểu Gboard) -->
         <Button
             android:id="@+id/btn_toolbar_voice"

@@ -78,6 +78,8 @@ class VietKeyboardService : InputMethodService() {
     private var justExpandedMacroWithSpace = false
     private var justExpandedMacroBeforeDown = false
     private var lastAutoCorrection: Pair<String, String>? = null
+    private var hasTextSelection = false
+    private var aiToolsPopup: PopupWindow? = null
     private var pendingRolloverAction: (() -> Unit)? = null
     private var pendingRolloverCancel: (() -> Unit)? = null
     private var pendingSuggestionRunnable: Runnable? = null
@@ -288,6 +290,10 @@ class VietKeyboardService : InputMethodService() {
         enComposing.clear()
         lastGlideCommittedLength = 0
         justExpandedMacroWithSpace = false
+        lastAutoCorrection = null
+        val initStart = attribute?.initialSelStart ?: -1
+        val initEnd = attribute?.initialSelEnd ?: -1
+        updateSelectionToolbarState(initStart >= 0 && initEnd >= 0 && initStart != initEnd)
         trackCommittedChar(null)
         syncPreferencesToEngines()
         vnEngine.useComposingSpan = !isTelegramPackage(attribute?.packageName ?: currentInputEditorInfo?.packageName)
@@ -702,6 +708,7 @@ class VietKeyboardService : InputMethodService() {
         // Toolbar quick actions
         bindClick(R.id.key_strip_diacritics, ::onStripDiacritics)
         bindClick(R.id.btn_toolbar_clipboard, ::onPasteClipboard)
+        bindClick(R.id.btn_toolbar_ai_tools, ::onAiToolsClicked)
         bindClick(R.id.btn_toolbar_voice, ::onVoiceTyping)
         bindClick(R.id.btn_toolbar_settings) { openSettingsSection(null) }
 
@@ -1574,8 +1581,125 @@ class VietKeyboardService : InputMethodService() {
 
     private fun onStripDiacritics() {
         val ic = currentInputConnection ?: return
+        val selected = ic.getSelectedText(0)?.toString().orEmpty()
+        if (selected.isNotEmpty()) {
+            markOwnIcEdit()
+            ic.commitText(com.vnchflex.vietkeyboard.engine.VietnameseTextNormalizer.stripDiacritics(selected), 1)
+            updateSelectionToolbarState(false)
+            return
+        }
         vnEngine.removeDiacritics(ic)
         updateSuggestions(vnEngine.composingText)
+    }
+
+    private fun updateSelectionToolbarState(selected: Boolean) {
+        hasTextSelection = selected
+        keyboardView?.findViewById<View>(R.id.btn_toolbar_ai_tools)?.visibility =
+            if (selected) View.VISIBLE else View.GONE
+        if (!selected) {
+            dismissAiToolsPopup()
+        }
+    }
+
+    private fun dismissAiToolsPopup() {
+        aiToolsPopup?.let { if (it.isShowing) it.dismiss() }
+        aiToolsPopup = null
+    }
+
+    private fun onAiToolsClicked() {
+        if (aiToolsPopup?.isShowing == true) {
+            dismissAiToolsPopup()
+            return
+        }
+        val ic = currentInputConnection ?: return
+        val selected = ic.getSelectedText(0)?.toString().orEmpty()
+        if (selected.isEmpty()) {
+            updateSelectionToolbarState(false)
+            return
+        }
+        val anchor = keyboardView?.findViewById<View>(R.id.btn_toolbar_ai_tools)
+            ?: keyboardView
+            ?: return
+        val density = resources.displayMetrics.density
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = 14f * density
+                setColor(getColor(R.color.keyboard_bg))
+                setStroke((1 * density).toInt(), Color.parseColor("#331A73E8"))
+            }
+            elevation = 10f * density
+            setPadding((10 * density).toInt(), (8 * density).toInt(), (10 * density).toInt(), (8 * density).toInt())
+        }
+
+        val actions: List<Pair<String, (String) -> String>> = listOf(
+            "✨  Khôi phục dấu Tiếng Việt" to { txt ->
+                com.vnchflex.vietkeyboard.engine.VietnameseTextNormalizer.restoreDiacriticsAndNormalize(txt, suggestionEngine)
+            },
+            "📝  Chuẩn hóa dấu câu & viết hoa" to { txt ->
+                com.vnchflex.vietkeyboard.engine.VietnameseTextNormalizer.normalizePunctuationAndCase(txt)
+            },
+            "🔤  Bỏ dấu Tiếng Việt" to { txt ->
+                com.vnchflex.vietkeyboard.engine.VietnameseTextNormalizer.stripDiacritics(txt)
+            },
+            "🔠  Đổi IN HOA / chữ thường" to { txt ->
+                com.vnchflex.vietkeyboard.engine.VietnameseTextNormalizer.cycleCase(txt)
+            }
+        )
+
+        for ((label, transformer) in actions) {
+            val btn = TextView(this).apply {
+                text = label
+                textSize = 13.5f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(getColor(R.color.key_text))
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                    cornerRadius = 10f * density
+                    setColor(getColor(R.color.key_bg))
+                }
+                setPadding((12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt())
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    topMargin = (3 * density).toInt()
+                    bottomMargin = (3 * density).toInt()
+                }
+                setOnClickListener {
+                    performKeyFeedback(this)
+                    val currentSel = currentInputConnection?.getSelectedText(0)?.toString().orEmpty()
+                    val target = if (currentSel.isNotEmpty()) currentSel else selected
+                    val transformed = transformer(target)
+                    if (transformed.isNotEmpty()) {
+                        markOwnIcEdit()
+                        currentInputConnection?.commitText(transformed, 1)
+                    }
+                    dismissAiToolsPopup()
+                    updateSelectionToolbarState(false)
+                }
+            }
+            container.addView(btn)
+        }
+
+        val popup = PopupWindow(
+            container,
+            (265 * density).toInt(),
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            false
+        ).apply {
+            isOutsideTouchable = true
+            isTouchable = true
+        }
+        aiToolsPopup = popup
+        popup.showAtLocation(
+            anchor.rootView,
+            Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL,
+            0,
+            (54 * density).toInt()
+        )
     }
 
     private fun onVoiceTyping() {
@@ -1947,6 +2071,10 @@ class VietKeyboardService : InputMethodService() {
         candidatesStart: Int, candidatesEnd: Int
     ) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        val isSelected = newSelStart >= 0 && newSelEnd >= 0 && newSelStart != newSelEnd
+        if (isSelected != hasTextSelection) {
+            updateSelectionToolbarState(isSelected)
+        }
         if (oldSelStart == newSelStart && oldSelEnd == newSelEnd) return
         if (System.currentTimeMillis() - lastOwnIcEditMs < 200L) return
         val ic = currentInputConnection

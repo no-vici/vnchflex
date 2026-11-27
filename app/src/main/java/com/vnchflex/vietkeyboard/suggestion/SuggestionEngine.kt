@@ -1097,6 +1097,40 @@ class SuggestionEngine(context: Context? = null) {
     fun getContextBoosts(prevWord2: String, prevWord1: String): Map<String, Int> =
         getContextualWeights(prevWord2, prevWord1)
 
+    /**
+     * Khôi phục dấu tiếng Việt cho một từ không dấu (`unaccentedLower`) dựa trên
+     * trọng số Unigram và ngữ cảnh Bigram/Trigram (`prevWord1`, `prevWord2`).
+     */
+    fun bestAccentedMatch(unaccentedLower: String, prevWord1: String = "", prevWord2: String = ""): String {
+        if (unaccentedLower.isEmpty()) return unaccentedLower
+        if (!trieBuilt) ensureTrieBuilt()
+        val contextWeights = getContextualWeights(prevWord2, prevWord1)
+        readLock.lock()
+        try {
+            var node = strippedTrieRoot
+            for (c in unaccentedLower) {
+                node = node.children[c] ?: return unaccentedLower
+            }
+            if (node.words.isEmpty()) return unaccentedLower
+            var bestWord = unaccentedLower
+            var bestScore = -1
+            for (cand in node.words) {
+                if (cand.length != unaccentedLower.length) continue
+                val baseW = coreUnigramWeights[cand] ?: 50
+                val userW = (userUnigramCounts[cand] ?: 0) * 18
+                val ctxW = (contextWeights[cand] ?: 0) * 35
+                val score = baseW + userW + ctxW
+                if (score > bestScore) {
+                    bestScore = score
+                    bestWord = cand
+                }
+            }
+            return bestWord
+        } finally {
+            readLock.unlock()
+        }
+    }
+
     fun flushPendingSaves() {
         dictStore?.flushNgrams()
     }
