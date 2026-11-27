@@ -1018,13 +1018,6 @@ class SettingsActivity : AppCompatActivity() {
     private fun renderAdvancedScreen() {
         toolbarTitle.text = "Nâng cao (Advanced)"
 
-        addSectionHeader("Kiến trúc đồ họa & Cảm ứng")
-        addSwitchItem(
-            title = "Kiến trúc Gboard 1-Canvas (120FPS & Đa chạm độc lập)",
-            subtitle = "Vẽ toàn bộ phím trên 1 Canvas duy nhất và điều phối từng ngón tay theo pointerId (khuyên dùng)",
-            checked = prefs.useCanvasRenderer
-        ) { prefs.useCanvasRenderer = it }
-
         addSectionHeader("Quyền riêng tư & Dữ liệu")
         addActionItem(
             title = "Xóa các từ và dữ liệu đã học",

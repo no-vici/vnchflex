@@ -45,12 +45,6 @@ class VietKeyboardService : InputMethodService() {
     private var keyboardView: View? = null
     private var topStripContainer: View? = null
     private var suggestionBar: LinearLayout? = null
-    private var glideOverlay: GlideTypingOverlayView? = null
-    private var rowNumbers: View? = null
-    private var panelLetters: View? = null
-    private var panelLettersBottom: View? = null
-    private var panelSymbols1: View? = null
-    private var panelSymbols2: View? = null
     private var canvasView: KeyboardCanvasView? = null
     private var canvasGestureBaseEnd: Int = -1
     private var canvasGestureBeforeText: String = ""
@@ -120,7 +114,6 @@ class VietKeyboardService : InputMethodService() {
     private var lastSuggestionKey: String? = null
 
     private var lastAppliedPrefsKey: String? = null
-    private val letterButtons = mutableMapOf<GboardKeyButton, String>()
 
     override fun onCreate() {
         super.onCreate()
@@ -158,94 +151,24 @@ class VietKeyboardService : InputMethodService() {
         keyboardView = view
         topStripContainer = view.findViewById(R.id.top_strip_container)
         suggestionBar = view.findViewById(R.id.suggestion_bar)
-        glideOverlay = view.findViewById(R.id.glide_overlay)
-        rowNumbers = view.findViewById(R.id.row_numbers)
-        panelLetters = view.findViewById(R.id.panel_letters)
-        panelLettersBottom = view.findViewById(R.id.panel_letters_bottom)
-        panelSymbols1 = view.findViewById(R.id.panel_symbols1)
-        panelSymbols2 = view.findViewById(R.id.panel_symbols2)
-        val rootLayout = view.findViewById<LinearLayout>(R.id.keyboard_root)
-        val cv = KeyboardCanvasView(this)
-        rootLayout?.addView(
-            cv,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        )
+        val cv = view.findViewById<KeyboardCanvasView>(R.id.keyboard_canvas)
         canvasView = cv
         setupCanvasKeyboard(cv)
+        bindClick(R.id.key_strip_diacritics, ::onStripDiacritics)
+        bindClick(R.id.btn_toolbar_clipboard, ::onPasteClipboard)
+        bindClick(R.id.btn_toolbar_ai_tools, ::onAiToolsClicked)
+        bindClick(R.id.btn_toolbar_voice, ::onVoiceTyping)
+        bindClick(R.id.btn_toolbar_settings) { openSettingsSection(null) }
         suggestionSlots.clear()
         suggestionDividers.clear()
         lastSuggestionKey = null
         lastAppliedPrefsKey = null
-        keyPopup?.dismiss()
-        keyPopup = null
-        keyPopupText = null
-        altPopup?.dismiss()
-        altPopup = null
-        altPopupRow = null
-        altButtons.clear()
-        altOptions = emptyList()
-        altSelectedIndex = -1
-        altAnchor = null
-        bindKeys(view)
-        setupGlideTyping()
         initSuggestionSlots()
         applyPreferencesToView()
         showMode(Mode.LETTERS)
         return view
     }
 
-    private fun setupGlideTyping() {
-        glideOverlay?.registerLetterKeys(letterButtons)
-        glideOverlay?.onGlideStart = {
-            dismissKeyPopup()
-            dismissAltPopup()
-            currentInputConnection?.let { ic ->
-                if (vnEngine.isComposing) {
-                    vnEngine.onBackspace(ic)
-                } else if (!isVietnameseMode && enComposing.isNotEmpty()) {
-                    enComposing.deleteCharAt(enComposing.length - 1)
-                    ic.deleteSurroundingText(1, 0)
-                }
-                if (currentTokenBuffer.isNotEmpty()) {
-                    currentTokenBuffer.deleteCharAt(currentTokenBuffer.length - 1)
-                }
-            }
-        }
-        glideOverlay?.onGlideComplete = { swipedKeys ->
-            dismissKeyPopup()
-            val ic = currentInputConnection
-            if (ic != null && mode == Mode.LETTERS) {
-                vnEngine.commit(ic)
-                val candidates = GlideDecoder.decode(
-                    swipedKeys = swipedKeys,
-                    suggestionEngine = suggestionEngine,
-                    prevWord1 = prevCommittedWord1,
-                    prevWord2 = prevCommittedWord2,
-                    limit = 3,
-                    isVietnameseMode = isVietnameseMode
-                )
-                val best = candidates.firstOrNull()
-                if (best != null) {
-                    val out = if (shiftState != ShiftState.LOWER) {
-                        best.replaceFirstChar { it.uppercaseChar() }
-                    } else best
-                    val committedText = "$out "
-                    ic.commitText(committedText, 1)
-                    lastGlideCommittedLength = committedText.length
-                    recordCommittedWord(out)
-                    if (shiftState == ShiftState.SHIFTED) {
-                        shiftState = ShiftState.LOWER
-                        refreshLetterKeyLabels()
-                    }
-                    updateAutoCapitalization()
-                    renderGlideCandidates(candidates)
-                }
-            }
-        }
-    }
 
     private fun renderGlideCandidates(candidates: List<String>) {
         if (!prefs.showSuggestionStrip || mode != Mode.LETTERS) return
@@ -347,7 +270,6 @@ class VietKeyboardService : InputMethodService() {
     private fun applyPreferencesToView() {
         val root = keyboardView ?: return
         val prefsKey = listOf(
-            prefs.useCanvasRenderer,
             prefs.showNumberRow, prefs.showSuggestionStrip, prefs.showLanguageSwitchKey,
             prefs.showStripDiacriticsButton, prefs.enableVoiceTyping,
             prefs.themeMode, prefs.keyBorders, prefs.oneHandedMode, prefs.keyboardHeight,
@@ -357,74 +279,23 @@ class VietKeyboardService : InputMethodService() {
         if (prefsKey == lastAppliedPrefsKey) return
         lastAppliedPrefsKey = prefsKey
 
-        // 1. Gboard Number row option: Pure numbers 1..0 only at the top row
-        rowNumbers?.visibility = if (prefs.showNumberRow) View.VISIBLE else View.GONE
-
-        // 2. Suggestion strip visibility & optional toolbar buttons
         topStripContainer?.visibility = if (prefs.showSuggestionStrip) View.VISIBLE else View.GONE
         root.findViewById<View>(R.id.key_strip_diacritics)?.visibility =
             if (prefs.showStripDiacriticsButton) View.VISIBLE else View.GONE
         root.findViewById<View>(R.id.btn_toolbar_voice)?.visibility =
             if (prefs.enableVoiceTyping) View.VISIBLE else View.GONE
 
-        // 3. Language switch key & Comma secondary emoji symbol (Gboard style)
-        val switchVisibility = if (prefs.showLanguageSwitchKey) View.VISIBLE else View.GONE
         val switchIconRes = when (prefs.langSwitchKeyIcon) {
             "ev" -> if (isVietnameseMode) R.drawable.ic_lang_v else R.drawable.ic_lang_e
             "globe" -> R.drawable.ic_lang_globe
             "vncharkey_logo" -> if (isVietnameseMode) R.drawable.ic_lang_vncharkey_logo else R.drawable.ic_lang_vncharkey_e
             else -> R.drawable.ic_switch_ime_logo
         }
-        listOf(R.id.key_switch_ime, R.id.key_switch_ime_s1, R.id.key_switch_ime_s2).forEach { id ->
-            val btn = root.findViewById<android.widget.ImageButton>(id)
-            btn?.visibility = switchVisibility
-            btn?.setImageResource(switchIconRes)
-        }
-        root.findViewById<GboardKeyButton>(R.id.key_comma)?.let {
-            it.secondarySymbol = "😊"
-            it.centerSecondarySymbol = true
-        }
-
-        // 4. Spacebar label shows active language (Tiếng Việt / English)
         val spaceLabel = if (isVietnameseMode) getString(R.string.key_space) else "English"
-        listOf(R.id.key_space, R.id.key_space_s1, R.id.key_space_s2).forEach { id ->
-            root.findViewById<Button>(id)?.text = spaceLabel
-        }
-
-        // 5. Theme (Gboard Light vs Dark) & Key Borders
         val isDark = prefs.themeMode == "gboard_dark"
         val showBorders = prefs.keyBorders
         root.setBackgroundColor(getColor(if (isDark) R.color.keyboard_bg_dark else R.color.keyboard_bg))
-        val keyTextColor = getColor(if (isDark) R.color.key_text_dark else R.color.key_text)
-        val keyBgColor = getColor(if (isDark) R.color.key_bg_dark else R.color.key_bg)
-        val funcBgColor = getColor(if (isDark) R.color.key_func_bg_dark else R.color.key_func_bg)
-        letterButtons.keys.forEach { btn ->
-            btn.setTextColor(keyTextColor)
-            if (!showBorders) {
-                btn.setBackgroundColor(Color.TRANSPARENT)
-            } else if (isDark) {
-                btn.backgroundTintList = android.content.res.ColorStateList.valueOf(keyBgColor)
-            } else {
-                btn.backgroundTintList = null
-                btn.setBackgroundResource(R.drawable.key_bg)
-            }
-        }
-        listOf(R.id.key_space, R.id.key_space_s1, R.id.key_space_s2).forEach { id ->
-            root.findViewById<Button>(id)?.let { sp ->
-                sp.setTextColor(keyTextColor)
-                if (isDark) sp.backgroundTintList = android.content.res.ColorStateList.valueOf(keyBgColor)
-                else sp.backgroundTintList = null
-            }
-        }
-        listOf(R.id.key_comma, R.id.key_dot, R.id.key_mode_symbols).forEach { id ->
-            root.findViewById<Button>(id)?.let { fb ->
-                fb.setTextColor(keyTextColor)
-                if (isDark) fb.backgroundTintList = android.content.res.ColorStateList.valueOf(funcBgColor)
-                else fb.backgroundTintList = null
-            }
-        }
 
-        // 6. One-handed mode & Keyboard height
         val density = resources.displayMetrics.density
         val sidePad = (resources.displayMetrics.widthPixels * 0.16f).toInt()
         val baseHPad = (3 * density).toInt()
@@ -436,21 +307,7 @@ class VietKeyboardService : InputMethodService() {
             else -> root.setPadding(baseHPad, topPad, baseHPad, bottomPad)
         }
         val scale = prefs.keyHeightScale()
-        val letterH = (46 * density * scale).toInt()
-        val numH = (40 * density * scale).toInt()
-        letterButtons.keys.forEach { it.layoutParams = it.layoutParams.apply { height = letterH } }
-        listOf(
-            R.id.key_num_1, R.id.key_num_2, R.id.key_num_3, R.id.key_num_4, R.id.key_num_5,
-            R.id.key_num_6, R.id.key_num_7, R.id.key_num_8, R.id.key_num_9, R.id.key_num_0,
-        ).forEach { id ->
-            root.findViewById<View>(id)?.let { it.layoutParams = it.layoutParams.apply { height = numH } }
-        }
 
-        // 7. Refresh letter labels, glide overlay & Gboard 1-Canvas renderer settings
-        glideOverlay?.glideEnabled = prefs.enableGlideTyping
-        glideOverlay?.showTrail = prefs.showGestureTrail
-        glideOverlay?.glideThresholdPx = prefs.glideSensitivityDp * density
-        glideOverlay?.registerLetterKeys(letterButtons)
         canvasView?.let { cv ->
             cv.showNumberRow = prefs.showNumberRow
             cv.showLanguageSwitchKey = prefs.showLanguageSwitchKey
@@ -472,7 +329,6 @@ class VietKeyboardService : InputMethodService() {
             cv.langSwitchIconRes = switchIconRes
             cv.syncStateAndInvalidate()
         }
-        refreshLetterKeyLabels()
         showMode(mode)
     }
 
@@ -559,385 +415,56 @@ class VietKeyboardService : InputMethodService() {
         cv.onUndoDownPunctuation = { ch -> undoDownPunctuationCommit(ch) }
         cv.onSwitchLanguage = { switchKeyboard() }
         cv.onEnterClick = { onEnter() }
-        cv.onGlideStart = { glideOverlay?.onGlideStart?.invoke() }
-        cv.onGlideComplete = { swiped -> glideOverlay?.onGlideComplete?.invoke(swiped) }
-    }
-
-    private fun bindKeys(root: View) {
-        letterButtons.clear()
-        val letterIds = listOf(
-            R.id.key_q, R.id.key_w, R.id.key_e, R.id.key_r, R.id.key_t, R.id.key_y,
-            R.id.key_u, R.id.key_i, R.id.key_o, R.id.key_p,
-            R.id.key_a, R.id.key_s, R.id.key_d, R.id.key_f, R.id.key_g, R.id.key_h,
-            R.id.key_j, R.id.key_k, R.id.key_l,
-            R.id.key_z, R.id.key_x, R.id.key_c, R.id.key_v, R.id.key_b, R.id.key_n, R.id.key_m,
-        )
-        letterIds.forEach { id ->
-            val btn = root.findViewById<GboardKeyButton>(id)
-            val baseLetter = btn.text.toString().lowercase()
-            letterButtons[btn] = baseLetter
-            var longPressHandled = false
-            var downCommitted = false
-            var downX = 0f
-            var downY = 0f
-            val longPressRunnable = Runnable {
-                if (!prefs.longPressForSymbols) return@Runnable
-                val alts = alternatesForLetter(baseLetter)
-                if (alts.isEmpty()) return@Runnable
-                if (downCommitted) {
-                    undoDownLetterCommit()
-                    downCommitted = false
+        cv.onGlideStart = {
+            dismissKeyPopup()
+            dismissAltPopup()
+            currentInputConnection?.let { ic ->
+                if (vnEngine.isComposing) {
+                    vnEngine.onBackspace(ic)
+                } else if (!isVietnameseMode && enComposing.isNotEmpty()) {
+                    enComposing.deleteCharAt(enComposing.length - 1)
+                    ic.deleteSurroundingText(1, 0)
                 }
-                performKeyFeedback(btn, isLongPress = true)
-                showAlternatesPopup(btn, alts)
-                longPressHandled = true
-            }
-
-            btn.setOnTouchListener { v, event ->
-                when (event.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> {
-                        flushPendingRollover()
-                        longPressHandled = false
-                        downCommitted = false
-                        downX = event.x
-                        downY = event.y
-                        if (prefs.popupOnKeypress) scheduleKeyPopup(v, btn.text.toString())
-                        popupHandler.removeCallbacks(longPressRunnable)
-                        popupHandler.postDelayed(longPressRunnable, prefs.longPressDelayMs.toLong().coerceAtLeast(150L))
-                        pendingRolloverCancel = {
-                            popupHandler.removeCallbacks(longPressRunnable)
-                            dismissKeyPopup()
-                        }
-                        pendingRolloverAction = {
-                            performKeyFeedback(btn)
-                            val ch = if (shiftState != ShiftState.LOWER) baseLetter.uppercase()[0] else baseLetter[0]
-                            onChar(ch)
-                            if (shiftState == ShiftState.SHIFTED) {
-                                shiftState = ShiftState.LOWER
-                                refreshLetterKeyLabels()
-                            }
-                        }
-                        val commitOnDown = pendingRolloverAction
-                        pendingRolloverAction = null
-                        // Keep pendingRolloverCancel so next key rollover can cancel this key's long-press.
-                        justExpandedMacroBeforeDown = justExpandedMacroWithSpace
-                        commitOnDown?.invoke()
-                        downCommitted = true
-                    }
-                    MotionEvent.ACTION_MOVE -> {
-                        if (altPopup?.isShowing == true && altAnchor === v) {
-                            updateAltSelectionFromTouch(v, event)
-                            return@setOnTouchListener true
-                        }
-                        if (!longPressHandled) {
-                            val slop = 28f * resources.displayMetrics.density
-                            if (kotlin.math.abs(event.x - downX) > slop || kotlin.math.abs(event.y - downY) > slop) {
-                                popupHandler.removeCallbacks(longPressRunnable)
-                            }
-                        }
-                    }
-                    MotionEvent.ACTION_UP -> {
-                        popupHandler.removeCallbacks(longPressRunnable)
-                        if (altPopup?.isShowing == true && altAnchor === v) {
-                            pendingRolloverAction = null
-                            pendingRolloverCancel = null
-                            commitAltSelection()
-                            dismissKeyPopup()
-                            downCommitted = false
-                            return@setOnTouchListener true
-                        }
-                        dismissKeyPopup()
-                        flushPendingRollover()
-                        downCommitted = false
-                        return@setOnTouchListener true
-                    }
-                    MotionEvent.ACTION_CANCEL -> {
-                        popupHandler.removeCallbacks(longPressRunnable)
-                        pendingRolloverAction = null
-                        pendingRolloverCancel = null
-                        dismissAltPopup()
-                        dismissKeyPopup()
-                        downCommitted = false
-                    }
-                }
-                false
-            }
-            btn.setOnClickListener {
-                if (longPressHandled) {
-                    longPressHandled = false
-                    return@setOnClickListener
-                }
-                flushPendingRollover()
-            }
-            btn.setOnLongClickListener(null)
-        }
-
-        // Gboard Top Number Row: PURE DIGITS ONLY (1..0), no secondary symbol badge or popup
-        val numIds = listOf(
-            R.id.key_num_1, R.id.key_num_2, R.id.key_num_3, R.id.key_num_4, R.id.key_num_5,
-            R.id.key_num_6, R.id.key_num_7, R.id.key_num_8, R.id.key_num_9, R.id.key_num_0,
-        )
-        numIds.forEach { id ->
-            val btn = root.findViewById<Button>(id)
-            val digit = btn.text.toString()
-            btn.text = digit // Pure number only
-            btn.setOnTouchListener { v, event ->
-                if (prefs.popupOnKeypress) {
-                    when (event.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> scheduleKeyPopup(v, btn.text.toString())
-                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> dismissKeyPopup()
-                    }
-                }
-                false
-            }
-            btn.setOnClickListener {
-                dismissKeyPopup()
-                performKeyFeedback(btn)
-                onDigitOrSymbol(digit)
-            }
-            btn.setOnLongClickListener(null)
-            btn.isLongClickable = false
-        }
-
-        val symbolIds = listOf(
-            R.id.s1_1, R.id.s1_2, R.id.s1_3, R.id.s1_4, R.id.s1_5, R.id.s1_6, R.id.s1_7, R.id.s1_8, R.id.s1_9, R.id.s1_0,
-            R.id.s1_at, R.id.s1_hash, R.id.s1_dollar, R.id.s1_underscore, R.id.s1_amp, R.id.s1_minus, R.id.s1_plus,
-            R.id.s1_lparen, R.id.s1_rparen, R.id.s1_slash, R.id.s1_star, R.id.s1_quote, R.id.s1_apos, R.id.s1_colon, R.id.s1_semi,
-            R.id.s1_excl, R.id.s1_quest, R.id.s1_comma, R.id.s1_dot, R.id.s1_percent,
-            R.id.s2_tilde, R.id.s2_grave, R.id.s2_pipe, R.id.s2_bullet, R.id.s2_sqrt, R.id.s2_pi, R.id.s2_div, R.id.s2_mul,
-            R.id.s2_para, R.id.s2_delta, R.id.s2_pound, R.id.s2_cent, R.id.s2_euro, R.id.s2_yen, R.id.s2_caret, R.id.s2_deg,
-            R.id.s2_eq, R.id.s2_lbrace, R.id.s2_rbrace, R.id.s2_bslash, R.id.s2_copy, R.id.s2_reg, R.id.s2_tm, R.id.s2_check,
-            R.id.s2_lbrack, R.id.s2_rbrack, R.id.s2_lt, R.id.s2_gt,
-        )
-        symbolIds.forEach { id ->
-            val btn = root.findViewById<Button>(id) ?: return@forEach
-            btn.setOnTouchListener { v, event ->
-                if (prefs.popupOnKeypress) {
-                    when (event.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> scheduleKeyPopup(v, btn.text.toString())
-                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> dismissKeyPopup()
-                    }
-                }
-                false
-            }
-            btn.setOnClickListener {
-                dismissKeyPopup()
-                performKeyFeedback(btn)
-                val txt = btn.text.toString()
-                if (txt.length == 1 && txt[0] in ".,;:!?") {
-                    onPunctuation(txt[0])
-                } else {
-                    commitRaw(txt)
+                if (currentTokenBuffer.isNotEmpty()) {
+                    currentTokenBuffer.deleteCharAt(currentTokenBuffer.length - 1)
                 }
             }
         }
-
-        bindClick(R.id.key_shift, ::onShiftPressed)
-        root.findViewById<GboardKeyButton>(R.id.key_comma)?.let { commaBtn ->
-            commaBtn.secondarySymbol = "😊"
-            commaBtn.centerSecondarySymbol = true
-            var downCommitted = false
-            val emojiLongPressRunnable = Runnable {
-                if (downCommitted) {
-                    undoDownPunctuationCommit(',')
-                    downCommitted = false
-                }
-                performKeyFeedback(commaBtn, isLongPress = true)
-                showEmojiPickerPopup(commaBtn)
-            }
-            commaBtn.setOnClickListener(null)
-            commaBtn.setOnLongClickListener(null)
-            commaBtn.setOnTouchListener { _, event ->
-                when (event.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> {
-                        flushPendingRollover()
-                        performKeyFeedback(commaBtn)
-                        onPunctuation(',')
-                        downCommitted = true
-                        popupHandler.removeCallbacks(emojiLongPressRunnable)
-                        popupHandler.postDelayed(emojiLongPressRunnable, prefs.longPressDelayMs.toLong().coerceAtLeast(250L))
-                        true
+        cv.onGlideComplete = { swipedKeys ->
+            dismissKeyPopup()
+            val ic = currentInputConnection
+            if (ic != null && mode == Mode.LETTERS) {
+                vnEngine.commit(ic)
+                val candidates = GlideDecoder.decode(
+                    swipedKeys = swipedKeys,
+                    suggestionEngine = suggestionEngine,
+                    prevWord1 = prevCommittedWord1,
+                    prevWord2 = prevCommittedWord2,
+                    limit = 3,
+                    isVietnameseMode = isVietnameseMode
+                )
+                val best = candidates.firstOrNull()
+                if (best != null) {
+                    val out = if (shiftState != ShiftState.LOWER) {
+                        best.replaceFirstChar { it.uppercaseChar() }
+                    } else best
+                    val committedText = "$out "
+                    ic.commitText(committedText, 1)
+                    lastGlideCommittedLength = committedText.length
+                    recordCommittedWord(out)
+                    if (shiftState == ShiftState.SHIFTED) {
+                        shiftState = ShiftState.LOWER
+                        refreshLetterKeyLabels()
                     }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        popupHandler.removeCallbacks(emojiLongPressRunnable)
-                        downCommitted = false
-                        true
-                    }
-                    else -> true
+                    updateAutoCapitalization()
+                    renderGlideCandidates(candidates)
                 }
             }
-        }
-
-        bindRepeat(R.id.key_backspace, ::onBackspace)
-        bindRepeat(R.id.key_backspace_s1, ::onBackspace)
-        bindRepeat(R.id.key_backspace_s2, ::onBackspace)
-
-        listOf(R.id.key_space, R.id.key_space_s1, R.id.key_space_s2).forEach { id ->
-            val btn = root.findViewById<Button>(id) ?: return@forEach
-            var startX = 0f
-            var lastStepX = 0f
-            var didSwipe = false
-            var didLongPress = false
-            var committedOnDown = false
-            val spaceLongPressRunnable = Runnable {
-                if (!didSwipe) {
-                    didLongPress = true
-                    btn.isPressed = false
-                    isSpacePressed = false
-                    if (committedOnDown) {
-                        undoDownSpaceCommit()
-                        committedOnDown = false
-                    }
-                    performKeyFeedback(btn, isLongPress = true)
-                    showImePicker()
-                }
-            }
-            btn.setOnClickListener(null)
-            btn.setOnLongClickListener(null)
-            btn.setOnTouchListener { _, event ->
-                when (event.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> {
-                        flushPendingRollover()
-                        btn.isPressed = true
-                        startX = event.x
-                        lastStepX = event.x
-                        didSwipe = false
-                        didLongPress = false
-                        isSpacePressed = true
-                        performKeyFeedback(btn)
-                        val committed = onSpacePressed()
-                        committedOnDown = committed
-                        spaceCommittedByRollover = committed
-                        popupHandler.removeCallbacks(spaceLongPressRunnable)
-                        popupHandler.postDelayed(spaceLongPressRunnable, 750L)
-                        true
-                    }
-                    MotionEvent.ACTION_MOVE -> {
-                        if (!prefs.enableGestureCursorControl) return@setOnTouchListener true
-                        val density = resources.displayMetrics.density
-                        val swipeThresholdPx = 28f * density
-                        val stepPx = 14f * density
-                        val dx = event.x - lastStepX
-                        if (!didSwipe && kotlin.math.abs(event.x - startX) > swipeThresholdPx) {
-                            didSwipe = true
-                            btn.isPressed = false
-                            isSpacePressed = false
-                            popupHandler.removeCallbacks(spaceLongPressRunnable)
-                            if (committedOnDown) {
-                                undoDownSpaceCommit()
-                                committedOnDown = false
-                            }
-                        }
-                        if (didSwipe) {
-                            if (dx > stepPx) {
-                                moveCursor(1)
-                                lastStepX = event.x
-                            } else if (dx < -stepPx) {
-                                moveCursor(-1)
-                                lastStepX = event.x
-                            }
-                        }
-                        true
-                    }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        popupHandler.removeCallbacks(spaceLongPressRunnable)
-                        btn.isPressed = false
-                        isSpacePressed = false
-                        spaceCommittedByRollover = false
-                        committedOnDown = false
-                        true
-                    }
-                    else -> true
-                }
-            }
-        }
-        listOf(R.id.key_enter, R.id.key_enter_s1, R.id.key_enter_s2).forEach { bindClick(it, ::onEnter) }
-        root.findViewById<Button>(R.id.key_dot)?.let { dotBtn ->
-            var downCommitted = false
-            val dotLongPressRunnable = Runnable {
-                if (downCommitted) {
-                    undoDownPunctuationCommit('.')
-                    downCommitted = false
-                }
-                dismissKeyPopup()
-                performKeyFeedback(dotBtn, isLongPress = true)
-                showAlternatesPopup(dotBtn, listOf("?", "!", ",", ":", ";", "-", "(", ")", "/"))
-            }
-            dotBtn.setOnClickListener(null)
-            dotBtn.setOnLongClickListener(null)
-            dotBtn.setOnTouchListener { v, event ->
-                when (event.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> {
-                        flushPendingRollover()
-                        if (prefs.popupOnKeypress) scheduleKeyPopup(v, ".")
-                        performKeyFeedback(dotBtn)
-                        onPunctuation('.')
-                        downCommitted = true
-                        popupHandler.removeCallbacks(dotLongPressRunnable)
-                        popupHandler.postDelayed(dotLongPressRunnable, prefs.longPressDelayMs.toLong().coerceAtLeast(250L))
-                        true
-                    }
-                    MotionEvent.ACTION_MOVE -> {
-                        if (altPopup?.isShowing == true && altAnchor === v) {
-                            updateAltSelectionFromTouch(v, event)
-                        }
-                        true
-                    }
-                    MotionEvent.ACTION_UP -> {
-                        popupHandler.removeCallbacks(dotLongPressRunnable)
-                        dismissKeyPopup()
-                        if (altPopup?.isShowing == true && altAnchor === v) {
-                            commitAltSelection()
-                        }
-                        downCommitted = false
-                        true
-                    }
-                    MotionEvent.ACTION_CANCEL -> {
-                        popupHandler.removeCallbacks(dotLongPressRunnable)
-                        dismissKeyPopup()
-                        dismissAltPopup()
-                        downCommitted = false
-                        true
-                    }
-                    else -> true
-                }
-            }
-        }
-        bindClick(R.id.s1_comma) { onPunctuation(',') }
-        bindClick(R.id.s1_dot) { onPunctuation('.') }
-
-        // Toolbar quick actions
-        bindClick(R.id.key_strip_diacritics, ::onStripDiacritics)
-        bindClick(R.id.btn_toolbar_clipboard, ::onPasteClipboard)
-        bindClick(R.id.btn_toolbar_ai_tools, ::onAiToolsClicked)
-        bindClick(R.id.btn_toolbar_voice, ::onVoiceTyping)
-        bindClick(R.id.btn_toolbar_settings) { openSettingsSection(null) }
-
-        bindClick(R.id.key_mode_symbols) { showMode(Mode.SYMBOLS1) }
-        bindClick(R.id.key_mode_symbols2) { showMode(Mode.SYMBOLS2) }
-        bindClick(R.id.key_mode_symbols1) { showMode(Mode.SYMBOLS1) }
-        bindClick(R.id.key_mode_letters_s1) { showMode(Mode.LETTERS) }
-        bindClick(R.id.key_mode_letters_s2) { showMode(Mode.LETTERS) }
-
-        listOf(R.id.key_switch_ime, R.id.key_switch_ime_s1, R.id.key_switch_ime_s2).forEach {
-            bindClick(it, ::switchKeyboard)
         }
     }
+
 
     private fun refreshLetterKeyLabels() {
-        val showSymbols = prefs.longPressForSymbols
-        letterButtons.forEach { (btn, base) ->
-            val displayPrimary = if (shiftState != ShiftState.LOWER) base.uppercase() else base.lowercase()
-            val sec = if (showSymbols) secondarySymbolForLetter(base) else null
-            applyLetterKeyLabel(btn, displayPrimary, sec)
-        }
-        val shiftBtn = keyboardView?.findViewById<android.widget.ImageButton>(R.id.key_shift)
-        shiftBtn?.setImageResource(
-            when (shiftState) {
-                ShiftState.LOWER -> R.drawable.ic_gboard_shift
-                ShiftState.SHIFTED, ShiftState.CAPS_LOCK -> R.drawable.ic_gboard_shift_filled
-            }
-        )
         canvasView?.let { cv ->
             cv.isShifted = (shiftState == ShiftState.SHIFTED)
             cv.isCapsLock = (shiftState == ShiftState.CAPS_LOCK)
@@ -1115,26 +642,12 @@ class VietKeyboardService : InputMethodService() {
 
     private fun showMode(newMode: Mode) {
         mode = newMode
-        if (prefs.useCanvasRenderer && canvasView != null) {
-            glideOverlay?.visibility = View.GONE
-            panelLetters?.visibility = View.GONE
-            panelLettersBottom?.visibility = View.GONE
-            panelSymbols1?.visibility = View.GONE
-            panelSymbols2?.visibility = View.GONE
-            canvasView?.visibility = View.VISIBLE
-            canvasView?.page = when (newMode) {
-                Mode.LETTERS -> KeyboardCanvasView.Page.LETTERS
-                Mode.SYMBOLS1 -> KeyboardCanvasView.Page.SYMBOLS1
-                Mode.SYMBOLS2 -> KeyboardCanvasView.Page.SYMBOLS2
-            }
-            return
+        canvasView?.visibility = View.VISIBLE
+        canvasView?.page = when (newMode) {
+            Mode.LETTERS -> KeyboardCanvasView.Page.LETTERS
+            Mode.SYMBOLS1 -> KeyboardCanvasView.Page.SYMBOLS1
+            Mode.SYMBOLS2 -> KeyboardCanvasView.Page.SYMBOLS2
         }
-        canvasView?.visibility = View.GONE
-        glideOverlay?.visibility = if (newMode == Mode.LETTERS) View.VISIBLE else View.GONE
-        panelLetters?.visibility = if (newMode == Mode.LETTERS) View.VISIBLE else View.GONE
-        panelLettersBottom?.visibility = if (newMode == Mode.LETTERS) View.VISIBLE else View.GONE
-        panelSymbols1?.visibility = if (newMode == Mode.SYMBOLS1) View.VISIBLE else View.GONE
-        panelSymbols2?.visibility = if (newMode == Mode.SYMBOLS2) View.VISIBLE else View.GONE
     }
 
     private fun onDigitOrSymbol(text: String) {
@@ -2012,10 +1525,6 @@ class VietKeyboardService : InputMethodService() {
 
         val targetHeight = root.height
         root.findViewById<View>(R.id.top_strip_container)?.visibility = View.GONE
-        root.findViewById<View>(R.id.glide_overlay)?.visibility = View.GONE
-        panelLettersBottom?.visibility = View.GONE
-        panelSymbols1?.visibility = View.GONE
-        panelSymbols2?.visibility = View.GONE
         canvasView?.visibility = View.GONE
 
         val panel = controller.createOrUpdateView(targetHeight)
@@ -2034,7 +1543,6 @@ class VietKeyboardService : InputMethodService() {
         root.findViewById<View>(R.id.top_strip_container)?.visibility =
             if (prefs.showSuggestionStrip) View.VISIBLE else View.GONE
         showMode(mode)
-        glideOverlay?.registerLetterKeys(letterButtons)
         isClipboardPanelOpen = false
     }
 
@@ -2088,14 +1596,6 @@ class VietKeyboardService : InputMethodService() {
         }
     }
 
-    /**
-     * Chỉ phím chữ mới có symbol phụ ở góc trên bên phải (vẽ bằng GboardKeyButton,
-     * chữ cái chính luôn nằm chính giữa phím, không bao giờ bị tụt hay bị cắt).
-     */
-    private fun applyLetterKeyLabel(btn: GboardKeyButton, primary: String, secondary: String?) {
-        if (btn.text?.toString() != primary) btn.text = primary
-        btn.secondarySymbol = secondary
-    }
 
     /**
      * Bảng ký hiệu phụ chuẩn Gboard Tiếng Việt dành riêng cho 26 phím chữ cái:
