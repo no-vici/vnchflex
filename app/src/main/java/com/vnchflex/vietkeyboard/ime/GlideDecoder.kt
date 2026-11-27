@@ -11,7 +11,7 @@ import com.vnchflex.vietkeyboard.suggestion.SuggestionEngine
  * - Combines geometric path similarity, unigram frequency weight, and active Trigram `(prevWord2, prevWord1)` context boosts.
  */
 object GlideDecoder {
-    private val KEY_NEIGHBORS: Map<Char, String> = mapOf(
+    internal val KEY_NEIGHBORS: Map<Char, String> = mapOf(
         'q' to "wa", 'w' to "qeas", 'e' to "wrsd", 'r' to "etdf", 't' to "ryfg",
         'y' to "tugh", 'u' to "yihj", 'i' to "uojk", 'o' to "ipkl", 'p' to "ol",
         'a' to "qwsz", 's' to "weadzx", 'd' to "ersfxc", 'f' to "rtgvcd", 'g' to "tyhbvf",

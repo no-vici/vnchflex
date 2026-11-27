@@ -77,6 +77,7 @@ class VietKeyboardService : InputMethodService() {
     private var prevCommittedChar: Char? = null
     private var justExpandedMacroWithSpace = false
     private var justExpandedMacroBeforeDown = false
+    private var lastAutoCorrection: Pair<String, String>? = null
     private var pendingRolloverAction: (() -> Unit)? = null
     private var pendingRolloverCancel: (() -> Unit)? = null
     private var pendingSuggestionRunnable: Runnable? = null
@@ -1048,19 +1049,44 @@ class VietKeyboardService : InputMethodService() {
             val tokenForMacro = if (currentTokenBuffer.isNotEmpty()) currentTokenBuffer.toString() else finishedWord
             val composingLen = finishedWord.length
             currentTokenBuffer.clear()
-            if (finishedWord.isNotEmpty()) {
-                recordCommittedWord(finishedWord)
-            }
             if (prefs.macroEnabled && tokenForMacro.isNotEmpty() &&
                 macroEngine.tryExpand(ic, c, beforeCursor = tokenForMacro, composingLength = composingLen)
             ) {
+                if (finishedWord.isNotEmpty()) recordCommittedWord(finishedWord)
                 vnEngine.reset() // composing span cleared by tryExpand
                 justExpandedMacroWithSpace = (c == ' ')
+                lastAutoCorrection = null
                 trackCommittedChar(c)
                 updateAutoCapitalization()
                 scheduleSuggestionsUpdate("")
                 return
             }
+            if (c == ' ' && prefs.autoCorrection && finishedWord.length in 2..7) {
+                val corrected = suggestionEngine.findSpatialAutoCorrection(
+                    typedWord = finishedWord,
+                    prevWord1 = prevCommittedWord1,
+                    prevWord2 = prevCommittedWord2,
+                    whitelist = prefs.englishWhitelist
+                )
+                if (corrected != null && corrected != finishedWord) {
+                    val replacement = "$corrected "
+                    ic.beginBatchEdit()
+                    vnEngine.reset(ic)
+                    ic.commitText(replacement, 1)
+                    ic.endBatchEdit()
+                    lastAutoCorrection = finishedWord to replacement
+                    justExpandedMacroWithSpace = false
+                    recordCommittedWord(corrected)
+                    trackCommittedChar(' ')
+                    updateAutoCapitalization()
+                    scheduleSuggestionsUpdate("")
+                    return
+                }
+            }
+            if (finishedWord.isNotEmpty()) {
+                recordCommittedWord(finishedWord)
+            }
+            lastAutoCorrection = null
             ic.beginBatchEdit()
             vnEngine.commit(ic)
             justExpandedMacroWithSpace = false
@@ -1072,6 +1098,7 @@ class VietKeyboardService : InputMethodService() {
             return
         }
 
+        lastAutoCorrection = null
         justExpandedMacroWithSpace = false
         val handled = vnEngine.onChar(c, ic)
         if (!handled) {
@@ -1142,6 +1169,23 @@ class VietKeyboardService : InputMethodService() {
             return
         }
         lastGlideCommittedLength = 0
+
+        // 0b. Undo spatial auto-correction on immediate Backspace (Gboard behavior)
+        val autoCorr = lastAutoCorrection
+        if (autoCorr != null && prefs.undoAutoCorrectOnBackspace && !backspaceRepeating) {
+            val (origWord, committedReplacement) = autoCorr
+            lastAutoCorrection = null
+            ic.beginBatchEdit()
+            ic.deleteSurroundingText(committedReplacement.length, 0)
+            ic.commitText("$origWord ", 1)
+            ic.endBatchEdit()
+            recordCommittedWord(origWord, forceImmediate = true)
+            trackCommittedChar(' ')
+            updateAutoCapitalization()
+            scheduleSuggestionsUpdate("")
+            return
+        }
+        lastAutoCorrection = null
 
         // 1. Double-backspace to undo last macro expansion (e.g. "Hà Nội " -> "hn ")
         val lastMacro = macroEngine.lastExpansion
@@ -1834,12 +1878,34 @@ class VietKeyboardService : InputMethodService() {
             ic.commitText("$word ", 1)
             ic.endBatchEdit()
         }
-        recordCommittedWord(word)
+        recordCommittedWord(word, forceImmediate = true)
+        trackCommittedChar(' ')
         updateAutoCapitalization()
         updateSuggestions("")
     }
 
-    private fun recordCommittedWord(word: String) {
+    private fun isSensitiveInputField(): Boolean {
+        val info = currentInputEditorInfo ?: return false
+        if ((info.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING) != 0) return true
+        val inputClass = info.inputType and android.text.InputType.TYPE_MASK_CLASS
+        val variation = info.inputType and android.text.InputType.TYPE_MASK_VARIATION
+        if (inputClass == android.text.InputType.TYPE_CLASS_NUMBER &&
+            variation == android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD
+        ) return true
+        if (inputClass == android.text.InputType.TYPE_CLASS_TEXT) {
+            if (variation == android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD ||
+                variation == android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
+                variation == android.text.InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD ||
+                variation == android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS ||
+                variation == android.text.InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS ||
+                variation == android.text.InputType.TYPE_TEXT_VARIATION_URI
+            ) return true
+        }
+        return false
+    }
+
+    private fun recordCommittedWord(word: String, forceImmediate: Boolean = false) {
+        if (isSensitiveInputField()) return
         val clean = word.trim()
         if (clean.isEmpty()) return
         val tokens = clean.split(Regex("\\s+")).filter { it.isNotEmpty() }
@@ -1848,7 +1914,7 @@ class VietKeyboardService : InputMethodService() {
             val p1 = prevCommittedWord1
             val p2 = prevCommittedWord2
             learnExecutor.execute {
-                suggestionEngine.learn(token, prevWord1 = p1, prevWord2 = p2)
+                suggestionEngine.learn(token, prevWord1 = p1, prevWord2 = p2, forceImmediate = forceImmediate)
             }
             prevCommittedWord2 = prevCommittedWord1
             prevCommittedWord1 = token

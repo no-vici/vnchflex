@@ -593,6 +593,7 @@ class SuggestionEngine(context: Context? = null) {
 
     private val strippedWordCache = HashMap<String, String>(8192)
     private val userUnigramCounts = mutableMapOf<String, Int>()
+    private val pendingOovCounts = HashMap<String, Int>()
     private val userBigrams = mutableMapOf<String, MutableMap<String, Int>>()
     private val userTrigrams = mutableMapOf<String, MutableMap<String, Int>>()
 
@@ -730,16 +731,25 @@ class SuggestionEngine(context: Context? = null) {
             // Contextual Trigram & Bigram candidate boosts for prefix completion
             val contextualFollowers = getContextualWeights(prevWord2, prevWord1)
 
-            val allWords = collectFromTrie(strippedQuery, 48)
+            val allWords = LinkedHashSet<String>(collectFromTrie(strippedQuery, 48))
+            if (allWords.size < 3 && strippedQuery.length in 2..7) {
+                for (variant in generateNeighborVariants(strippedQuery)) {
+                    allWords.addAll(collectFromTrie(variant, 12))
+                    if (allWords.size >= 24) break
+                }
+            }
             val scoredCandidates = allWords
                 .asSequence()
                 .filter { candidate ->
-                    if (candidate.equals(lower, ignoreCase = true)) return@filter false
-                    val candStripped = strippedWordCache.getOrPut(candidate) { DiacriticUtils.strip(candidate) }
-                    candidate.startsWith(lower) || candStripped.startsWith(strippedQuery)
+                    !candidate.equals(lower, ignoreCase = true)
                 }
                 .map { candidate ->
-                    val exactPrefixBoost = if (candidate.startsWith(lower)) 250 else 100
+                    val candStripped = strippedWordCache.getOrPut(candidate) { DiacriticUtils.strip(candidate) }
+                    val exactPrefixBoost = when {
+                        candidate.startsWith(lower) -> 250
+                        candStripped.startsWith(strippedQuery) -> 100
+                        else -> 45 // Spatial neighbor match
+                    }
                     val contextBoost = (contextualFollowers[candidate] ?: 0) * 120
                     val userBoost = (userUnigramCounts[candidate] ?: 0) * 15
                     val baseWeight = coreUnigramWeights[candidate] ?: 50
@@ -809,12 +819,29 @@ class SuggestionEngine(context: Context? = null) {
 
     /**
      * Học từ đơn (Unigram) + cặp từ (Bigram) + bộ 3 từ (Trigram) khi người dùng nhập xong từ.
+     * - Privacy Filter: Bỏ qua mọi token chứa chữ số hoặc ký tự đặc biệt (OTP, mật khẩu, mã code).
+     * - OOV Threshold: Từ mới hoàn toàn ngoài từ điển phải lặp lại ít nhất 2 lần (hoặc forceImmediate = true
+     *   khi người dùng chủ động chọn trên thanh gợi ý / hoàn tác auto-correct) mới được đưa vào Trie & lưu trữ.
      */
-    fun learn(word: String, prevWord1: String = "", prevWord2: String = "") {
+    fun learn(word: String, prevWord1: String = "", prevWord2: String = "", forceImmediate: Boolean = false) {
         val w = word.trim().lowercase()
-        if (w.length < 2) return
+        if (w.length !in 2..20) return
+        if (!w.all { it.isLetter() }) return
         writeLock.lock()
         try {
+            val isAlreadyKnown = coreUnigramWeights.containsKey(w) ||
+                englishUnigramWeights.containsKey(w) ||
+                userUnigramCounts.containsKey(w)
+
+            if (!isAlreadyKnown && !forceImmediate) {
+                val seen = (pendingOovCounts[w] ?: 0) + 1
+                pendingOovCounts[w] = seen
+                if (seen < 2) return
+                pendingOovCounts.remove(w)
+            } else {
+                pendingOovCounts.remove(w)
+            }
+
             // 1. Learn Unigram
             userUnigramCounts[w] = (userUnigramCounts[w] ?: 0) + 1
             dictStore?.addLearnedWord(w)
@@ -822,14 +849,14 @@ class SuggestionEngine(context: Context? = null) {
 
             // 2. Learn Bigram (prevWord1 -> w)
             val p1 = prevWord1.trim().lowercase()
-            if (p1.isNotEmpty()) {
+            if (p1.isNotEmpty() && p1.all { it.isLetter() }) {
                 val bMap = userBigrams.getOrPut(p1) { mutableMapOf() }
                 bMap[w] = (bMap[w] ?: 0) + 1
                 dictStore?.saveLearnedBigrams(userBigrams)
 
                 // 3. Learn Trigram (prevWord2 + " " + prevWord1 -> w)
                 val p2 = prevWord2.trim().lowercase()
-                if (p2.isNotEmpty()) {
+                if (p2.isNotEmpty() && p2.all { it.isLetter() }) {
                     val tKey = "$p2 $p1"
                     val tMap = userTrigrams.getOrPut(tKey) { mutableMapOf() }
                     tMap[w] = (tMap[w] ?: 0) + 1
@@ -839,6 +866,86 @@ class SuggestionEngine(context: Context? = null) {
         } finally {
             writeLock.unlock()
         }
+    }
+
+    /**
+     * Tự động sửa lỗi chạm lệch phím lân cận (Spatial Touch / Key-Neighbor Auto-Correction):
+     * - Chỉ kích hoạt khi từ vừa gõ (2..7 chữ cái) KHÔNG có trong từ điển và không nằm trong Whitelist.
+     * - Tìm ứng viên có cùng độ dài và chỉ lệch đúng 1 phím hàng xóm trên bàn phím QWERTY, ưu tiên từ có
+     *   tần suất cao hoặc khớp ngữ cảnh Bigram/Trigram.
+     */
+    fun findSpatialAutoCorrection(
+        typedWord: String,
+        prevWord1: String = "",
+        prevWord2: String = "",
+        whitelist: Set<String> = emptySet()
+    ): String? {
+        val clean = typedWord.trim()
+        if (clean.length !in 2..7 || !clean.all { it.isLetter() }) return null
+        val lower = clean.lowercase()
+        if (whitelist.contains(lower) || isKnownWord(lower)) return null
+
+        val stripped = DiacriticUtils.strip(lower)
+        // If stripped matches an existing Vietnamese word with exact length, check if typedWord already has valid diacritics
+        if (!trieBuilt) ensureTrieBuilt()
+
+        val contextWeights = getContextualWeights(prevWord2, prevWord1)
+        val variants = generateNeighborVariants(stripped)
+        var bestCandidate: String? = null
+        var bestScore = 0
+
+        readLock.lock()
+        try {
+            for (v in variants) {
+                var node = strippedTrieRoot
+                var matched = true
+                for (c in v) {
+                    val next = node.children[c]
+                    if (next == null) {
+                        matched = false
+                        break
+                    }
+                    node = next
+                }
+                if (!matched) continue
+                for (cand in node.words) {
+                    if (cand.length != lower.length) continue
+                    val baseW = coreUnigramWeights[cand] ?: 0
+                    val userW = (userUnigramCounts[cand] ?: 0) * 20
+                    val ctxW = (contextWeights[cand] ?: 0) * 25
+                    val score = baseW + userW + ctxW
+                    // Require high confidence (common word >= 88 or strong context)
+                    if ((baseW >= 88 || ctxW >= 75 || userW >= 40) && score > bestScore) {
+                        bestScore = score
+                        bestCandidate = cand
+                    }
+                }
+            }
+        } finally {
+            readLock.unlock()
+        }
+
+        val chosen = bestCandidate ?: return null
+        return when {
+            clean.all { it.isUpperCase() } -> chosen.uppercase()
+            clean.first().isUpperCase() -> chosen.replaceFirstChar { it.uppercaseChar() }
+            else -> chosen
+        }
+    }
+
+    private fun generateNeighborVariants(stripped: String): List<String> {
+        val out = ArrayList<String>(stripped.length * 4)
+        val chars = stripped.toCharArray()
+        for (i in chars.indices.reversed()) {
+            val orig = chars[i]
+            val neighbors = com.vnchflex.vietkeyboard.ime.GlideDecoder.KEY_NEIGHBORS[orig] ?: continue
+            for (nb in neighbors) {
+                chars[i] = nb
+                out.add(String(chars))
+            }
+            chars[i] = orig
+        }
+        return out
     }
 
     /**
