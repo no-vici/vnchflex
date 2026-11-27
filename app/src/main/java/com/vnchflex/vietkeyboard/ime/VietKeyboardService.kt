@@ -76,6 +76,7 @@ class VietKeyboardService : InputMethodService() {
     private var lastCommittedChar: Char? = null
     private var prevCommittedChar: Char? = null
     private var justExpandedMacroWithSpace = false
+    private var justExpandedMacroBeforeDown = false
     private var pendingRolloverAction: (() -> Unit)? = null
     private var pendingRolloverCancel: (() -> Unit)? = null
     private var pendingSuggestionRunnable: Runnable? = null
@@ -446,6 +447,7 @@ class VietKeyboardService : InputMethodService() {
                         val commitOnDown = pendingRolloverAction
                         pendingRolloverAction = null
                         // Keep pendingRolloverCancel so next key rollover can cancel this key's long-press.
+                        justExpandedMacroBeforeDown = justExpandedMacroWithSpace
                         commitOnDown?.invoke()
                         downCommitted = true
                     }
@@ -897,15 +899,18 @@ class VietKeyboardService : InputMethodService() {
     }
 
     private fun onPunctuation(c: Char) {
+        val ic = currentInputConnection
+        ic?.beginBatchEdit()
         if (justExpandedMacroWithSpace && c in ".,;:!?") {
             justExpandedMacroWithSpace = false
-            currentInputConnection?.deleteSurroundingText(1, 0)
+            ic?.deleteSurroundingText(1, 0)
         }
         onChar(c)
         if (prefs.autoSpaceAfterPunctuation && (c == ',' || c == '.' || c == '!' || c == '?')) {
-            currentInputConnection?.commitText(" ", 1)
+            ic?.commitText(" ", 1)
             trackCommittedChar(' ')
         }
+        ic?.endBatchEdit()
         lastSpaceClickTime = 0L
         updateAutoCapitalization()
     }
@@ -1333,6 +1338,7 @@ class VietKeyboardService : InputMethodService() {
         if (currentTokenBuffer.isNotEmpty()) currentTokenBuffer.deleteCharAt(currentTokenBuffer.length - 1)
         lastCommittedChar = prevCommittedChar
         prevCommittedChar = null
+        justExpandedMacroWithSpace = justExpandedMacroBeforeDown
     }
 
     private fun undoDownSpaceCommit() {
