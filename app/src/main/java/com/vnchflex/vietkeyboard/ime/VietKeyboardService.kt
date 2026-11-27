@@ -770,6 +770,9 @@ class VietKeyboardService : InputMethodService() {
         var startX = 0f
         var didSwipeDelete = false
         var repeating = false
+        var gestureBaseEnd = -1
+        var gestureBeforeText = ""
+        var currentSelectedWords = 0
         val repeatHandler = android.os.Handler(android.os.Looper.getMainLooper())
         lateinit var repeatRunnable: Runnable
         repeatRunnable = object : Runnable {
@@ -782,15 +785,33 @@ class VietKeyboardService : InputMethodService() {
             }
         }
 
+        fun wordDeleteLength(before: String, wordCount: Int): Int {
+            if (wordCount <= 0 || before.isEmpty()) return 0
+            var idx = before.length
+            var remaining = wordCount
+            while (remaining > 0 && idx > 0) {
+                while (idx > 0 && before[idx - 1].isWhitespace()) idx--
+                while (idx > 0 && !before[idx - 1].isWhitespace()) idx--
+                remaining--
+            }
+            return before.length - idx
+        }
+
         view.setOnClickListener(null)
         view.setOnLongClickListener(null)
         view.setOnTouchListener { _, event ->
+            val density = resources.displayMetrics.density
+            val swipeStartPx = 24f * density
+            val stepPerWordPx = 36f * density
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     startX = event.x
                     didSwipeDelete = false
                     repeating = false
                     backspaceRepeating = false
+                    gestureBaseEnd = -1
+                    gestureBeforeText = ""
+                    currentSelectedWords = 0
                     performKeyFeedback(view)
                     action()
                     repeatHandler.removeCallbacks(repeatRunnable)
@@ -798,23 +819,79 @@ class VietKeyboardService : InputMethodService() {
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (prefs.enableGestureDelete && !didSwipeDelete && startX - event.x > 60f) {
+                    if (!prefs.enableGestureDelete) return@setOnTouchListener true
+                    val dragLeftPx = startX - event.x
+                    if (!didSwipeDelete && dragLeftPx > swipeStartPx) {
                         didSwipeDelete = true
                         backspaceRepeating = false
                         repeatHandler.removeCallbacks(repeatRunnable)
                         performKeyFeedback(view, isLongPress = true)
-                        deleteWordBeforeCursor()
+                        val ic = currentInputConnection
+                        if (ic != null) {
+                            markOwnIcEdit()
+                            vnEngine.commit(ic)
+                            val extracted = ic.getExtractedText(android.view.inputmethod.ExtractedTextRequest(), 0)
+                            if (extracted != null && extracted.selectionEnd >= 0) {
+                                gestureBaseEnd = extracted.selectionEnd
+                                gestureBeforeText = ic.getTextBeforeCursor(512, 0)?.toString().orEmpty()
+                            } else {
+                                deleteWordBeforeCursor()
+                            }
+                        }
+                    }
+                    if (didSwipeDelete && gestureBaseEnd >= 0) {
+                        val extraPx = (dragLeftPx - swipeStartPx).coerceAtLeast(0f)
+                        val targetWords = if (dragLeftPx <= swipeStartPx * 0.5f) {
+                            0
+                        } else {
+                            1 + (extraPx / stepPerWordPx).toInt()
+                        }
+                        if (targetWords != currentSelectedWords) {
+                            currentSelectedWords = targetWords
+                            val delLen = wordDeleteLength(gestureBeforeText, targetWords)
+                            val selStart = (gestureBaseEnd - delLen).coerceAtLeast(0)
+                            markOwnIcEdit()
+                            currentInputConnection?.setSelection(selStart, gestureBaseEnd)
+                        }
                     }
                     true
                 }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                MotionEvent.ACTION_UP -> {
                     repeatHandler.removeCallbacks(repeatRunnable)
+                    if (didSwipeDelete && gestureBaseEnd >= 0) {
+                        val ic = currentInputConnection
+                        if (ic != null && currentSelectedWords > 0) {
+                            markOwnIcEdit()
+                            ic.commitText("", 1)
+                            currentTokenBuffer.clear()
+                            justExpandedMacroWithSpace = false
+                            updateAutoCapitalization()
+                            updateSuggestions("")
+                        } else if (ic != null) {
+                            markOwnIcEdit()
+                            ic.setSelection(gestureBaseEnd, gestureBaseEnd)
+                        }
+                        didSwipeDelete = false
+                        gestureBaseEnd = -1
+                        return@setOnTouchListener true
+                    }
                     if (backspaceRepeating) {
                         backspaceRepeating = false
                         resyncAfterBackspaceRepeat()
                         updateAutoCapitalization()
                         updateSuggestions(vnEngine.composingText)
                     }
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    repeatHandler.removeCallbacks(repeatRunnable)
+                    if (didSwipeDelete && gestureBaseEnd >= 0) {
+                        markOwnIcEdit()
+                        currentInputConnection?.setSelection(gestureBaseEnd, gestureBaseEnd)
+                    }
+                    didSwipeDelete = false
+                    gestureBaseEnd = -1
+                    backspaceRepeating = false
                     true
                 }
             }
