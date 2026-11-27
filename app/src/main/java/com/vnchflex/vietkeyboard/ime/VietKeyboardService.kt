@@ -344,7 +344,10 @@ class VietKeyboardService : InputMethodService() {
             btn?.visibility = switchVisibility
             btn?.setImageResource(switchIconRes)
         }
-        root.findViewById<GboardKeyButton>(R.id.key_comma)?.secondarySymbol = "😊"
+        root.findViewById<GboardKeyButton>(R.id.key_comma)?.let {
+            it.secondarySymbol = "😊"
+            it.centerSecondarySymbol = true
+        }
 
         // 4. Spacebar label shows active language (Tiếng Việt / English)
         val spaceLabel = if (isVietnameseMode) getString(R.string.key_space) else "English"
@@ -545,13 +548,19 @@ class VietKeyboardService : InputMethodService() {
             btn.setOnClickListener {
                 dismissKeyPopup()
                 performKeyFeedback(btn)
-                commitRaw(btn.text.toString())
+                val txt = btn.text.toString()
+                if (txt.length == 1 && txt[0] in ".,;:!?") {
+                    onPunctuation(txt[0])
+                } else {
+                    commitRaw(txt)
+                }
             }
         }
 
         bindClick(R.id.key_shift, ::onShiftPressed)
         root.findViewById<GboardKeyButton>(R.id.key_comma)?.let { commaBtn ->
             commaBtn.secondarySymbol = "😊"
+            commaBtn.centerSecondarySymbol = true
             commaBtn.setOnClickListener {
                 performKeyFeedback(commaBtn)
                 onPunctuation(',')
@@ -1292,6 +1301,10 @@ class VietKeyboardService : InputMethodService() {
                     shiftState = ShiftState.LOWER
                     refreshLetterKeyLabels()
                 }
+                return
+            }
+            if (c in ".,;:!?") {
+                onPunctuation(c)
                 return
             }
         }
