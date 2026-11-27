@@ -1174,11 +1174,15 @@ class VietKeyboardService : InputMethodService() {
                 recordCommittedWord(finishedWord)
             }
             lastAutoCorrection = null
-            ic.beginBatchEdit()
             vnEngine.commit(ic)
             justExpandedMacroWithSpace = false
-            ic.commitText(c.toString(), 1)
-            ic.endBatchEdit()
+            if (vnEngine.useComposingSpan) {
+                ic.beginBatchEdit()
+                ic.commitText(c.toString(), 1)
+                ic.endBatchEdit()
+            } else {
+                ic.commitText(c.toString(), 1)
+            }
             trackCommittedChar(c)
             updateAutoCapitalization()
             scheduleSuggestionsUpdate("")
