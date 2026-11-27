@@ -51,6 +51,9 @@ class VietKeyboardService : InputMethodService() {
     private var panelLettersBottom: View? = null
     private var panelSymbols1: View? = null
     private var panelSymbols2: View? = null
+    private var canvasView: KeyboardCanvasView? = null
+    private var canvasGestureBaseEnd: Int = -1
+    private var canvasGestureBeforeText: String = ""
 
     private var mode = Mode.LETTERS
     private var isVietnameseMode = true
@@ -161,6 +164,17 @@ class VietKeyboardService : InputMethodService() {
         panelLettersBottom = view.findViewById(R.id.panel_letters_bottom)
         panelSymbols1 = view.findViewById(R.id.panel_symbols1)
         panelSymbols2 = view.findViewById(R.id.panel_symbols2)
+        val rootLayout = view.findViewById<LinearLayout>(R.id.keyboard_root)
+        val cv = KeyboardCanvasView(this)
+        rootLayout?.addView(
+            cv,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+        canvasView = cv
+        setupCanvasKeyboard(cv)
         suggestionSlots.clear()
         suggestionDividers.clear()
         lastSuggestionKey = null
@@ -333,6 +347,7 @@ class VietKeyboardService : InputMethodService() {
     private fun applyPreferencesToView() {
         val root = keyboardView ?: return
         val prefsKey = listOf(
+            prefs.useCanvasRenderer,
             prefs.showNumberRow, prefs.showSuggestionStrip, prefs.showLanguageSwitchKey,
             prefs.showStripDiacriticsButton, prefs.enableVoiceTyping,
             prefs.themeMode, prefs.keyBorders, prefs.oneHandedMode, prefs.keyboardHeight,
@@ -431,12 +446,121 @@ class VietKeyboardService : InputMethodService() {
             root.findViewById<View>(id)?.let { it.layoutParams = it.layoutParams.apply { height = numH } }
         }
 
-        // 7. Refresh letter labels & glide overlay settings
+        // 7. Refresh letter labels, glide overlay & Gboard 1-Canvas renderer settings
         glideOverlay?.glideEnabled = prefs.enableGlideTyping
         glideOverlay?.showTrail = prefs.showGestureTrail
         glideOverlay?.glideThresholdPx = prefs.glideSensitivityDp * density
         glideOverlay?.registerLetterKeys(letterButtons)
+        canvasView?.let { cv ->
+            cv.showNumberRow = prefs.showNumberRow
+            cv.showLanguageSwitchKey = prefs.showLanguageSwitchKey
+            cv.longPressForSymbols = prefs.longPressForSymbols
+            cv.isDarkTheme = isDark
+            cv.showKeyBorders = showBorders
+            cv.isShifted = (shiftState == ShiftState.SHIFTED)
+            cv.isCapsLock = (shiftState == ShiftState.CAPS_LOCK)
+            cv.isVietnameseMode = isVietnameseMode
+            cv.spaceLabel = spaceLabel
+            cv.keyHeightScale = scale
+            cv.longPressDelayMs = prefs.longPressDelayMs.toLong()
+            cv.enableGlideTyping = prefs.enableGlideTyping
+            cv.showGestureTrail = prefs.showGestureTrail
+            cv.glideThresholdDp = prefs.glideSensitivityDp
+            cv.enableGestureCursor = prefs.enableGestureCursorControl
+            cv.enableGestureDelete = prefs.enableGestureDelete
+            cv.popupOnKeypress = prefs.popupOnKeypress
+            cv.langSwitchIconRes = switchIconRes
+            cv.syncStateAndInvalidate()
+        }
         refreshLetterKeyLabels()
+        showMode(mode)
+    }
+
+    private fun setupCanvasKeyboard(cv: KeyboardCanvasView) {
+        cv.onHaptic = { isLong -> performKeyFeedback(cv, isLongPress = isLong) }
+        cv.onLetterDown = { ch ->
+            justExpandedMacroBeforeDown = justExpandedMacroWithSpace
+            onChar(ch)
+            if (shiftState == ShiftState.SHIFTED) {
+                shiftState = ShiftState.LOWER
+                refreshLetterKeyLabels()
+            }
+        }
+        cv.onUndoDownLetter = { undoDownLetterCommit() }
+        cv.onSecondaryCommit = { sec -> onSecondarySymbol(sec) }
+        cv.onDigitOrSymbol = { txt ->
+            if (txt.length == 1 && txt[0] in ".,;:!?") {
+                onPunctuation(txt[0])
+            } else {
+                onDigitOrSymbol(txt)
+            }
+        }
+        cv.onShiftClick = { onShiftPressed() }
+        cv.onBackspaceDown = { onBackspace() }
+        cv.onBackspaceRepeatEnd = {
+            resyncAfterBackspaceRepeat()
+            updateAutoCapitalization()
+            updateSuggestions(vnEngine.composingText)
+        }
+        cv.onBackspaceGestureSelect = { wordsCount, isFirst ->
+            val ic = currentInputConnection
+            if (ic != null) {
+                if (isFirst) {
+                    markOwnIcEdit()
+                    vnEngine.commit(ic)
+                    val extracted = ic.getExtractedText(android.view.inputmethod.ExtractedTextRequest(), 0)
+                    if (extracted != null && extracted.selectionEnd >= 0) {
+                        canvasGestureBaseEnd = extracted.selectionEnd
+                        canvasGestureBeforeText = ic.getTextBeforeCursor(512, 0)?.toString().orEmpty()
+                    } else {
+                        canvasGestureBaseEnd = -1
+                        deleteWordBeforeCursor()
+                    }
+                }
+                if (canvasGestureBaseEnd >= 0) {
+                    var idx = canvasGestureBeforeText.length
+                    var rem = wordsCount
+                    while (rem > 0 && idx > 0) {
+                        while (idx > 0 && canvasGestureBeforeText[idx - 1].isWhitespace()) idx--
+                        while (idx > 0 && !canvasGestureBeforeText[idx - 1].isWhitespace()) idx--
+                        rem--
+                    }
+                    val delLen = canvasGestureBeforeText.length - idx
+                    val selStart = (canvasGestureBaseEnd - delLen).coerceAtLeast(0)
+                    markOwnIcEdit()
+                    ic.setSelection(selStart, canvasGestureBaseEnd)
+                }
+            }
+        }
+        cv.onBackspaceGestureFinish = { wordsCount, cancelled ->
+            val ic = currentInputConnection
+            if (ic != null && canvasGestureBaseEnd >= 0) {
+                if (!cancelled && wordsCount > 0) {
+                    markOwnIcEdit()
+                    ic.commitText("", 1)
+                    currentTokenBuffer.clear()
+                    justExpandedMacroWithSpace = false
+                    updateAutoCapitalization()
+                    updateSuggestions("")
+                } else {
+                    markOwnIcEdit()
+                    ic.setSelection(canvasGestureBaseEnd, canvasGestureBaseEnd)
+                }
+            }
+            canvasGestureBaseEnd = -1
+        }
+        cv.onSpaceDown = { onSpacePressed() }
+        cv.onUndoDownSpace = { undoDownSpaceCommit() }
+        cv.onSpaceCursorMove = { delta -> moveCursor(delta) }
+        cv.onSpaceLongPress = { showImePicker() }
+        cv.onCommaDown = { onPunctuation(',') }
+        cv.onCommaLongPress = { _ -> showEmojiPickerPopup(cv) }
+        cv.onDotDown = { onPunctuation('.') }
+        cv.onUndoDownPunctuation = { ch -> undoDownPunctuationCommit(ch) }
+        cv.onSwitchLanguage = { switchKeyboard() }
+        cv.onEnterClick = { onEnter() }
+        cv.onGlideStart = { glideOverlay?.onGlideStart?.invoke() }
+        cv.onGlideComplete = { swiped -> glideOverlay?.onGlideComplete?.invoke(swiped) }
     }
 
     private fun bindKeys(root: View) {
@@ -814,6 +938,11 @@ class VietKeyboardService : InputMethodService() {
                 ShiftState.SHIFTED, ShiftState.CAPS_LOCK -> R.drawable.ic_gboard_shift_filled
             }
         )
+        canvasView?.let { cv ->
+            cv.isShifted = (shiftState == ShiftState.SHIFTED)
+            cv.isCapsLock = (shiftState == ShiftState.CAPS_LOCK)
+            cv.syncStateAndInvalidate()
+        }
     }
 
     private fun onShiftPressed() {
@@ -986,6 +1115,22 @@ class VietKeyboardService : InputMethodService() {
 
     private fun showMode(newMode: Mode) {
         mode = newMode
+        if (prefs.useCanvasRenderer && canvasView != null) {
+            glideOverlay?.visibility = View.GONE
+            panelLetters?.visibility = View.GONE
+            panelLettersBottom?.visibility = View.GONE
+            panelSymbols1?.visibility = View.GONE
+            panelSymbols2?.visibility = View.GONE
+            canvasView?.visibility = View.VISIBLE
+            canvasView?.page = when (newMode) {
+                Mode.LETTERS -> KeyboardCanvasView.Page.LETTERS
+                Mode.SYMBOLS1 -> KeyboardCanvasView.Page.SYMBOLS1
+                Mode.SYMBOLS2 -> KeyboardCanvasView.Page.SYMBOLS2
+            }
+            return
+        }
+        canvasView?.visibility = View.GONE
+        glideOverlay?.visibility = if (newMode == Mode.LETTERS) View.VISIBLE else View.GONE
         panelLetters?.visibility = if (newMode == Mode.LETTERS) View.VISIBLE else View.GONE
         panelLettersBottom?.visibility = if (newMode == Mode.LETTERS) View.VISIBLE else View.GONE
         panelSymbols1?.visibility = if (newMode == Mode.SYMBOLS1) View.VISIBLE else View.GONE
@@ -1868,8 +2013,10 @@ class VietKeyboardService : InputMethodService() {
         val targetHeight = root.height
         root.findViewById<View>(R.id.top_strip_container)?.visibility = View.GONE
         root.findViewById<View>(R.id.glide_overlay)?.visibility = View.GONE
+        panelLettersBottom?.visibility = View.GONE
         panelSymbols1?.visibility = View.GONE
         panelSymbols2?.visibility = View.GONE
+        canvasView?.visibility = View.GONE
 
         val panel = controller.createOrUpdateView(targetHeight)
         if (panel.parent !== root) {
@@ -1884,8 +2031,9 @@ class VietKeyboardService : InputMethodService() {
         val root = keyboardView?.findViewById<LinearLayout>(R.id.keyboard_root) ?: return
         clipboardPanelController?.resetEditMode()
         root.removeView(clipboardPanelController?.createOrUpdateView(0))
-        root.findViewById<View>(R.id.top_strip_container)?.visibility = View.VISIBLE
-        root.findViewById<View>(R.id.glide_overlay)?.visibility = View.VISIBLE
+        root.findViewById<View>(R.id.top_strip_container)?.visibility =
+            if (prefs.showSuggestionStrip) View.VISIBLE else View.GONE
+        showMode(mode)
         glideOverlay?.registerLetterKeys(letterButtons)
         isClipboardPanelOpen = false
     }

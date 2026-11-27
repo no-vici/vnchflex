@@ -81,6 +81,11 @@ class KeyboardPreferences(context: Context) {
         get() = prefs.getInt("pref_long_press_delay_ms", 300)
         set(v) = prefs.edit().putInt("pref_long_press_delay_ms", v).apply()
 
+    /** Kiến trúc Gboard 1-Canvas 120FPS (vẽ toàn bộ bàn phím trên 1 Canvas duy nhất + Multitouch PointerTracker) */
+    var useCanvasRenderer: Boolean
+        get() = prefs.getBoolean("pref_use_canvas_renderer", true)
+        set(v) = prefs.edit().putBoolean("pref_use_canvas_renderer", v).apply()
+
     // ==================== GBOARD: THEME (GIAO DIỆN) ====================
     /** Giao diện bàn phím: "gboard_light", "gboard_dark", "material_you" */
     var themeMode: String
