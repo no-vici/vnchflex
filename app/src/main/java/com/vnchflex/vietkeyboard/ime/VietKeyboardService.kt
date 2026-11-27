@@ -582,10 +582,15 @@ class VietKeyboardService : InputMethodService() {
             var lastStepX = 0f
             var didSwipe = false
             var didLongPress = false
+            var committedOnDown = false
             val spaceLongPressRunnable = Runnable {
                 if (!didSwipe) {
                     didLongPress = true
                     isSpacePressed = false
+                    if (committedOnDown) {
+                        undoDownSpaceCommit()
+                        committedOnDown = false
+                    }
                     performKeyFeedback(btn, isLongPress = true)
                     showImePicker()
                 }
@@ -601,7 +606,10 @@ class VietKeyboardService : InputMethodService() {
                         didSwipe = false
                         didLongPress = false
                         isSpacePressed = true
-                        spaceCommittedByRollover = false
+                        spaceCommittedByRollover = true
+                        performKeyFeedback(btn)
+                        onSpacePressed()
+                        committedOnDown = true
                         popupHandler.removeCallbacks(spaceLongPressRunnable)
                         popupHandler.postDelayed(spaceLongPressRunnable, 750L)
                         true
@@ -609,13 +617,17 @@ class VietKeyboardService : InputMethodService() {
                     MotionEvent.ACTION_MOVE -> {
                         if (!prefs.enableGestureCursorControl) return@setOnTouchListener true
                         val density = resources.displayMetrics.density
-                        val swipeThresholdPx = 22f * density
+                        val swipeThresholdPx = 28f * density
                         val stepPx = 14f * density
                         val dx = event.x - lastStepX
-                        if (kotlin.math.abs(event.x - startX) > swipeThresholdPx) {
+                        if (!didSwipe && kotlin.math.abs(event.x - startX) > swipeThresholdPx) {
                             didSwipe = true
                             isSpacePressed = false
                             popupHandler.removeCallbacks(spaceLongPressRunnable)
+                            if (committedOnDown) {
+                                undoDownSpaceCommit()
+                                committedOnDown = false
+                            }
                         }
                         if (didSwipe) {
                             if (dx > stepPx) {
@@ -628,23 +640,11 @@ class VietKeyboardService : InputMethodService() {
                         }
                         true
                     }
-                    MotionEvent.ACTION_UP -> {
-                        popupHandler.removeCallbacks(spaceLongPressRunnable)
-                        isSpacePressed = false
-                        if (spaceCommittedByRollover) {
-                            spaceCommittedByRollover = false
-                            return@setOnTouchListener true
-                        }
-                        if (!didSwipe && !didLongPress) {
-                            performKeyFeedback(btn)
-                            onSpacePressed()
-                        }
-                        true
-                    }
-                    MotionEvent.ACTION_CANCEL -> {
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         popupHandler.removeCallbacks(spaceLongPressRunnable)
                         isSpacePressed = false
                         spaceCommittedByRollover = false
+                        committedOnDown = false
                         true
                     }
                     else -> true
@@ -937,9 +937,11 @@ class VietKeyboardService : InputMethodService() {
                 scheduleSuggestionsUpdate("")
                 return
             }
+            ic.beginBatchEdit()
             vnEngine.commit(ic)
             justExpandedMacroWithSpace = false
             ic.commitText(c.toString(), 1)
+            ic.endBatchEdit()
             trackCommittedChar(c)
             updateAutoCapitalization()
             scheduleSuggestionsUpdate("")
@@ -1287,6 +1289,14 @@ class VietKeyboardService : InputMethodService() {
             if (enComposing.isNotEmpty()) enComposing.deleteCharAt(enComposing.length - 1)
         }
         if (currentTokenBuffer.isNotEmpty()) currentTokenBuffer.deleteCharAt(currentTokenBuffer.length - 1)
+        lastCommittedChar = prevCommittedChar
+        prevCommittedChar = null
+    }
+
+    private fun undoDownSpaceCommit() {
+        val ic = currentInputConnection ?: return
+        markOwnIcEdit()
+        ic.deleteSurroundingText(1, 0)
         lastCommittedChar = prevCommittedChar
         prevCommittedChar = null
     }
