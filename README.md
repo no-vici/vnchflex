@@ -19,8 +19,8 @@
 - **Từ ngoại lệ (Whitelist) giữ nguyên raw text**: Cho phép người dùng tự thêm/xóa các từ tiếng Anh hoặc từ đặc biệt (vd: `telegram`, `tele`, `docker`) trong *Cài đặt → Từ điển* để không bao giờ bị chuyển sang Tiếng Việt.
 - **Chuyển nhanh VN / EN**: Bấm phím chuyển ngôn ngữ để bật/tắt nhanh chế độ gõ tiếng Việt.
 
-### 2. Glide Typing (Vuốt để gõ) gọn nhẹ
-- **Vẽ vệt vuốt mượt mà (`GlideTypingOverlayView`)**: Vẽ đường vuốt màu xanh kiểu Gboard, đuôi vệt mờ dần (fading tail) khi vuốt/nhấc tay, tự động cập nhật tọa độ phím (`hit-box`) khi xoay màn hình, bật/tắt hàng số, đổi chiều cao bàn phím hoặc đóng panel clipboard.
+### 2. Glide Typing (Vuốt để gõ) & Kiến trúc Gboard 1-Canvas 120FPS
+- **Vẽ phím & vệt vuốt trên 1 Canvas duy nhất (`KeyboardCanvasView`)**: Thay thế hoàn toàn hệ thống `ViewGroup`/`Button` lồng nhau bằng 1 Canvas duy nhất với `SparseArray<PointerTracker>` theo dõi từng ngón tay theo `pointerId`, vẽ vệt vuốt xanh kiểu Gboard, bong bóng xem trước phím và thanh dấu câu nhanh trên phím `.` ở 60–120 FPS.
 - **Giải mã thông minh (`GlideDecoder`)**: Khớp ký tự đầu/cuối (có châm chước phím lân cận `KEY_NEIGHBORS`), kiểm tra chuỗi con, gộp ký tự lặp (`collapseRepeats`), kết hợp khoảng cách Levenshtein và xếp hạng lại bằng **Trigram** (`prevWord2`, `prevWord1`).
 - **Từ vựng ~5.900 âm tiết tiếng Việt chuẩn**: Được lọc sạch ký tự lạ và từ dính chữ.
 - **UX tiện lợi**: Hiện 3 ứng viên trên thanh gợi ý để chạm đổi nhanh; bấm **Backspace 1 lần** ngay sau khi vuốt để xóa nguyên từ vừa vuốt.

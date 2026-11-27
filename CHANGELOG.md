@@ -4,6 +4,18 @@ Tất cả các thay đổi đáng chú ý của dự án **vnchFlex** đều đ
 
 ---
 
+## [Unreleased / Latest] — Kiến trúc Gboard 1-Canvas 120FPS & Đa chạm độc lập (`8a5dd8b`)
+
+### Added & Changed (Tính năng mới & Tái cấu trúc)
+- **Kiến trúc Gboard 1-Canvas (`KeyboardCanvasView`)**:
+  - Thay thế hoàn toàn 40+ `Button`/`ImageButton` và 12 lớp `LinearLayout` lồng nhau bằng **1 `Canvas` View duy nhất** vẽ toàn bộ phím, bóng đổ, Dark Mode, viền phím, bong bóng phóng to (`KeyPreview`), thanh chọn nhanh dấu câu trên `.`, và vệt vuốt Glide Typing với zero-allocation (`Paint` tái sử dụng).
+  - **Điều phối đa chạm theo `pointerId` (`SparseArray<PointerTracker>`)**: Theo dõi độc lập từng ngón tay (`ACTION_DOWN`, `ACTION_POINTER_DOWN`, `ACTION_MOVE`, `ACTION_UP`, `ACTION_POINTER_UP`) cho rollover 2 ngón cực nhạy.
+  - **Dọn sạch tàn tích `ViewGroup` cũ**: Xóa `GboardKeyButton.kt`, `GlideTypingOverlayView.kt`, các panel XML cũ (`panel_letters`, `panel_symbols1`, `panel_symbols2`), `bindKeys()` và `letterButtons`.
+- **Nạp model `.onnx` tùy chỉnh trong Cài đặt (`SettingsActivity` → *Nâng cao*)**:
+  - Cho phép chọn file `vi_corrector.onnx` từ bộ nhớ điện thoại hoặc khôi phục về model mặc định.
+
+---
+
 ## [Unreleased / Latest] — ONNX Offline AI, Gesture Delete, Spatial Auto-Correct & ACTION_DOWN
 
 ### Added & Improved (Tính năng mới & Cải thiện)
