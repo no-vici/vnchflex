@@ -77,12 +77,17 @@ def train_and_export(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Đang tải dataset coung21/vi-spelling-correction trên {device}...")
     ds = load_dataset("coung21/vi-spelling-correction", split="train")
+    cols = ds.column_names
+    print(f"Các cột trong dataset: {cols}")
+    src_col = next((c for c in ["text", "input", "source", "src", "wrong", "corrupted", "noisy"] if c in cols), cols[0])
+    tgt_col = next((c for c in ["label", "output", "target", "tgt", "correct", "clean", "ground_truth"] if c in cols and c != src_col), cols[1] if len(cols) > 1 else cols[0])
+    print(f"Sử dụng cột nguồn='{src_col}', cột đích='{tgt_col}'")
 
     # Chỉ giữ các cặp câu có cùng độ dài ký tự (sửa dấu thanh, dấu mũ, phụ âm ch/tr, s/x, l/n...)
     pairs = []
     for row in ds:
-        src = str(row.get("text", "") or row.get("input", "")).strip()
-        tgt = str(row.get("label", "") or row.get("output", "")).strip()
+        src = str(row.get(src_col, "")).strip()
+        tgt = str(row.get(tgt_col, "")).strip()
         if 2 <= len(src) <= MAX_LEN and len(src) == len(tgt):
             pairs.append((src, tgt))
             if len(pairs) >= max_samples:
