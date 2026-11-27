@@ -90,6 +90,24 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
     }
+    private val importOnnxModelLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) {
+            runCatching {
+                val modelsDir = java.io.File(filesDir, "models").apply { mkdirs() }
+                val dest = java.io.File(modelsDir, "vi_corrector.onnx")
+                contentResolver.openInputStream(uri)?.use { input ->
+                    dest.outputStream().use { output -> input.copyTo(output) }
+                } ?: error("Không mở được file")
+                dest
+            }.onSuccess { dest ->
+                val sizeMb = dest.length() / (1024f * 1024f)
+                Toast.makeText(this, String.format("Đã nạp model ONNX (%.2f MB)", sizeMb), Toast.LENGTH_SHORT).show()
+                navigateTo(Screen.ADVANCED)
+            }.onFailure { e ->
+                Toast.makeText(this, "Lỗi nạp model: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -1007,6 +1025,30 @@ class SettingsActivity : AppCompatActivity() {
         ) {
             dictStore.clearLearnedWords()
             Toast.makeText(this, "Đã xóa toàn bộ từ đã học", Toast.LENGTH_SHORT).show()
+        }
+
+        addSectionHeader("Mô hình AI sửa dấu Tiếng Việt (.onnx)")
+        val customModelFile = java.io.File(filesDir, "models/vi_corrector.onnx")
+        val modelStatus = if (customModelFile.exists()) {
+            String.format("Đang dùng model tùy chỉnh (%.2f MB)", customModelFile.length() / (1024f * 1024f))
+        } else {
+            "Đang dùng model mặc định tích hợp sẵn"
+        }
+        addActionItem(
+            title = "Nạp file .onnx từ bộ nhớ điện thoại",
+            subtitle = modelStatus
+        ) {
+            importOnnxModelLauncher.launch(arrayOf("application/octet-stream", "*/*"))
+        }
+        if (customModelFile.exists()) {
+            addActionItem(
+                title = "Khôi phục model .onnx mặc định",
+                subtitle = "Xóa model tùy chỉnh và dùng lại model gốc trong APK"
+            ) {
+                customModelFile.delete()
+                Toast.makeText(this, "Đã khôi phục model mặc định", Toast.LENGTH_SHORT).show()
+                navigateTo(Screen.ADVANCED)
+            }
         }
     }
 

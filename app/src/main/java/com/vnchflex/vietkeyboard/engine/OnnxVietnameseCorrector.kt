@@ -142,6 +142,11 @@ class OnnxVietnameseCorrector(private val context: Context) {
         }.getOrNull()
     }
 
+    fun reload(onLoaded: ((Boolean) -> Unit)? = null) {
+        close()
+        initAsync(onLoaded)
+    }
+
     fun close() {
         isReady = false
         runCatching { session?.close() }

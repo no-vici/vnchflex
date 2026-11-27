@@ -281,6 +281,9 @@ class VietKeyboardService : InputMethodService() {
             if (::suggestionEngine.isInitialized) {
                 learnExecutor.execute { suggestionEngine.reloadFromStore() }
             }
+            if (::onnxCorrector.isInitialized) {
+                onnxCorrector.reload()
+            }
         }
         syncPreferencesToEngines()
         applyPreferencesToView()
