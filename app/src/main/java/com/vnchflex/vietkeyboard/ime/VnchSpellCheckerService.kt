@@ -13,25 +13,26 @@ import com.vnchflex.vietkeyboard.suggestion.SuggestionEngine
 class VnchSpellCheckerService : SpellCheckerService() {
 
     private lateinit var suggestionEngine: SuggestionEngine
+    private lateinit var prefs: com.vnchflex.vietkeyboard.settings.KeyboardPreferences
 
     override fun onCreate() {
         super.onCreate()
         suggestionEngine = SuggestionEngine(this)
+        prefs = com.vnchflex.vietkeyboard.settings.KeyboardPreferences(this)
     }
 
-    override fun createSession(): Session = VnchSession(suggestionEngine)
+    override fun createSession(): Session = VnchSession(suggestionEngine, prefs)
 
     private class VnchSession(
-        private val engine: SuggestionEngine
+        private val engine: SuggestionEngine,
+        private val prefs: com.vnchflex.vietkeyboard.settings.KeyboardPreferences
     ) : Session() {
 
         override fun onCreate() {}
 
         override fun onGetSuggestions(textInfo: TextInfo?, suggestionsLimit: Int): SuggestionsInfo {
             val word = textInfo?.text?.trim().orEmpty()
-            if (!com.vnchflex.vietkeyboard.settings.KeyboardPreferences(this@VnchSpellCheckerService).spellCheck ||
-                word.length < 2 || engine.isKnownWord(word)
-            ) {
+            if (!prefs.spellCheck || word.length < 2 || engine.isKnownWord(word)) {
                 return SuggestionsInfo(
                     SuggestionsInfo.RESULT_ATTR_IN_THE_DICTIONARY,
                     emptyArray()
