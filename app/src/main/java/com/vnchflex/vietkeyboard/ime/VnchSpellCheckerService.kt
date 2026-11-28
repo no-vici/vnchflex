@@ -29,7 +29,9 @@ class VnchSpellCheckerService : SpellCheckerService() {
 
         override fun onGetSuggestions(textInfo: TextInfo?, suggestionsLimit: Int): SuggestionsInfo {
             val word = textInfo?.text?.trim().orEmpty()
-            if (word.length < 2 || engine.isKnownWord(word)) {
+            if (!com.vnchflex.vietkeyboard.settings.KeyboardPreferences(this@VnchSpellCheckerService).spellCheck ||
+                word.length < 2 || engine.isKnownWord(word)
+            ) {
                 return SuggestionsInfo(
                     SuggestionsInfo.RESULT_ATTR_IN_THE_DICTIONARY,
                     emptyArray()

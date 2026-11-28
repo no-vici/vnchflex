@@ -13,13 +13,4 @@ object DiacriticUtils {
             .replace('đ', 'd')
             .replace('Đ', 'D')
     }
-
-    /**
-     * "Bỏ dấu tự do" style toggle: if text contains diacritics, strip them;
-     * otherwise return original. Caller can extend with re-apply logic.
-     */
-    fun toggleStrip(input: String): String {
-        val stripped = strip(input)
-        return if (stripped == input) input else stripped
-    }
 }

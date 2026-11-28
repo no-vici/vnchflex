@@ -125,6 +125,8 @@ class KeyboardCanvasView @JvmOverloads constructor(
     private var glidePointerId = -1
     private val glideKeys = StringBuilder()
     private val glideTrailPoints = ArrayList<Pair<Float, Float>>(64)
+    private val fadingTrailPoints = ArrayList<Pair<Float, Float>>(64)
+    private var fadeStartMs: Long = 0L
     private val glidePath = Path()
 
     // Inline alternates popup (e.g. long-press on '.' or letter with multiple accents)
@@ -361,7 +363,7 @@ class KeyboardCanvasView @JvmOverloads constructor(
             if (showKeyBorders || isFunc || key.role == KeyRole.SPACE || isPressed) {
                 if (showKeyBorders && !isPressed) {
                     tempRect.set(r.left, r.top + 1.2f * density, r.right, r.bottom + 1.2f * density)
-                    val rad = if (key.role == KeyRole.ENTER || key.role == KeyRole.MODE_SYMBOLS1 || key.role == KeyRole.MODE_LETTERS) r.height() / 2f else cornerR
+                    val rad = if (key.role == KeyRole.ENTER || key.role == KeyRole.MODE_SYMBOLS1 || key.role == KeyRole.MODE_LETTERS || (!showKeyBorders && key.role == KeyRole.SPACE)) r.height() / 2f else cornerR
                     canvas.drawRoundRect(tempRect, rad, rad, keyShadowPaint)
                 }
                 keyBgPaint.color = when {
@@ -370,7 +372,7 @@ class KeyboardCanvasView @JvmOverloads constructor(
                     isFunc -> funcColor
                     else -> keyColor
                 }
-                val rad = if (key.role == KeyRole.ENTER || key.role == KeyRole.MODE_SYMBOLS1 || key.role == KeyRole.MODE_LETTERS) r.height() / 2f else cornerR
+                val rad = if (key.role == KeyRole.ENTER || key.role == KeyRole.MODE_SYMBOLS1 || key.role == KeyRole.MODE_LETTERS || (!showKeyBorders && key.role == KeyRole.SPACE)) r.height() / 2f else cornerR
                 canvas.drawRoundRect(r, rad, rad, keyBgPaint)
             }
 
@@ -419,16 +421,21 @@ class KeyboardCanvasView @JvmOverloads constructor(
             }
         }
 
-        // Glide trail
-        if (isGliding && showGestureTrail && glideTrailPoints.size >= 2) {
-            glidePath.reset()
-            glidePath.moveTo(glideTrailPoints[0].first, glideTrailPoints[0].second)
-            for (i in 1 until glideTrailPoints.size) {
-                val prev = glideTrailPoints[i - 1]
-                val cur = glideTrailPoints[i]
-                glidePath.quadTo(prev.first, prev.second, (prev.first + cur.first) / 2f, (prev.second + cur.second) / 2f)
+        // Glide trail (active or fading out over 220ms)
+        if (showGestureTrail) {
+            if (isGliding && glideTrailPoints.size >= 2) {
+                trailPaint.alpha = 204
+                drawTrailPoints(canvas, glideTrailPoints)
+            } else if (fadingTrailPoints.size >= 2) {
+                val elapsed = System.currentTimeMillis() - fadeStartMs
+                if (elapsed < 220L) {
+                    trailPaint.alpha = (204f * (1f - elapsed / 220f)).toInt().coerceIn(0, 204)
+                    drawTrailPoints(canvas, fadingTrailPoints)
+                    postInvalidateOnAnimation()
+                } else {
+                    fadingTrailPoints.clear()
+                }
             }
-            canvas.drawPath(glidePath, trailPaint)
         }
 
         // Key preview popup (floating above pressed letter/number key)
@@ -445,6 +452,17 @@ class KeyboardCanvasView @JvmOverloads constructor(
         if (alts != null && anchor != null && alts.isNotEmpty()) {
             drawAlternatesStrip(canvas, alts, activeAltSelectedIdx, anchor, keyColor, textColor)
         }
+    }
+
+    private fun drawTrailPoints(canvas: Canvas, pts: List<Pair<Float, Float>>) {
+        glidePath.reset()
+        glidePath.moveTo(pts[0].first, pts[0].second)
+        for (i in 1 until pts.size) {
+            val prev = pts[i - 1]
+            val cur = pts[i]
+            glidePath.quadTo(prev.first, prev.second, (prev.first + cur.first) / 2f, (prev.second + cur.second) / 2f)
+        }
+        canvas.drawPath(glidePath, trailPaint)
     }
 
     private fun drawCenteredDrawable(canvas: Canvas, d: Drawable?, rect: RectF, sizePx: Float, tintColor: Int?) {
@@ -821,6 +839,11 @@ class KeyboardCanvasView @JvmOverloads constructor(
         if (isGliding && glidePointerId == tracker.pointerId) {
             val swiped = glideKeys.toString()
             val normPts = buildNormalizedGlidePoints()
+            if (showGestureTrail && glideTrailPoints.size >= 2) {
+                fadingTrailPoints.clear()
+                fadingTrailPoints.addAll(glideTrailPoints)
+                fadeStartMs = System.currentTimeMillis()
+            }
             isGliding = false
             glidePointerId = -1
             glideKeys.clear()
@@ -863,6 +886,9 @@ class KeyboardCanvasView @JvmOverloads constructor(
     }
 
     private fun alternatesForLetter(ch: Char, secondary: String?): List<String> {
+        if (!isVietnameseMode) {
+            return if (!secondary.isNullOrEmpty()) listOf(secondary) else emptyList()
+        }
         val base = when (ch.lowercaseChar()) {
             'a' -> listOf("á", "à", "ả", "ã", "ạ", "ă", "â")
             'e' -> listOf("é", "è", "ẻ", "ẽ", "ẹ", "ê")
@@ -893,7 +919,7 @@ class KeyboardCanvasView @JvmOverloads constructor(
         'p' -> if (showNumberRow) "}" else "0"
         'a' -> "@"
         's' -> "#"
-        'd' -> if (isShifted || isCapsLock) "Đ" else "đ"
+        'd' -> if (!isVietnameseMode) null else if (isShifted || isCapsLock) "Đ" else "đ"
         'f' -> "_"
         'g' -> "&"
         'h' -> "-"

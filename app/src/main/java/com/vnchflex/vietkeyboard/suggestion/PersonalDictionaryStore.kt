@@ -157,11 +157,6 @@ class PersonalDictionaryStore(context: Context) {
         learnedTrigramsCache = null
     }
 
-    /** Reload learned caches from disk (used after external corpus import). */
-    fun reloadLearnedDataFromDisk() {
-        invalidateCaches()
-    }
-
     private fun scheduleNgramSave() {
         if (ngramSavePending) return
         ngramSavePending = true
