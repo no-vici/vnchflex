@@ -1,0 +1,496 @@
+{
+  "xin chào bạn": [
+    "nhé",
+    "ạ",
+    "mình",
+    "hôm nay"
+  ],
+  "xin chào mọi": [
+    "người"
+  ],
+  "chào mọi người": [
+    "nhé",
+    "ạ",
+    "hôm nay",
+    "nha"
+  ],
+  "chào buổi sáng": [
+    "nhé",
+    "ạ",
+    "mọi người",
+    "bạn"
+  ],
+  "cảm ơn bạn": [
+    "nhiều",
+    "rất nhiều",
+    "nhé",
+    "ạ"
+  ],
+  "cảm ơn anh": [
+    "nhiều",
+    "rất nhiều",
+    "ạ",
+    "nhé"
+  ],
+  "cảm ơn chị": [
+    "nhiều",
+    "rất nhiều",
+    "ạ",
+    "nhé"
+  ],
+  "cảm ơn em": [
+    "nhiều",
+    "nhé",
+    "nha"
+  ],
+  "cảm ơn mọi": [
+    "người"
+  ],
+  "ơn mọi người": [
+    "nhiều",
+    "rất nhiều",
+    "nhé",
+    "ạ"
+  ],
+  "rất vui được": [
+    "gặp",
+    "làm việc",
+    "biết",
+    "hợp tác"
+  ],
+  "vui được gặp": [
+    "bạn",
+    "anh",
+    "chị",
+    "mọi người"
+  ],
+  "vui được làm": [
+    "việc",
+    "quen"
+  ],
+  "được làm việc": [
+    "cùng",
+    "với",
+    "tại"
+  ],
+  "làm việc với": [
+    "bạn",
+    "anh",
+    "chị",
+    "nhóm"
+  ],
+  "hôm nay mình": [
+    "có",
+    "đang",
+    "đi",
+    "bận"
+  ],
+  "hôm nay bạn": [
+    "có",
+    "thế nào",
+    "làm gì",
+    "rảnh không"
+  ],
+  "hôm nay trời": [
+    "đẹp",
+    "mưa",
+    "nắng",
+    "mát"
+  ],
+  "ngày mai mình": [
+    "sẽ",
+    "đi",
+    "có",
+    "gặp"
+  ],
+  "ngày mai bạn": [
+    "có",
+    "rảnh",
+    "đi",
+    "làm"
+  ],
+  "bây giờ mình": [
+    "đang",
+    "đi",
+    "bận",
+    "về"
+  ],
+  "bây giờ bạn": [
+    "đang",
+    "ở đâu",
+    "có rảnh"
+  ],
+  "bạn đang ở": [
+    "đâu",
+    "nhà",
+    "công ty"
+  ],
+  "đang ở đâu": [
+    "vậy",
+    "thế",
+    "đó",
+    "rồi"
+  ],
+  "bạn đang làm": [
+    "gì",
+    "việc"
+  ],
+  "đang làm gì": [
+    "đó",
+    "vậy",
+    "thế",
+    "dzậy"
+  ],
+  "bạn khỏe không": [
+    "ạ",
+    "nhỉ",
+    "dạo này"
+  ],
+  "dạo này bạn": [
+    "thế nào",
+    "khỏe không",
+    "sao rồi"
+  ],
+  "thế nào rồi": [
+    "bạn",
+    "anh",
+    "chị",
+    "em"
+  ],
+  "ăn cơm chưa": [
+    "bạn",
+    "anh",
+    "chị",
+    "em"
+  ],
+  "đi làm về": [
+    "chưa",
+    "rồi",
+    "mệt không"
+  ],
+  "về tới nhà": [
+    "chưa",
+    "rồi",
+    "an toàn"
+  ],
+  "uống cà phê": [
+    "không",
+    "nhé",
+    "sáng",
+    "với"
+  ],
+  "đi uống cà": [
+    "phê"
+  ],
+  "cuối tuần này": [
+    "bạn",
+    "mình",
+    "có",
+    "đi"
+  ],
+  "cuối tuần vui": [
+    "vẻ"
+  ],
+  "tuần vui vẻ": [
+    "nhé",
+    "nha",
+    "ạ"
+  ],
+  "chúc bạn một": [
+    "ngày"
+  ],
+  "bạn một ngày": [
+    "tốt lành",
+    "vui vẻ",
+    "mới",
+    "làm việc"
+  ],
+  "một ngày tốt": [
+    "lành"
+  ],
+  "một ngày vui": [
+    "vẻ"
+  ],
+  "chúc mừng sinh": [
+    "nhật"
+  ],
+  "mừng sinh nhật": [
+    "bạn",
+    "anh",
+    "chị",
+    "em"
+  ],
+  "chúc ngủ ngon": [
+    "nhé",
+    "nha",
+    "ạ"
+  ],
+  "gởi cho mình": [
+    "xin",
+    "nhé",
+    "nha",
+    "file",
+    "thông tin"
+  ],
+  "gởi cho bạn": [
+    "xem",
+    "nhé",
+    "nha",
+    "file",
+    "thông tin"
+  ],
+  "gởi lại cho": [
+    "mình",
+    "tôi",
+    "anh",
+    "chị"
+  ],
+  "gửi cho mình": [
+    "xin",
+    "nhé",
+    "file",
+    "thông tin"
+  ],
+  "gửi cho bạn": [
+    "xem",
+    "nhé",
+    "file",
+    "thông tin"
+  ],
+  "gửi lại cho": [
+    "mình",
+    "tôi",
+    "anh",
+    "chị"
+  ],
+  "kiểm tra giùm": [
+    "mình",
+    "tôi",
+    "em",
+    "nhé"
+  ],
+  "kiểm tra lại": [
+    "giúp",
+    "xem",
+    "thông tin",
+    "nhé"
+  ],
+  "xác nhận lại": [
+    "giúp",
+    "thông tin",
+    "với",
+    "nhé"
+  ],
+  "báo cáo công": [
+    "việc"
+  ],
+  "cáo công việc": [
+    "hôm nay",
+    "tuần này",
+    "tháng này"
+  ],
+  "kế hoạch làm": [
+    "việc"
+  ],
+  "hoạch làm việc": [
+    "tuần tới",
+    "tháng tới",
+    "mới"
+  ],
+  "cuộc họp bắt": [
+    "đầu"
+  ],
+  "họp bắt đầu": [
+    "lúc",
+    "vào",
+    "rồi"
+  ],
+  "họp trực tuyến": [
+    "qua",
+    "lúc",
+    "nhóm"
+  ],
+  "gởi tài liệu": [
+    "cho",
+    "qua",
+    "tham khảo"
+  ],
+  "gửi tài liệu": [
+    "cho",
+    "qua",
+    "tham khảo"
+  ],
+  "số điện thoại": [
+    "của",
+    "liên hệ",
+    "mới"
+  ],
+  "điện thoại của": [
+    "mình",
+    "tôi",
+    "bạn",
+    "anh"
+  ],
+  "số tài khoản": [
+    "của",
+    "ngân hàng",
+    "mình"
+  ],
+  "tài khoản ngân": [
+    "hàng"
+  ],
+  "cho mình xin": [
+    "số điện thoại",
+    "địa chỉ",
+    "thông tin",
+    "email"
+  ],
+  "cho em xin": [
+    "thông tin",
+    "địa chỉ",
+    "số điện thoại",
+    "phép"
+  ],
+  "xin phép nghỉ": [
+    "phép",
+    "làm",
+    "học",
+    "hôm nay"
+  ],
+  "vấn đề này": [
+    "mình",
+    "cần",
+    "rất",
+    "đã"
+  ],
+  "giải quyết vấn": [
+    "đề"
+  ],
+  "quyết vấn đề": [
+    "này",
+    "đó",
+    "nhanh",
+    "gọn lẹ"
+  ],
+  "cập nhật thông": [
+    "tin"
+  ],
+  "nhật thông tin": [
+    "mới",
+    "cho",
+    "nhé"
+  ],
+  "hỗ trợ khách": [
+    "hàng"
+  ],
+  "trợ khách hàng": [
+    "tốt",
+    "nhanh",
+    "trực tuyến"
+  ],
+  "chăm sóc khách": [
+    "hàng"
+  ],
+  "hợp tác lâu": [
+    "dài"
+  ],
+  "thành phố hồ": [
+    "chí minh"
+  ],
+  "phố hồ chí": [
+    "minh"
+  ],
+  "thành phố hà": [
+    "nội"
+  ],
+  "thành phố đà": [
+    "nẵng"
+  ],
+  "tiếng việt bỏ": [
+    "dấu"
+  ],
+  "việt bỏ dấu": [
+    "tự do"
+  ],
+  "bỏ dấu tự": [
+    "do"
+  ],
+  "bàn phím tiếng": [
+    "việt"
+  ],
+  "phím tiếng việt": [
+    "thông minh",
+    "mượt",
+    "chuẩn"
+  ],
+  "không có gì": [
+    "đâu",
+    "hết",
+    "ạ",
+    "nhé"
+  ],
+  "không sao đâu": [
+    "bạn",
+    "nhé",
+    "ạ",
+    "mà"
+  ],
+  "không biết có": [
+    "được không",
+    "sao không",
+    "ai"
+  ],
+  "để mình kiểm": [
+    "tra"
+  ],
+  "mình kiểm tra": [
+    "lại",
+    "xem",
+    "nhé"
+  ],
+  "để mình xem": [
+    "lại",
+    "thử",
+    "sao",
+    "nhé"
+  ],
+  "có gì nhắn": [
+    "mình",
+    "lại",
+    "cho mình",
+    "nhé"
+  ],
+  "gì nhắn lại": [
+    "cho",
+    "mình",
+    "nhé"
+  ],
+  "hẹn gặp lại": [
+    "bạn",
+    "anh",
+    "chị",
+    "nhé"
+  ],
+  "đi dzìa nhà": [
+    "thôi",
+    "sớm",
+    "rồi",
+    "ăn cơm"
+  ],
+  "mới dzìa tới": [
+    "nhà",
+    "nơi",
+    "luôn"
+  ],
+  "bá cháy bọ": [
+    "chét"
+  ],
+  "hết sảy con": [
+    "bà bảy"
+  ],
+  "số dzách luôn": [
+    "nha",
+    "thiệt",
+    "bạn ơi"
+  ]
+}

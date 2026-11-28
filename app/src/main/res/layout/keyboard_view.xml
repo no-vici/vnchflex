@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/keyboard_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/keyboard_bg"
+    android:orientation="vertical"
+    android:paddingHorizontal="3dp"
+    android:paddingTop="3dp"
+    android:paddingBottom="6dp">
+
+    <!-- GBOARD TOP BAR: Quick Tools + 3-Slot Suggestion Strip -->
+    <LinearLayout
+        android:id="@+id/top_strip_container"
+        android:layout_width="match_parent"
+        android:layout_height="42dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="2dp">
+
+        <!-- Nút Bỏ dấu tự do (tùy chọn trong Cài đặt -> Tùy chọn) -->
+        <Button
+            android:id="@+id/key_strip_diacritics"
+            style="@style/ToolbarChipBtn"
+            android:text="@string/key_strip_diacritics"
+            android:visibility="gone" />
+
+        <!-- Nút dán nhanh Bảng nhớ tạm Gboard -->
+        <Button
+            android:id="@+id/btn_toolbar_clipboard"
+            style="@style/ToolbarChipBtn"
+            android:text="📋" />
+
+        <!-- Gboard 3-slot Suggestion Strip -->
+        <LinearLayout
+            android:id="@+id/suggestion_bar"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingHorizontal="2dp" />
+
+        <!-- Nút công cụ chuẩn hóa/sửa văn bản (CHỈ hiện khi người dùng đang bôi đen văn bản) -->
+        <Button
+            android:id="@+id/btn_toolbar_ai_tools"
+            style="@style/ToolbarChipBtn"
+            android:text="✨"
+            android:visibility="gone" />
+
+        <!-- Nút nhập liệu bằng giọng nói (Voice Typing kiểu Gboard) -->
+        <Button
+            android:id="@+id/btn_toolbar_voice"
+            style="@style/ToolbarChipBtn"
+            android:text="🎤" />
+
+        <!-- Nút mở Cài đặt Gboard & vnchKey -->
+        <Button
+            android:id="@+id/btn_toolbar_settings"
+            style="@style/ToolbarChipBtn"
+            android:text="⚙" />
+    </LinearLayout>
+
+    <!-- GBOARD 1-CANVAS 120FPS KEYBOARD VIEW -->
+    <com.vnchflex.vietkeyboard.ime.KeyboardCanvasView
+        android:id="@+id/keyboard_canvas"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+</LinearLayout>

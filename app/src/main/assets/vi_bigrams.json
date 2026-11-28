@@ -1,0 +1,1057 @@
+{
+  "xin": [
+    "chào",
+    "lỗi",
+    "cảm ơn",
+    "phép",
+    "hỏi"
+  ],
+  "cảm": [
+    "ơn",
+    "thấy",
+    "xúc",
+    "giác",
+    "nhận"
+  ],
+  "ơn": [
+    "bạn",
+    "anh",
+    "chị",
+    "em",
+    "nhiều"
+  ],
+  "chào": [
+    "bạn",
+    "anh",
+    "chị",
+    "em",
+    "buổi sáng"
+  ],
+  "tôi": [
+    "đang",
+    "muốn",
+    "cần",
+    "sẽ",
+    "không"
+  ],
+  "mình": [
+    "đang",
+    "cũng",
+    "sẽ",
+    "muốn",
+    "đi"
+  ],
+  "bạn": [
+    "có",
+    "đang",
+    "ơi",
+    "nhé",
+    "thấy"
+  ],
+  "anh": [
+    "ơi",
+    "có",
+    "đang",
+    "em",
+    "chị"
+  ],
+  "chị": [
+    "ơi",
+    "có",
+    "đang",
+    "em",
+    "gái"
+  ],
+  "em": [
+    "ơi",
+    "đang",
+    "có",
+    "cảm ơn",
+    "muốn"
+  ],
+  "không": [
+    "biết",
+    "có",
+    "được",
+    "thể",
+    "sao"
+  ],
+  "có": [
+    "thể",
+    "gì",
+    "không",
+    "nhiều",
+    "người"
+  ],
+  "được": [
+    "không",
+    "rồi",
+    "chưa",
+    "gặp",
+    "biết"
+  ],
+  "đang": [
+    "làm",
+    "ở",
+    "đi",
+    "học",
+    "chờ"
+  ],
+  "làm": [
+    "việc",
+    "gì",
+    "sao",
+    "ơn",
+    "được"
+  ],
+  "việc": [
+    "này",
+    "đó",
+    "làm",
+    "gì",
+    "học"
+  ],
+  "hôm": [
+    "nay",
+    "qua",
+    "trước",
+    "kia",
+    "sau"
+  ],
+  "nay": [
+    "mình",
+    "tôi",
+    "bạn",
+    "có",
+    "trời"
+  ],
+  "ngày": [
+    "mai",
+    "nay",
+    "mới",
+    "nghỉ",
+    "làm việc"
+  ],
+  "mai": [
+    "mình",
+    "tôi",
+    "bạn",
+    "đi",
+    "gặp"
+  ],
+  "bây": [
+    "giờ",
+    "lâu",
+    "nhiêu"
+  ],
+  "giờ": [
+    "rồi",
+    "mình",
+    "tôi",
+    "bạn",
+    "đang"
+  ],
+  "thời": [
+    "gian",
+    "tiết",
+    "điểm",
+    "kỳ",
+    "sự"
+  ],
+  "gian": [
+    "này",
+    "qua",
+    "rảnh",
+    "tới",
+    "dài"
+  ],
+  "việt": [
+    "nam",
+    "ngữ",
+    "kiều"
+  ],
+  "nam": [
+    "bộ",
+    "nữ",
+    "giới",
+    "sinh"
+  ],
+  "thành": [
+    "phố",
+    "công",
+    "viên",
+    "thật",
+    "phần"
+  ],
+  "phố": [
+    "hồ chí minh",
+    "hà nội",
+    "đà nẵng",
+    "lớn"
+  ],
+  "hà": [
+    "nội",
+    "đông",
+    "tĩnh",
+    "giang"
+  ],
+  "sài": [
+    "gòn",
+    "thành"
+  ],
+  "đà": [
+    "nẵng",
+    "lạt"
+  ],
+  "công": [
+    "việc",
+    "ty",
+    "nghệ",
+    "tác",
+    "cộng"
+  ],
+  "ty": [
+    "mình",
+    "tôi",
+    "bạn",
+    "tnhh",
+    "cổ phần"
+  ],
+  "báo": [
+    "cáo",
+    "tin",
+    "cho",
+    "biết",
+    "giá"
+  ],
+  "cáo": [
+    "công việc",
+    "tuần",
+    "tháng",
+    "chi tiết"
+  ],
+  "họp": [
+    "nhóm",
+    "trực tuyến",
+    "online",
+    "đầu tuần",
+    "gấp"
+  ],
+  "dự": [
+    "án",
+    "kiến",
+    "thảo",
+    "báo"
+  ],
+  "án": [
+    "này",
+    "mới",
+    "lớn",
+    "đang"
+  ],
+  "khách": [
+    "hàng",
+    "sạn",
+    "mời",
+    "khứa"
+  ],
+  "hàng": [
+    "hóa",
+    "ngày",
+    "tuần",
+    "tháng",
+    "đầu"
+  ],
+  "sản": [
+    "phẩm",
+    "xuất",
+    "lượng"
+  ],
+  "phẩm": [
+    "mới",
+    "chất lượng",
+    "này"
+  ],
+  "dịch": [
+    "vụ",
+    "thuật",
+    "bệnh"
+  ],
+  "vụ": [
+    "này",
+    "khách hàng",
+    "tốt"
+  ],
+  "thông": [
+    "tin",
+    "báo",
+    "qua",
+    "minh",
+    "cảm"
+  ],
+  "tin": [
+    "tức",
+    "nhắn",
+    "tưởng",
+    "mới",
+    "vui"
+  ],
+  "nhắn": [
+    "tin",
+    "lại",
+    "cho",
+    "nhủ"
+  ],
+  "gởi": [
+    "cho",
+    "bạn",
+    "anh",
+    "chị",
+    "file"
+  ],
+  "gửi": [
+    "cho",
+    "bạn",
+    "anh",
+    "chị",
+    "file"
+  ],
+  "nhận": [
+    "được",
+    "thông tin",
+    "tin",
+    "xét",
+    "việc"
+  ],
+  "kiểm": [
+    "tra",
+    "soát",
+    "duyệt",
+    "kê"
+  ],
+  "tra": [
+    "lại",
+    "giúp",
+    "cứu",
+    "thông tin"
+  ],
+  "xác": [
+    "nhận",
+    "định",
+    "minh",
+    "thực"
+  ],
+  "hỗ": [
+    "trợ",
+    "tương"
+  ],
+  "trợ": [
+    "giúp",
+    "lý",
+    "cấp",
+    "giá"
+  ],
+  "giải": [
+    "quyết",
+    "pháp",
+    "thích",
+    "trí"
+  ],
+  "quyết": [
+    "định",
+    "tâm",
+    "liệt"
+  ],
+  "kế": [
+    "hoạch",
+    "toán",
+    "tiếp"
+  ],
+  "hoạch": [
+    "mới",
+    "tuần",
+    "tháng",
+    "làm việc"
+  ],
+  "tài": [
+    "liệu",
+    "khoản",
+    "chính",
+    "năng"
+  ],
+  "liệu": [
+    "này",
+    "tham khảo",
+    "quan trọng"
+  ],
+  "khoản": [
+    "ngân hàng",
+    "chi",
+    "thu",
+    "tiền"
+  ],
+  "hợp": [
+    "đồng",
+    "tác",
+    "lý",
+    "nhất"
+  ],
+  "đồng": [
+    "ý",
+    "nghiệp",
+    "hành",
+    "tiền"
+  ],
+  "ý": [
+    "kiến",
+    "tưởng",
+    "nghĩa",
+    "định"
+  ],
+  "kiến": [
+    "nghị",
+    "thức",
+    "trúc"
+  ],
+  "vấn": [
+    "đề",
+    "đáp"
+  ],
+  "đề": [
+    "xuất",
+    "nghị",
+    "cập",
+    "bài"
+  ],
+  "phát": [
+    "triển",
+    "hiện",
+    "biểu",
+    "hành"
+  ],
+  "triển": [
+    "khai",
+    "lãm",
+    "vọng"
+  ],
+  "cập": [
+    "nhật",
+    "bến"
+  ],
+  "nhật": [
+    "vui vẻ",
+    "của",
+    "bản"
+  ],
+  "hệ": [
+    "thống",
+    "điều hành",
+    "quả"
+  ],
+  "thống": [
+    "nhất",
+    "kê",
+    "trị"
+  ],
+  "ứng": [
+    "dụng",
+    "viên",
+    "xử"
+  ],
+  "dụng": [
+    "cụ",
+    "ý",
+    "này"
+  ],
+  "bàn": [
+    "phím",
+    "làm việc",
+    "bạc",
+    "luận"
+  ],
+  "phím": [
+    "tắt",
+    "cách",
+    "số",
+    "chữ"
+  ],
+  "điện": [
+    "thoại",
+    "tử",
+    "lực",
+    "toán"
+  ],
+  "thoại": [
+    "của",
+    "di động",
+    "mới",
+    "cho"
+  ],
+  "máy": [
+    "tính",
+    "ảnh",
+    "in",
+    "chủ"
+  ],
+  "tính": [
+    "năng",
+    "toán",
+    "cách",
+    "tiền"
+  ],
+  "mạng": [
+    "xã hội",
+    "internet",
+    "lưới",
+    "di động"
+  ],
+  "dữ": [
+    "liệu",
+    "dội"
+  ],
+  "phần": [
+    "mềm",
+    "cứng",
+    "trăm",
+    "thưởng"
+  ],
+  "mềm": [
+    "mại",
+    "mới",
+    "này"
+  ],
+  "gia": [
+    "đình",
+    "nhập",
+    "tăng",
+    "công"
+  ],
+  "đình": [
+    "mình",
+    "bạn",
+    "nhỏ",
+    "hạnh phúc"
+  ],
+  "sức": [
+    "khỏe",
+    "mạnh",
+    "lực",
+    "chịu đựng"
+  ],
+  "khỏe": [
+    "không",
+    "mạnh",
+    "chưa",
+    "nhé"
+  ],
+  "hạnh": [
+    "phúc",
+    "kiểm"
+  ],
+  "vui": [
+    "vẻ",
+    "lòng",
+    "mừng",
+    "tươi",
+    "quá"
+  ],
+  "buồn": [
+    "cười",
+    "ngủ",
+    "bã",
+    "lắm"
+  ],
+  "mệt": [
+    "mỏi",
+    "quá",
+    "lắm",
+    "rồi"
+  ],
+  "đói": [
+    "bụng",
+    "quá",
+    "lắm",
+    "rồi"
+  ],
+  "ăn": [
+    "cơm",
+    "sáng",
+    "trưa",
+    "tối",
+    "uống"
+  ],
+  "cơm": [
+    "chưa",
+    "trưa",
+    "tối",
+    "tấm",
+    "nhà"
+  ],
+  "uống": [
+    "nước",
+    "cà phê",
+    "trà",
+    "bia",
+    "thuốc"
+  ],
+  "nước": [
+    "uống",
+    "ngọt",
+    "lọc",
+    "mắm",
+    "ngoài"
+  ],
+  "cà": [
+    "phê",
+    "chua",
+    "rốt"
+  ],
+  "phê": [
+    "sữa",
+    "đen",
+    "không",
+    "nhé"
+  ],
+  "trà": [
+    "sữa",
+    "đá",
+    "xanh",
+    "đào"
+  ],
+  "đi": [
+    "làm",
+    "học",
+    "chơi",
+    "ngủ",
+    "dzìa"
+  ],
+  "về": [
+    "nhà",
+    "quê",
+    "sớm",
+    "muộn",
+    "việc"
+  ],
+  "nhà": [
+    "hàng",
+    "cửa",
+    "mình",
+    "xe",
+    "nước"
+  ],
+  "trường": [
+    "học",
+    "đại học",
+    "hợp",
+    "thành"
+  ],
+  "học": [
+    "tập",
+    "sinh",
+    "viên",
+    "hành",
+    "hỏi"
+  ],
+  "sinh": [
+    "viên",
+    "nhật",
+    "sống",
+    "hoạt"
+  ],
+  "chúc": [
+    "mừng",
+    "bạn",
+    "anh",
+    "chị",
+    "ngủ ngon"
+  ],
+  "mừng": [
+    "sinh nhật",
+    "năm mới",
+    "thành công"
+  ],
+  "ngủ": [
+    "ngon",
+    "sớm",
+    "trưa",
+    "dậy"
+  ],
+  "mua": [
+    "sắm",
+    "hàng",
+    "đồ",
+    "bán",
+    "vé"
+  ],
+  "bán": [
+    "hàng",
+    "chạy",
+    "lẻ",
+    "buôn"
+  ],
+  "giá": [
+    "cả",
+    "trị",
+    "thành",
+    "rẻ",
+    "tốt"
+  ],
+  "tiền": [
+    "bạc",
+    "mặt",
+    "lương",
+    "thuê",
+    "cọc"
+  ],
+  "chuyển": [
+    "khoản",
+    "tiền",
+    "phát",
+    "đổi",
+    "nhà"
+  ],
+  "địa": [
+    "chỉ",
+    "điểm",
+    "bàn",
+    "phương"
+  ],
+  "chỉ": [
+    "nhà",
+    "công ty",
+    "cần",
+    "có",
+    "là"
+  ],
+  "giao": [
+    "hàng",
+    "tiếp",
+    "thông",
+    "dịch",
+    "việc"
+  ],
+  "đặt": [
+    "hàng",
+    "lịch",
+    "cọc",
+    "chỗ",
+    "tên"
+  ],
+  "lịch": [
+    "hẹn",
+    "làm việc",
+    "trình",
+    "sử"
+  ],
+  "hẹn": [
+    "gặp",
+    "lại",
+    "nhau",
+    "giờ"
+  ],
+  "gặp": [
+    "nhau",
+    "lại",
+    "gỡ",
+    "mặt",
+    "bạn"
+  ],
+  "cuối": [
+    "tuần",
+    "tháng",
+    "năm",
+    "cùng",
+    "ngày"
+  ],
+  "tuần": [
+    "này",
+    "sau",
+    "trước",
+    "tới",
+    "lễ"
+  ],
+  "tháng": [
+    "này",
+    "sau",
+    "trước",
+    "tới",
+    "giêng"
+  ],
+  "năm": [
+    "nay",
+    "mới",
+    "sau",
+    "trước",
+    "ngoái"
+  ],
+  "sáng": [
+    "nay",
+    "mai",
+    "sớm",
+    "tạo"
+  ],
+  "trưa": [
+    "nay",
+    "mai",
+    "rồi",
+    "nắng"
+  ],
+  "chiều": [
+    "nay",
+    "mai",
+    "tối",
+    "qua"
+  ],
+  "tối": [
+    "nay",
+    "mai",
+    "qua",
+    "ưu"
+  ],
+  "rất": [
+    "vui",
+    "nhiều",
+    "tốt",
+    "hay",
+    "cần"
+  ],
+  "quá": [
+    "trời",
+    "chừng",
+    "nhiều",
+    "tuyệt",
+    "hay"
+  ],
+  "nhiều": [
+    "lắm",
+    "người",
+    "thứ",
+    "việc",
+    "tiền"
+  ],
+  "tất": [
+    "cả",
+    "nhiên",
+    "yếu"
+  ],
+  "cả": [
+    "nhà",
+    "người",
+    "nước",
+    "hai"
+  ],
+  "mọi": [
+    "người",
+    "thứ",
+    "việc",
+    "lúc",
+    "nơi"
+  ],
+  "người": [
+    "ta",
+    "yêu",
+    "thân",
+    "dùng",
+    "làm"
+  ],
+  "nhưng": [
+    "mà",
+    "vẫn",
+    "không",
+    "có",
+    "lại"
+  ],
+  "vì": [
+    "vậy",
+    "sao",
+    "thế",
+    "mình",
+    "công việc"
+  ],
+  "nên": [
+    "làm",
+    "đi",
+    "không",
+    "có",
+    "vậy"
+  ],
+  "nếu": [
+    "như",
+    "có",
+    "không",
+    "bạn",
+    "được"
+  ],
+  "thì": [
+    "sao",
+    "mình",
+    "tốt",
+    "phải",
+    "có"
+  ],
+  "để": [
+    "mình",
+    "tôi",
+    "xem",
+    "biết",
+    "làm"
+  ],
+  "cho": [
+    "mình",
+    "tôi",
+    "bạn",
+    "anh",
+    "chị"
+  ],
+  "với": [
+    "nhau",
+    "mình",
+    "bạn",
+    "anh",
+    "chị"
+  ],
+  "của": [
+    "mình",
+    "tôi",
+    "bạn",
+    "anh",
+    "chị"
+  ],
+  "trong": [
+    "ngày",
+    "tuần",
+    "tháng",
+    "nhà",
+    "khi"
+  ],
+  "ngoài": [
+    "trời",
+    "ra",
+    "đường",
+    "nước",
+    "kia"
+  ],
+  "trên": [
+    "mạng",
+    "đường",
+    "bàn",
+    "trời",
+    "dưới"
+  ],
+  "dưới": [
+    "đây",
+    "nhà",
+    "đất",
+    "nước"
+  ],
+  "trước": [
+    "khi",
+    "mắt",
+    "đây",
+    "tiên",
+    "đó"
+  ],
+  "sau": [
+    "đó",
+    "này",
+    "khi",
+    "cùng",
+    "lưng"
+  ],
+  "khi": [
+    "nào",
+    "đó",
+    "mình",
+    "bạn",
+    "làm"
+  ],
+  "lúc": [
+    "nào",
+    "đó",
+    "này",
+    "sau",
+    "trước"
+  ],
+  "ở": [
+    "đâu",
+    "nhà",
+    "công ty",
+    "đây",
+    "đó"
+  ],
+  "đâu": [
+    "rồi",
+    "đó",
+    "nhỉ",
+    "ạ",
+    "vậy"
+  ],
+  "sao": [
+    "rồi",
+    "vậy",
+    "thế",
+    "không",
+    "lại"
+  ],
+  "thế": [
+    "nào",
+    "giới",
+    "hệ",
+    "mạnh",
+    "à"
+  ],
+  "nào": [
+    "cũng",
+    "rồi",
+    "nhỉ",
+    "vậy",
+    "đó"
+  ],
+  "dzìa": [
+    "nhà",
+    "quê",
+    "sớm",
+    "trễ",
+    "rồi"
+  ],
+  "dzô": [
+    "đây",
+    "nhà",
+    "luôn",
+    "thôi",
+    "nhé"
+  ],
+  "số": [
+    "điện thoại",
+    "dzách",
+    "lượng",
+    "tài khoản",
+    "một"
+  ],
+  "bá": [
+    "cháy",
+    "đạo",
+    "tánh"
+  ],
+  "hết": [
+    "rồi",
+    "sảy",
+    "mình",
+    "sức",
+    "giờ"
+  ],
+  "bỏ": [
+    "dấu",
+    "qua",
+    "đi",
+    "cuộc",
+    "lỡ"
+  ],
+  "dấu": [
+    "tự do",
+    "câu",
+    "hiệu",
+    "ấn",
+    "vết"
+  ]
+}

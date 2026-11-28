@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">vnchFlex</string>
+    <string name="settings_title">Cài đặt vnchFlex (Gboard)</string>
+    <string name="subtype_vi">Tiếng Việt (Telex)</string>
+    <string name="key_strip_diacritics">Bỏ dấu</string>
+    <string name="key_space">Tiếng Việt</string>
+    <string name="settings_hint">Bật vnchFlex trong Cài đặt hệ thống > Bàn phím, sau đó chọn làm bàn phím nhập.</string>
+    <string name="open_ime_settings">Bật bàn phím</string>
+    <string name="manage_macros">Bảng gõ tắt vnchKey: hn, sg, dc, ko, sđt, cty...</string>
+</resources>
